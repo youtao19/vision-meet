@@ -1,10 +1,14 @@
+import { randomUUID } from "node:crypto";
+
 import cors from "cors";
 import express from "express";
 
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createJsonJobsRepository } from "./modules/jobs/jobs.repository.json.js";
+import { createMatchingModule } from "./modules/matching/matching.module.js";
 import { createProfileModule } from "./modules/profile/profile.module.js";
 import { appEnv } from "./shared/config/env.js";
+import { HttpError } from "./shared/errors/http-error.js";
 
 export function createApp(): express.Express {
   const app = express();
@@ -12,6 +16,14 @@ export function createApp(): express.Express {
 
   app.use(cors());
   app.use(express.json({ limit: "2mb" }));
+  app.use((req, res, next) => {
+    // 在每次请求中透传或补齐 trace_id，便于前后端统一排障。
+    const incomingTraceId = req.header("x-trace-id");
+    const traceId = incomingTraceId && incomingTraceId.trim() ? incomingTraceId : randomUUID();
+    res.locals.trace_id = traceId;
+    res.setHeader("x-trace-id", traceId);
+    next();
+  });
 
   app.get("/healthz", (_req, res) => {
     res.json({
@@ -33,11 +45,34 @@ export function createApp(): express.Express {
       profileStorePath: appEnv.PROFILE_STORE_PATH,
     }),
   );
+  app.use(
+    "/api/v1/matches",
+    createMatchingModule({
+      dataStorePath: appEnv.DATA_STORE_PATH,
+      profileStorePath: appEnv.PROFILE_STORE_PATH,
+      matchStorePath: appEnv.MATCH_STORE_PATH,
+      scoringVersion: appEnv.MATCH_SCORING_VERSION,
+    }),
+  );
 
   app.use(
     (error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      const traceId = (res.locals.trace_id as string | undefined) || randomUUID();
+      if (error instanceof HttpError) {
+        return res.status(error.status).json({
+          code: error.code,
+          message: error.message,
+          detail: error.detail,
+          trace_id: traceId,
+        });
+      }
+
       const message = error instanceof Error ? error.message : "internal error";
-      res.status(500).json({ detail: message });
+      return res.status(500).json({
+        code: "INTERNAL_ERROR",
+        message,
+        trace_id: traceId,
+      });
     },
   );
 

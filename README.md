@@ -1,6 +1,6 @@
 # Career Agent（Monorepo）
 
-基于 AI 的大学生职业规划智能体项目。  
+基于 AI 的大学生职业规划智能体项目。
 需求文档见：[docs/项目大赛文档.md](./docs/项目大赛文档.md)
 
 ## 技术栈
@@ -70,8 +70,12 @@ npm run build
 2. `GET /api/v1/jobs`：岗位列表查询
 3. `POST /api/v1/jobs/profile/generate`：岗位画像生成
 4. `GET /api/v1/profile`：学生画像列表
-5. `POST /api/v1/profile`：创建学生画像（MVP）
-6. `GET /healthz`：服务健康检查（含存储文件路径）
+5. `POST /api/v1/profile`：手动创建学生画像
+6. `POST /api/v1/profile/resume`：简历上传创建学生画像
+7. `POST /api/v1/matches`：创建人岗匹配结果（支持复现/缓存语义）
+8. `GET /api/v1/matches`：匹配结果列表查询（按画像/岗位筛选）
+9. `GET /api/v1/matches/{match_id}`：匹配结果详情查询
+10. `GET /healthz`：服务健康检查（含存储文件路径）
 
 ## 协作规范
 

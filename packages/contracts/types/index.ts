@@ -1,3 +1,28 @@
+/**
+ * 文件作用：定义前后端共享的数据契约类型。
+ * 职责边界：本文件只负责类型声明，不承载业务逻辑；接口字段变更必须先修改这里。
+ */
+
+export type DimensionKey =
+  | "base_requirements"
+  | "professional_skills"
+  | "professional_quality"
+  | "development_potential";
+
+export type DimensionScores = {
+  base_requirements: number;
+  professional_skills: number;
+  professional_quality: number;
+  development_potential: number;
+};
+
+export type StructuredApiError = {
+  code: string;
+  message: string;
+  detail?: unknown;
+  trace_id?: string;
+};
+
 export type JobRecord = {
   id: number;
   source_row_id: string | null;
@@ -55,26 +80,6 @@ export type JobProfileGenerateResponse = JobProfileRecord & {
   cached: boolean;
 };
 
-export type StudentProfileRecord = {
-  id: number;
-  name: string;
-  target_role: string;
-  education_level: string | null;
-  major: string | null;
-  graduation_year: number | null;
-  skills: string[];
-  certificates: string[];
-  experience: StudentProfileExperience;
-  self_assessment: StudentProfileSelfAssessment;
-  dimension_scores: StudentProfileDimensionScores;
-  completeness_score: number;
-  competitiveness_score: number;
-  missing_items: string[];
-  personal_summary: string | null;
-  summary: string;
-  created_at: string;
-};
-
 export type StudentProfileExperience = {
   internship_count: number;
   project_count: number;
@@ -88,11 +93,26 @@ export type StudentProfileSelfAssessment = {
   innovation: number;
 };
 
-export type StudentProfileDimensionScores = {
-  base_requirements: number;
-  professional_skills: number;
-  professional_quality: number;
-  development_potential: number;
+export type StudentProfileRecord = {
+  id: number;
+  source_type: "manual" | "resume";
+  source_digest: string;
+  name: string;
+  target_role: string;
+  education_level: string | null;
+  major: string | null;
+  graduation_year: number | null;
+  skills: string[];
+  certificates: string[];
+  experience: StudentProfileExperience;
+  self_assessment: StudentProfileSelfAssessment;
+  dimension_scores: DimensionScores;
+  completeness_score: number;
+  competitiveness_score: number;
+  missing_items: string[];
+  personal_summary: string | null;
+  summary: string;
+  created_at: string;
 };
 
 export type CreateStudentProfileRequest = {
@@ -108,11 +128,68 @@ export type CreateStudentProfileRequest = {
   personal_summary?: string;
 };
 
+export type CreateStudentProfileFromResumeRequest = {
+  file_name: string;
+  file_content: string;
+  target_role: string;
+  name?: string;
+  parse_mode?: "strict" | "tolerant";
+};
+
 export type ListStudentProfilesResponse = {
   total: number;
   items: StudentProfileRecord[];
 };
 
-export type ApiErrorResponse = {
-  detail: string | Record<string, unknown>;
+export type MatchGapItem = {
+  dimension: DimensionKey;
+  target_score: number;
+  current_score: number;
+  gap: number;
+  evidence: string[];
 };
+
+export type MatchExplanationItem = {
+  dimension: DimensionKey;
+  reasoning: string;
+  improvement_actions: string[];
+};
+
+export type CreateMatchRequest = {
+  student_profile_id: number;
+  job_id: number;
+  force_recalculate?: boolean;
+};
+
+export type MatchResultSummary = {
+  id: number;
+  student_profile_id: number;
+  job_id: number;
+  job_profile_version: number;
+  scoring_version: string;
+  input_fingerprint: string;
+  from_cache: boolean;
+  dimension_scores: DimensionScores;
+  total_score: number;
+  created_at: string;
+};
+
+export type MatchResultDetail = MatchResultSummary & {
+  gaps: MatchGapItem[];
+  suggestions: string[];
+  explanations: MatchExplanationItem[];
+};
+
+export type MatchListParams = {
+  student_profile_id?: number;
+  job_id?: number;
+  offset: number;
+  limit: number;
+};
+
+export type MatchResultListResponse = {
+  total: number;
+  items: MatchResultSummary[];
+};
+
+export type ApiErrorResponse = StructuredApiError;

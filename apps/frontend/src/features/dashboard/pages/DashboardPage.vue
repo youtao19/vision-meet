@@ -5,6 +5,7 @@
     <nav class="entry-links">
       <RouterLink to="/">首页</RouterLink>
       <RouterLink to="/profile">学生画像</RouterLink>
+      <RouterLink to="/matching">人岗匹配</RouterLink>
     </nav>
   </section>
 </template>

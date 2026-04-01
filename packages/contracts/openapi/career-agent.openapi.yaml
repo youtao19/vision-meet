@@ -11,6 +11,7 @@ paths:
       responses:
         "200":
           description: OK
+
   /api/v1/jobs:
     get:
       summary: List Jobs
@@ -39,6 +40,11 @@ paths:
       responses:
         "200":
           description: Job list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsListResponse"
+
   /api/v1/jobs/import:
     post:
       summary: Import Jobs File
@@ -56,6 +62,17 @@ paths:
       responses:
         "200":
           description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobImportResponse"
+        "400":
+          description: Invalid import request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/jobs/profile/generate:
     post:
       summary: Generate Job Profile
@@ -76,12 +93,27 @@ paths:
       responses:
         "200":
           description: Profile result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobProfileGenerateResponse"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/profile:
     get:
       summary: List Student Profiles
       responses:
         "200":
           description: Student profile list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListStudentProfilesResponse"
     post:
       summary: Create Student Profile From Form Input
       requestBody:
@@ -89,63 +121,608 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [name, target_role, skills]
-              properties:
-                name:
-                  type: string
-                target_role:
-                  type: string
-                education_level:
-                  type: string
-                major:
-                  type: string
-                graduation_year:
-                  type: integer
-                  minimum: 2000
-                  maximum: 2100
-                skills:
-                  type: array
-                  items:
-                    type: string
-                  minItems: 1
-                certificates:
-                  type: array
-                  items:
-                    type: string
-                experience:
-                  type: object
-                  properties:
-                    internship_count:
-                      type: integer
-                      minimum: 0
-                    project_count:
-                      type: integer
-                      minimum: 0
-                    competition_count:
-                      type: integer
-                      minimum: 0
-                self_assessment:
-                  type: object
-                  properties:
-                    communication:
-                      type: integer
-                      minimum: 1
-                      maximum: 5
-                    learning:
-                      type: integer
-                      minimum: 1
-                      maximum: 5
-                    stress_tolerance:
-                      type: integer
-                      minimum: 1
-                      maximum: 5
-                    innovation:
-                      type: integer
-                      minimum: 1
-                      maximum: 5
-                personal_summary:
-                  type: string
+              $ref: "#/components/schemas/CreateStudentProfileRequest"
       responses:
         "201":
           description: Created profile with completeness and competitiveness scores
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentProfile"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/profile/resume:
+    post:
+      summary: Create Student Profile From Resume
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, target_role]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 简历文件
+                target_role:
+                  type: string
+                  minLength: 1
+                name:
+                  type: string
+                parse_mode:
+                  type: string
+                  enum: [strict, tolerant]
+                  default: tolerant
+      responses:
+        "201":
+          description: Created student profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentProfile"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Resume parse failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/matches:
+    post:
+      summary: Create Job Match Result
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMatchRequest"
+      responses:
+        "201":
+          description: Match result created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResultDetail"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Student profile or job profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      summary: List Job Match Results
+      parameters:
+        - in: query
+          name: student_profile_id
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: job_id
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Match result list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResultListResponse"
+        "400":
+          description: Invalid query params
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/matches/{match_id}:
+    get:
+      summary: Get Match Result Detail
+      parameters:
+        - in: path
+          name: match_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Match result detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResultDetail"
+        "404":
+          description: Match result not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    DimensionScores:
+      type: object
+      required: [base_requirements, professional_skills, professional_quality, development_potential]
+      properties:
+        base_requirements:
+          type: number
+          minimum: 0
+          maximum: 100
+        professional_skills:
+          type: number
+          minimum: 0
+          maximum: 100
+        professional_quality:
+          type: number
+          minimum: 0
+          maximum: 100
+        development_potential:
+          type: number
+          minimum: 0
+          maximum: 100
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        detail:
+          nullable: true
+        trace_id:
+          type: string
+
+    JobRecord:
+      type: object
+      required: [id, title, raw_payload, created_at]
+      properties:
+        id:
+          type: integer
+        source_row_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+        location:
+          type: string
+          nullable: true
+        salary_range:
+          type: string
+          nullable: true
+        company_name:
+          type: string
+          nullable: true
+        industry:
+          type: string
+          nullable: true
+        company_size:
+          type: string
+          nullable: true
+        company_type:
+          type: string
+          nullable: true
+        job_code:
+          type: string
+          nullable: true
+        job_description:
+          type: string
+          nullable: true
+        company_intro:
+          type: string
+          nullable: true
+        raw_payload:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    JobsListResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobRecord"
+
+    JobImportResponse:
+      type: object
+      required: [imported, skipped, message]
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        message:
+          type: string
+
+    JobProfileGenerateResponse:
+      type: object
+      required:
+        [
+          id,
+          job_id,
+          profile_version,
+          hard_skills,
+          certificates,
+          soft_skills,
+          skill_weights,
+          summary,
+          confidence,
+          created_at,
+          cached,
+        ]
+      properties:
+        id:
+          type: integer
+        job_id:
+          type: integer
+        profile_version:
+          type: integer
+        hard_skills:
+          type: array
+          items:
+            type: string
+        certificates:
+          type: array
+          items:
+            type: string
+        soft_skills:
+          type: array
+          items:
+            type: string
+        skill_weights:
+          type: object
+          additionalProperties:
+            type: number
+        summary:
+          type: string
+        confidence:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        cached:
+          type: boolean
+
+    CreateStudentProfileRequest:
+      type: object
+      required: [name, target_role, skills]
+      properties:
+        name:
+          type: string
+        target_role:
+          type: string
+        education_level:
+          type: string
+        major:
+          type: string
+        graduation_year:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+        skills:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        certificates:
+          type: array
+          items:
+            type: string
+        experience:
+          type: object
+          properties:
+            internship_count:
+              type: integer
+              minimum: 0
+            project_count:
+              type: integer
+              minimum: 0
+            competition_count:
+              type: integer
+              minimum: 0
+        self_assessment:
+          type: object
+          properties:
+            communication:
+              type: integer
+              minimum: 1
+              maximum: 5
+            learning:
+              type: integer
+              minimum: 1
+              maximum: 5
+            stress_tolerance:
+              type: integer
+              minimum: 1
+              maximum: 5
+            innovation:
+              type: integer
+              minimum: 1
+              maximum: 5
+        personal_summary:
+          type: string
+
+    StudentProfile:
+      type: object
+      required:
+        [
+          id,
+          source_type,
+          source_digest,
+          name,
+          target_role,
+          skills,
+          dimension_scores,
+          completeness_score,
+          competitiveness_score,
+          created_at,
+        ]
+      properties:
+        id:
+          type: integer
+        source_type:
+          type: string
+          enum: [manual, resume]
+        source_digest:
+          type: string
+        name:
+          type: string
+        target_role:
+          type: string
+        education_level:
+          type: string
+          nullable: true
+        major:
+          type: string
+          nullable: true
+        graduation_year:
+          type: integer
+          nullable: true
+        skills:
+          type: array
+          items:
+            type: string
+        certificates:
+          type: array
+          items:
+            type: string
+        experience:
+          type: object
+          properties:
+            internship_count:
+              type: integer
+            project_count:
+              type: integer
+            competition_count:
+              type: integer
+        self_assessment:
+          type: object
+          properties:
+            communication:
+              type: integer
+            learning:
+              type: integer
+            stress_tolerance:
+              type: integer
+            innovation:
+              type: integer
+        dimension_scores:
+          $ref: "#/components/schemas/DimensionScores"
+        completeness_score:
+          type: number
+        competitiveness_score:
+          type: number
+        missing_items:
+          type: array
+          items:
+            type: string
+        personal_summary:
+          type: string
+          nullable: true
+        summary:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ListStudentProfilesResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudentProfile"
+
+    CreateMatchRequest:
+      type: object
+      required: [student_profile_id, job_id]
+      properties:
+        student_profile_id:
+          type: integer
+          minimum: 1
+        job_id:
+          type: integer
+          minimum: 1
+        force_recalculate:
+          type: boolean
+          default: false
+
+    MatchGapItem:
+      type: object
+      required: [dimension, target_score, current_score, gap, evidence]
+      properties:
+        dimension:
+          type: string
+          enum: [base_requirements, professional_skills, professional_quality, development_potential]
+        target_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        current_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        gap:
+          type: number
+        evidence:
+          type: array
+          items:
+            type: string
+
+    MatchExplanationItem:
+      type: object
+      required: [dimension, reasoning, improvement_actions]
+      properties:
+        dimension:
+          type: string
+          enum: [base_requirements, professional_skills, professional_quality, development_potential]
+        reasoning:
+          type: string
+        improvement_actions:
+          type: array
+          items:
+            type: string
+
+    MatchResultSummary:
+      type: object
+      required:
+        [
+          id,
+          student_profile_id,
+          job_id,
+          job_profile_version,
+          scoring_version,
+          input_fingerprint,
+          from_cache,
+          total_score,
+          dimension_scores,
+          created_at,
+        ]
+      properties:
+        id:
+          type: integer
+        student_profile_id:
+          type: integer
+        job_id:
+          type: integer
+        job_profile_version:
+          type: integer
+        scoring_version:
+          type: string
+        input_fingerprint:
+          type: string
+        from_cache:
+          type: boolean
+        total_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        dimension_scores:
+          $ref: "#/components/schemas/DimensionScores"
+        created_at:
+          type: string
+          format: date-time
+
+    MatchResultDetail:
+      allOf:
+        - $ref: "#/components/schemas/MatchResultSummary"
+        - type: object
+          required: [gaps, suggestions, explanations]
+          properties:
+            gaps:
+              type: array
+              items:
+                $ref: "#/components/schemas/MatchGapItem"
+            suggestions:
+              type: array
+              items:
+                type: string
+            explanations:
+              type: array
+              items:
+                $ref: "#/components/schemas/MatchExplanationItem"
+
+    MatchResultListResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchResultSummary"

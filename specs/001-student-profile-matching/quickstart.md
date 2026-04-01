@@ -89,3 +89,25 @@ npm run type-check
 - `service` 是否完全通过 repository 抽象访问数据。
 - 前端业务逻辑是否仅在 `features` 层实现，`shared/api` 仅负责调用。
 - 若实现阶段新增环境变量，是否同步更新两个 `.env.example`。
+
+## 6. 手工 Smoke 记录（2026-04-02）
+
+在受限环境下通过临时端口与临时存储文件执行了端到端 smoke，关键结果如下：
+
+```json
+{
+  "health": { "code": 200, "status": "ok" },
+  "import": { "code": 200, "imported": 1, "skipped": 0 },
+  "profile": { "code": 201, "id": 1, "source_type": "manual" },
+  "match_create": { "code": 201, "id": 1, "total_score": 90, "from_cache": false },
+  "match_repeat": { "code": 201, "id": 1, "total_score": 90, "from_cache": true },
+  "list": { "code": 200, "total": 1 },
+  "detail": { "code": 200, "id": 1, "suggestions": 4 }
+}
+```
+
+结论：
+
+- 匹配创建、列表、详情链路可用；
+- 同输入重复请求命中缓存，`from_cache` 语义正确；
+- 返回结构满足“请求/响应/错误可区分”的契约要求。

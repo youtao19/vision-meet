@@ -18,6 +18,8 @@ function normalizeLegacyProfile(profile: StudentProfileRecord): StudentProfileRe
 
   return {
     id: legacy.id || 0,
+    source_type: legacy.source_type ?? "manual",
+    source_digest: legacy.source_digest ?? "legacy",
     name: legacy.name || "",
     target_role: legacy.target_role || "",
     education_level: legacy.education_level ?? null,
@@ -88,6 +90,12 @@ export function createJsonProfileRepository(storagePath?: string): ProfileReposi
     };
   }
 
+  function getStudentProfileById(profileId: number): StudentProfileRecord | null {
+    const store = readStore();
+    const matched = store.profiles.find((profile) => profile.id === profileId);
+    return matched ? normalizeLegacyProfile(matched) : null;
+  }
+
   function createStudentProfile(input: StudentProfileCreateInput): StudentProfileRecord {
     const store = readStore();
     store.counter += 1;
@@ -106,6 +114,7 @@ export function createJsonProfileRepository(storagePath?: string): ProfileReposi
 
   return {
     listStudentProfiles,
+    getStudentProfileById,
     createStudentProfile,
   };
 }

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/**
+ * 文件作用：集中定义 profile 领域的请求校验规则。
+ */
 export const createStudentProfileSchema = z.object({
   name: z.string().trim().min(1),
   target_role: z.string().trim().min(1),
@@ -24,4 +27,10 @@ export const createStudentProfileSchema = z.object({
     })
     .optional(),
   personal_summary: z.string().trim().max(1000).optional(),
+});
+
+export const createProfileFromResumeSchema = z.object({
+  target_role: z.string().trim().min(1),
+  name: z.string().trim().min(1).optional(),
+  parse_mode: z.enum(["strict", "tolerant"]).default("tolerant"),
 });

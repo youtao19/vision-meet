@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 
+import { HttpError } from "../../shared/errors/http-error.js";
 import { generateProfileSchema, listJobsQuerySchema } from "./jobs.schemas.js";
 import type { JobsService } from "./jobs.service.js";
 
@@ -9,10 +10,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 export function createJobsRouter(service: JobsService): Router {
   const router = Router();
 
-  router.post("/import", upload.single("file"), (req, res) => {
+  router.post("/import", upload.single("file"), (req, res, next) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ detail: "缺少上传文件字段 file" });
+        return next(new HttpError(400, "VALIDATION_ERROR", "缺少上传文件字段 file"));
       }
 
       const result = service.importJobs({
@@ -23,23 +24,23 @@ export function createJobsRouter(service: JobsService): Router {
       return res.json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : "导入失败";
-      return res.status(400).json({ detail: message });
+      return next(new HttpError(400, "IMPORT_FAILED", message));
     }
   });
 
-  router.get("", (req, res) => {
+  router.get("", (req, res, next) => {
     const parsed = listJobsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return res.status(400).json({ detail: parsed.error.flatten() });
+      return next(new HttpError(400, "VALIDATION_ERROR", "岗位查询参数不合法", parsed.error.flatten()));
     }
 
     return res.json(service.listJobs(parsed.data));
   });
 
-  router.post("/profile/generate", (req, res) => {
+  router.post("/profile/generate", (req, res, next) => {
     const parsed = generateProfileSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ detail: parsed.error.flatten() });
+      return next(new HttpError(400, "VALIDATION_ERROR", "岗位画像请求参数不合法", parsed.error.flatten()));
     }
 
     try {
@@ -48,9 +49,9 @@ export function createJobsRouter(service: JobsService): Router {
     } catch (error) {
       const message = error instanceof Error ? error.message : "画像生成失败";
       if (message.startsWith("NOT_FOUND:")) {
-        return res.status(404).json({ detail: message.replace("NOT_FOUND:", "") });
+        return next(new HttpError(404, "JOB_NOT_FOUND", message.replace("NOT_FOUND:", "")));
       }
-      return res.status(400).json({ detail: message });
+      return next(new HttpError(400, "PROFILE_GENERATE_FAILED", message));
     }
   });
 
