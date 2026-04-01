@@ -1,0 +1,15 @@
+{
+  "name": "@career/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./types": "./types/index.ts",
+    "./openapi": "./openapi/career-agent.openapi.yaml"
+  },
+  "types": "./types/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json",
+    "type-check": "tsc --noEmit -p tsconfig.json"
+  }
+}

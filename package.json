@@ -1,0 +1,29 @@
+{
+  "name": "career-agent",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "run-p dev:backend dev:frontend",
+    "dev:backend": "npm run dev -w career-backend",
+    "dev:frontend": "npm run dev -w career-front",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "build": "run-s build:contracts build:backend build:frontend",
+    "build:contracts": "npm run build -w @career/contracts --if-present",
+    "build:backend": "npm run build -w career-backend",
+    "build:frontend": "npm run build -w career-front",
+    "type-check": "run-s type-check:contracts type-check:backend type-check:frontend",
+    "type-check:contracts": "npm run type-check -w @career/contracts --if-present",
+    "type-check:backend": "npm run type-check -w career-backend",
+    "type-check:frontend": "npm run type-check -w career-front"
+  },
+  "devDependencies": {
+    "npm-run-all2": "^8.0.4",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3"
+  }
+}

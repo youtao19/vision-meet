@@ -1,0 +1,105 @@
+openapi: 3.0.3
+info:
+  title: Career Agent API
+  version: 0.1.0
+servers:
+  - url: http://127.0.0.1:8000
+paths:
+  /healthz:
+    get:
+      summary: Health Check
+      responses:
+        "200":
+          description: OK
+  /api/v1/jobs:
+    get:
+      summary: List Jobs
+      parameters:
+        - in: query
+          name: keyword
+          schema:
+            type: string
+        - in: query
+          name: industry
+          schema:
+            type: string
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Job list
+  /api/v1/jobs/import:
+    post:
+      summary: Import Jobs File
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Import result
+  /api/v1/jobs/profile/generate:
+    post:
+      summary: Generate Job Profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [job_id]
+              properties:
+                job_id:
+                  type: integer
+                  minimum: 1
+                force_regenerate:
+                  type: boolean
+                  default: false
+      responses:
+        "200":
+          description: Profile result
+  /api/v1/profile:
+    get:
+      summary: List Student Profiles
+      responses:
+        "200":
+          description: Student profile list
+    post:
+      summary: Create Student Profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, target_role, skills]
+              properties:
+                name:
+                  type: string
+                target_role:
+                  type: string
+                skills:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Created profile

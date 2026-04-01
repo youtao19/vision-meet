@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: career-agent-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: career_agent
+      POSTGRES_USER: career
+      POSTGRES_PASSWORD: career_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U career -d career_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: career-agent-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/career_dev_password
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+
+volumes:
+  pg_data:
+  neo4j_data:

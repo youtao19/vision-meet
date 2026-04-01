@@ -1,0 +1,43 @@
+# macOS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual envs
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+.npm/
+
+# Logs / temp
+*.log
+tmp/
+temp/
+
+# Databases / local runtime artifacts
+*.db
+*.sqlite
+*.sqlite3
+apps/backend/storage/data.json
+
+# Project-specific local files
+apps/backend/.env
