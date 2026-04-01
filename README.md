@@ -11,13 +11,22 @@
 4. 数据层：JSON 文件（当前）/ PostgreSQL + pgvector（目标）
 5. 图谱：Neo4j（目标）
 
+## 核心协作约束（摘要）
+
+1. 必须保持 Monorepo，不拆分前后端仓库。
+2. 前端只在 `apps/frontend`，并遵循 `src/app`、`src/features`、`src/shared`。
+3. 后端只在 `apps/backend`，并遵循
+   `route -> schemas -> service -> repository -> repository.adapter` 分层。
+4. 接口变更遵循 contracts-first：先改 `packages/contracts/openapi` 与
+   `packages/contracts/types`，再改后端，最后改前端。
+
 ## 目录结构
 
 ```text
 career-agent/
 ├─ apps/
 │  ├─ frontend/          # Vue 前端应用（app/features/shared）
-│  └─ backend/           # Express 后端应用（modules/<domain>/shared）
+│  └─ backend/           # Express 后端应用（modules/<domain> + route/schemas/service/repository/repository.adapter）
 ├─ packages/
 │  └─ contracts/         # OpenAPI / shared types
 ├─ infra/
@@ -67,5 +76,6 @@ npm run build
 ## 协作规范
 
 - 结构约束文档：[`docs/工程结构与协作规范.md`](./docs/工程结构与协作规范.md)
+- 宪章：[`.specify/memory/constitution.md`](./.specify/memory/constitution.md)
 - 贡献指南：[`AGENTS.md`](./AGENTS.md)
 - 问题记录：[`docs/问题记录库.jsonl`](./docs/问题记录库.jsonl)

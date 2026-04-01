@@ -83,7 +83,7 @@ paths:
         "200":
           description: Student profile list
     post:
-      summary: Create Student Profile
+      summary: Create Student Profile From Form Input
       requestBody:
         required: true
         content:
@@ -96,10 +96,56 @@ paths:
                   type: string
                 target_role:
                   type: string
+                education_level:
+                  type: string
+                major:
+                  type: string
+                graduation_year:
+                  type: integer
+                  minimum: 2000
+                  maximum: 2100
                 skills:
                   type: array
                   items:
                     type: string
+                  minItems: 1
+                certificates:
+                  type: array
+                  items:
+                    type: string
+                experience:
+                  type: object
+                  properties:
+                    internship_count:
+                      type: integer
+                      minimum: 0
+                    project_count:
+                      type: integer
+                      minimum: 0
+                    competition_count:
+                      type: integer
+                      minimum: 0
+                self_assessment:
+                  type: object
+                  properties:
+                    communication:
+                      type: integer
+                      minimum: 1
+                      maximum: 5
+                    learning:
+                      type: integer
+                      minimum: 1
+                      maximum: 5
+                    stress_tolerance:
+                      type: integer
+                      minimum: 1
+                      maximum: 5
+                    innovation:
+                      type: integer
+                      minimum: 1
+                      maximum: 5
+                personal_summary:
+                  type: string
       responses:
         "201":
-          description: Created profile
+          description: Created profile with completeness and competitiveness scores

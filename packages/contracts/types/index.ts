@@ -59,15 +59,53 @@ export type StudentProfileRecord = {
   id: number;
   name: string;
   target_role: string;
+  education_level: string | null;
+  major: string | null;
+  graduation_year: number | null;
   skills: string[];
+  certificates: string[];
+  experience: StudentProfileExperience;
+  self_assessment: StudentProfileSelfAssessment;
+  dimension_scores: StudentProfileDimensionScores;
+  completeness_score: number;
+  competitiveness_score: number;
+  missing_items: string[];
+  personal_summary: string | null;
   summary: string;
   created_at: string;
+};
+
+export type StudentProfileExperience = {
+  internship_count: number;
+  project_count: number;
+  competition_count: number;
+};
+
+export type StudentProfileSelfAssessment = {
+  communication: number;
+  learning: number;
+  stress_tolerance: number;
+  innovation: number;
+};
+
+export type StudentProfileDimensionScores = {
+  base_requirements: number;
+  professional_skills: number;
+  professional_quality: number;
+  development_potential: number;
 };
 
 export type CreateStudentProfileRequest = {
   name: string;
   target_role: string;
+  education_level?: string;
+  major?: string;
+  graduation_year?: number;
   skills: string[];
+  certificates?: string[];
+  experience?: Partial<StudentProfileExperience>;
+  self_assessment?: Partial<StudentProfileSelfAssessment>;
+  personal_summary?: string;
 };
 
 export type ListStudentProfilesResponse = {
