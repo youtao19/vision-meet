@@ -12,6 +12,7 @@
     "start": "node dist/index.js",
     "type-check": "tsc --noEmit",
     "agent:smoke": "tsx src/scripts/agent-smoke-test.ts",
+    "evaluation:manual": "tsx src/scripts/evaluation-manual.ts",
     "career-path:sync": "tsx src/scripts/career-path-sync.ts",
     "knowledge:init": "tsx src/scripts/knowledge-init.ts",
     "knowledge:index:jobs": "tsx src/scripts/knowledge-index-jobs.ts",

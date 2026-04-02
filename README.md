@@ -75,6 +75,7 @@ npm run dev:frontend
 npm run type-check
 npm run build
 npm run agent:smoke
+npm run evaluation:manual
 npm run knowledge:init
 npm run knowledge:index:jobs
 npm run knowledge:index:project-docs
@@ -124,6 +125,7 @@ npm run knowledge:eval
 2. 项目文档只进入 `internal_project_docs`，用于内部调试与评测，不参与默认用户检索。
 3. PostgreSQL/pgvector 初始化 SQL 位于 [`infra/sql/knowledge.init.sql`](./infra/sql/knowledge.init.sql)。
 4. 简历上传成功后，会自动把简历原文同步写入知识库，并通过 `student_profile_id` 建立关联。
+5. 手工抽样评测命令为 `npm run evaluation:manual`，默认读取 `data/evaluation/*.jsonl`，并生成 [`docs/评测结果-手工抽样.md`](./docs/评测结果-手工抽样.md)。
 
 ## Agent 说明
 

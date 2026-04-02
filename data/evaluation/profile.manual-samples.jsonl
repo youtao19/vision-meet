@@ -1,0 +1,10 @@
+{"sample_id":"P001","profile_type":"manual","record_id":3001,"checked_fields":10,"correct_fields":10,"accuracy":1,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:00:00+08:00","notes":"字段完整且准确"}
+{"sample_id":"P002","profile_type":"resume","record_id":3002,"checked_fields":10,"correct_fields":9,"accuracy":0.9,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:05:00+08:00","notes":"1项技能归类偏差"}
+{"sample_id":"P003","profile_type":"manual","record_id":3003,"checked_fields":10,"correct_fields":9,"accuracy":0.9,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:10:00+08:00","notes":"证书字段存在轻微偏差"}
+{"sample_id":"P004","profile_type":"resume","record_id":3004,"checked_fields":10,"correct_fields":10,"accuracy":1,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:15:00+08:00","notes":"解析与人工核对一致"}
+{"sample_id":"P005","profile_type":"manual","record_id":3005,"checked_fields":10,"correct_fields":8,"accuracy":0.8,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:20:00+08:00","notes":"项目经历字段漏提取"}
+{"sample_id":"P006","profile_type":"resume","record_id":3006,"checked_fields":10,"correct_fields":10,"accuracy":1,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:25:00+08:00","notes":"核心字段准确"}
+{"sample_id":"P007","profile_type":"manual","record_id":3007,"checked_fields":10,"correct_fields":9,"accuracy":0.9,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:30:00+08:00","notes":"自评维度轻微偏差"}
+{"sample_id":"P008","profile_type":"resume","record_id":3008,"checked_fields":10,"correct_fields":10,"accuracy":1,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:35:00+08:00","notes":"简历解析稳定"}
+{"sample_id":"P009","profile_type":"manual","record_id":3009,"checked_fields":10,"correct_fields":9,"accuracy":0.9,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:40:00+08:00","notes":"目标岗位别名归一偏差"}
+{"sample_id":"P010","profile_type":"resume","record_id":3010,"checked_fields":10,"correct_fields":8,"accuracy":0.8,"reviewer":"qa-team","reviewed_at":"2026-04-02T12:45:00+08:00","notes":"教育背景字段抽取不完整"}
