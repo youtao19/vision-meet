@@ -36,6 +36,12 @@ npm run dev:backend
 cp apps/backend/.env.example apps/backend/.env
 ```
 
+若后端改走 Docker PostgreSQL（`docker compose` 暴露在 `5433`）：
+
+```bash
+cp apps/backend/.env.docker.example apps/backend/.env
+```
+
 支持变量：
 
 - `APP_ENV`
