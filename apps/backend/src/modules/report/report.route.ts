@@ -17,14 +17,14 @@ import type { ReportService } from "./report.service.js";
 export function createReportRouter(service: ReportService): Router {
   const router = Router();
 
-  router.post("", (req, res, next) => {
+  router.post("", async (req, res, next) => {
     const parsed = createReportSchema.safeParse(req.body);
     if (!parsed.success) {
       return next(new HttpError(400, "VALIDATION_ERROR", "报告创建参数不合法", parsed.error.flatten()));
     }
 
     try {
-      const created = service.createReport(parsed.data);
+      const created = await service.createReport(parsed.data);
       return res.status(201).json(created);
     } catch (error) {
       return next(error);

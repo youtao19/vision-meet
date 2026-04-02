@@ -1,5 +1,6 @@
 import type {
   CareerReportSection,
+  KnowledgeSearchResultItem,
   MatchResultDetail,
   JobRecord,
   StudentProfileRecord,
@@ -13,6 +14,13 @@ export type ReportGeneratorInput = {
   match: MatchResultDetail;
   profile: StudentProfileRecord;
   job: JobRecord;
+  knowledge_hits?: KnowledgeSearchResultItem[];
+  agent_summary?: string;
+};
+
+export type ReportGeneratorResult = {
+  sections: CareerReportSection[];
+  mode: "llm" | "template";
 };
 
 export interface ReportGenerator {
@@ -22,5 +30,5 @@ export interface ReportGenerator {
    * 返回：固定顺序的结构化章节数组，供前端展示和后续编辑。
    * 注意：当前实现必须稳定可复现，不允许引入随机输出。
    */
-  generate(input: ReportGeneratorInput): CareerReportSection[];
+  generate(input: ReportGeneratorInput): Promise<ReportGeneratorResult>;
 }

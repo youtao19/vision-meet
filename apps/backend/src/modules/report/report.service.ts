@@ -4,6 +4,7 @@ import path from "node:path";
 import type {
   CareerReportExportRecord,
   CareerReportRecord,
+  KnowledgeSearchResultItem,
   CareerReportSection,
   CareerReportSectionKey,
   CreateReportExportRequest,
@@ -69,7 +70,18 @@ export interface ReportService {
    * 返回：创建完成的报告详情。
    * 注意：同一 match_id 每次调用都生成新版本，不覆盖历史版本。
    */
-  createReport(input: CreateReportRequest): CareerReportRecord;
+  createReport(input: CreateReportRequest, context?: ReportCreateContext): Promise<CareerReportRecord>;
+
+  /**
+   * 作用：生成报告并返回内部生成元信息，供 agent 编排层判断是否发生模型降级。
+   * 参数：input 为标准创建参数；context 可注入检索证据与 agent 摘要。
+   * 返回：报告记录及生成方式元数据。
+   * 注意：HTTP 路由通常只需要 createReport，agent 侧才消费该增强结果。
+   */
+  createReportWithContext(
+    input: CreateReportRequest,
+    context?: ReportCreateContext,
+  ): Promise<ReportCreateResult>;
 
   /**
    * 作用：查询某个匹配结果下的所有报告版本。
@@ -132,6 +144,16 @@ export type ReportServiceOptions = {
   exportDir?: string;
 };
 
+export type ReportCreateContext = {
+  knowledge_hits?: KnowledgeSearchResultItem[];
+  agent_summary?: string;
+};
+
+export type ReportCreateResult = {
+  report: CareerReportRecord;
+  generator_mode: "llm" | "template";
+};
+
 export function createReportService(
   reportRepository: ReportRepository,
   reportExportRepository: ReportExportRepository,
@@ -153,7 +175,10 @@ export function createReportService(
     return match;
   }
 
-  function createReport(input: CreateReportRequest): CareerReportRecord {
+  async function createReportWithContext(
+    input: CreateReportRequest,
+    context?: ReportCreateContext,
+  ): Promise<ReportCreateResult> {
     const match = ensureMatchExists(input.match_id);
 
     const profile = profileRepository.getStudentProfileById(match.student_profile_id);
@@ -168,22 +193,35 @@ export function createReportService(
 
     const existing = reportRepository.listReports({ match_id: input.match_id }).items;
     const nextVersion = existing.length > 0 ? existing[0].version + 1 : 1;
-    const sections = generator.generate({
+    const generated = await generator.generate({
       match,
       profile,
       job,
+      knowledge_hits: context?.knowledge_hits,
+      agent_summary: context?.agent_summary,
     });
 
-    assertValidSectionSet(sections);
+    assertValidSectionSet(generated.sections);
 
-    return reportRepository.createReport({
-      match_id: input.match_id,
-      version: nextVersion,
-      student_profile_id: match.student_profile_id,
-      job_id: match.job_id,
-      total_score: match.total_score,
-      sections: normalizeSectionOrder(sections),
-    });
+    return {
+      report: reportRepository.createReport({
+        match_id: input.match_id,
+        version: nextVersion,
+        student_profile_id: match.student_profile_id,
+        job_id: match.job_id,
+        total_score: match.total_score,
+        sections: normalizeSectionOrder(generated.sections),
+      }),
+      generator_mode: generated.mode,
+    };
+  }
+
+  async function createReport(
+    input: CreateReportRequest,
+    context?: ReportCreateContext,
+  ): Promise<CareerReportRecord> {
+    const result = await createReportWithContext(input, context);
+    return result.report;
   }
 
   function listReports(params: ReportListParams): ReportListResponse {
@@ -282,6 +320,7 @@ export function createReportService(
 
   return {
     createReport,
+    createReportWithContext,
     listReports,
     getReport,
     updateReport,

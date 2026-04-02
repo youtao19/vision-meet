@@ -133,15 +133,18 @@ function createSection(key: CareerReportSectionKey, content: string): CareerRepo
  */
 export function createTemplateReportGenerator(): ReportGenerator {
   return {
-    generate(input: ReportGeneratorInput): CareerReportSection[] {
-      return [
-        createSection("overview", buildOverview(input)),
-        createSection("match_analysis", buildMatchAnalysis(input)),
-        createSection("strengths", buildStrengths(input)),
-        createSection("gaps_and_actions", buildGapsAndActions(input)),
-        createSection("short_term_plan", buildShortTermPlan(input)),
-        createSection("mid_term_plan", buildMidTermPlan(input)),
-      ];
+    async generate(input: ReportGeneratorInput) {
+      return {
+        mode: "template" as const,
+        sections: [
+          createSection("overview", buildOverview(input)),
+          createSection("match_analysis", buildMatchAnalysis(input)),
+          createSection("strengths", buildStrengths(input)),
+          createSection("gaps_and_actions", buildGapsAndActions(input)),
+          createSection("short_term_plan", buildShortTermPlan(input)),
+          createSection("mid_term_plan", buildMidTermPlan(input)),
+        ],
+      };
     },
   };
 }

@@ -365,4 +365,42 @@ export type KnowledgeEvaluationResponse = {
   cases: KnowledgeEvaluationCaseResult[];
 };
 
+export type AgentWarningCode = "EVIDENCE_INSUFFICIENT" | "REPORT_TEMPLATE_FALLBACK";
+
+export type AgentToolTraceStatus = "success" | "warning" | "error" | "skipped";
+
+export type AgentToolTraceStep =
+  | "validate_context"
+  | "knowledge_search"
+  | "matching"
+  | "llm_analysis"
+  | "report_generation";
+
+export type AgentToolTraceItem = {
+  step: AgentToolTraceStep;
+  status: AgentToolTraceStatus;
+  duration_ms: number;
+  input_summary: string;
+  output_summary: string;
+  error_code?: string;
+};
+
+export type AgentAnalyzeRequest = {
+  student_profile_id: number;
+  job_id: number;
+  force_recalculate?: boolean;
+  top_k?: number;
+};
+
+export type AgentAnalyzeResponse = {
+  agent_run_id: number;
+  trace_id: string;
+  model: string | null;
+  knowledge_hits: KnowledgeSearchResultItem[];
+  match_result: MatchResultDetail;
+  report: CareerReportRecord | null;
+  warnings: AgentWarningCode[];
+  tool_trace: AgentToolTraceItem[];
+};
+
 export type ApiErrorResponse = StructuredApiError;

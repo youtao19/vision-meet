@@ -61,6 +61,8 @@ npm run knowledge:init
 npm run knowledge:index:jobs
 npm run knowledge:index:project-docs
 npm run knowledge:eval
+npm run moonshot:smoke
+npm run moonshot:smoke:sdk
 ```
 
 4. 访问地址
@@ -95,7 +97,8 @@ npm run knowledge:eval
 17. `POST /api/v1/reports/{report_id}/exports`：生成并登记 PDF 导出产物
 18. `GET /api/v1/reports/{report_id}/exports`：查询当前报告版本的导出记录
 19. `GET /api/v1/report-exports/{export_id}/download`：下载已生成的 PDF 文件
-20. `GET /healthz`：服务健康检查（含存储文件路径）
+20. `POST /api/v1/agent/analyze`：执行 Pi Agent 同步编排分析（检索 -> 匹配 -> LLM 摘要 -> 报告）
+21. `GET /healthz`：服务健康检查（含存储文件路径）
 
 ## 知识库说明
 
@@ -103,6 +106,14 @@ npm run knowledge:eval
 2. 项目文档只进入 `internal_project_docs`，用于内部调试与评测，不参与默认用户检索。
 3. PostgreSQL/pgvector 初始化 SQL 位于 [`infra/sql/knowledge.init.sql`](./infra/sql/knowledge.init.sql)。
 4. 简历上传成功后，会自动把简历原文同步写入知识库，并通过 `student_profile_id` 建立关联。
+
+## Pi Agent 说明
+
+1. Pi Agent V1 通过 `/api/v1/agent/analyze` 暴露同步编排入口，固定执行“上下文校验 -> 知识检索 -> 匹配分析 -> LLM 摘要 -> 报告生成”。
+2. 若知识检索为空，会返回匹配结果和 `EVIDENCE_INSUFFICIENT` 告警，但不会强行生成证据型报告。
+3. 大模型通过 OpenAI 兼容接口接入，后端需配置 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL`、`LLM_TIMEOUT_MS`、`LLM_TEMPERATURE`。
+4. 如需绕开业务链路单独验证 Moonshot/Kimi 凭证，可直接运行 `npm run moonshot:smoke`，脚本会先验证 `/models` 再验证最小 `chat/completions`。
+5. 如需严格按 Moonshot 官方文档的 OpenAI SDK 方式验证，可运行 `npm run moonshot:smoke:sdk`，用于排除自写 HTTP 请求与 SDK 行为差异。
 
 ## 协作规范
 
