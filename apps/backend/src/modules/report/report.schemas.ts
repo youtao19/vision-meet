@@ -31,3 +31,11 @@ export const reportIdParamsSchema = z.object({
 export const updateReportSchema = z.object({
   sections: z.array(reportSectionSchema).length(6),
 });
+
+export const createReportExportSchema = z.object({
+  format: z.literal("pdf"),
+});
+
+export const exportIdParamsSchema = z.object({
+  export_id: z.coerce.number().int().min(1),
+});

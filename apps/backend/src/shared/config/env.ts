@@ -7,6 +7,8 @@ const envSchema = z.object({
   PROFILE_STORE_PATH: z.string().optional(),
   MATCH_STORE_PATH: z.string().optional(),
   REPORT_STORE_PATH: z.string().optional(),
+  REPORT_EXPORT_DIR: z.string().optional(),
+  REPORT_EXPORT_STORE_PATH: z.string().optional(),
   MATCH_SCORING_VERSION: z.string().trim().min(1).default("v1"),
 });
 

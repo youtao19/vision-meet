@@ -2,10 +2,24 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import type { CareerReportRecord, CareerReportSection, CareerReportSummary, MatchResultDetail } from "@career/contracts/types";
+import type {
+  CareerReportExportRecord,
+  CareerReportRecord,
+  CareerReportSection,
+  CareerReportSummary,
+  MatchResultDetail,
+} from "@career/contracts/types";
 
 import { fetchMatchDetail } from "@/shared/api/matching";
-import { createReport, fetchReportDetail, fetchReportList, updateReport } from "@/shared/api/report";
+import {
+  createReport,
+  createReportExport,
+  fetchReportDetail,
+  fetchReportExports,
+  fetchReportList,
+  resolveReportExportDownloadUrl,
+  updateReport,
+} from "@/shared/api/report";
 import { ApiRequestError } from "@/shared/api/http";
 
 const route = useRoute();
@@ -13,6 +27,7 @@ const router = useRouter();
 
 const matchDetail = ref<MatchResultDetail | null>(null);
 const reports = ref<CareerReportSummary[]>([]);
+const exportsList = ref<CareerReportExportRecord[]>([]);
 const selectedReport = ref<CareerReportRecord | null>(null);
 const editableSections = ref<CareerReportSection[]>([]);
 
@@ -22,6 +37,8 @@ const loading = reactive({
   detail: false,
   create: false,
   save: false,
+  export: false,
+  exportList: false,
 });
 
 const form = reactive({
@@ -58,6 +75,16 @@ function syncEditableSections(record: CareerReportRecord | null): void {
     : [];
 }
 
+function triggerDownload(downloadPath: string): void {
+  const anchor = document.createElement("a");
+  anchor.href = resolveReportExportDownloadUrl(downloadPath);
+  anchor.target = "_blank";
+  anchor.rel = "noreferrer";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+}
+
 async function loadMatchDetail(matchId: number): Promise<void> {
   loading.match = true;
   try {
@@ -85,10 +112,22 @@ async function openReport(reportId: number): Promise<void> {
     const detail = await fetchReportDetail(reportId);
     selectedReport.value = detail;
     syncEditableSections(detail);
+    await loadReportExports(reportId);
   } catch (error) {
     uiState.error = formatApiError(error);
   } finally {
     loading.detail = false;
+  }
+}
+
+async function loadReportExports(reportId: number): Promise<void> {
+  loading.exportList = true;
+
+  try {
+    const response = await fetchReportExports(reportId);
+    exportsList.value = response.items;
+  } finally {
+    loading.exportList = false;
   }
 }
 
@@ -103,10 +142,12 @@ async function refreshByMatchId(matchId: number): Promise<void> {
       await openReport(reports.value[0].id);
     } else {
       selectedReport.value = null;
+      exportsList.value = [];
       syncEditableSections(null);
     }
   } catch (error) {
     selectedReport.value = null;
+    exportsList.value = [];
     syncEditableSections(null);
     uiState.error = formatApiError(error);
   }
@@ -193,6 +234,31 @@ async function saveCurrentReport(): Promise<void> {
   }
 }
 
+async function exportCurrentReport(): Promise<void> {
+  if (!selectedReport.value) {
+    uiState.error = "请先选择需要导出的报告版本";
+    return;
+  }
+
+  loading.export = true;
+  uiState.error = "";
+  uiState.success = "";
+
+  try {
+    const exported = await createReportExport(selectedReport.value.id, {
+      format: "pdf",
+    });
+
+    uiState.success = `PDF 导出已生成：${exported.file_name}`;
+    await loadReportExports(selectedReport.value.id);
+    triggerDownload(exported.download_path);
+  } catch (error) {
+    uiState.error = formatApiError(error);
+  } finally {
+    loading.export = false;
+  }
+}
+
 const canCreate = computed(() => toPositiveInt(form.matchId) !== undefined);
 
 watch(
@@ -270,9 +336,14 @@ onMounted(async () => {
         <div class="panel-title-row">
           <h3 v-if="selectedReport">报告详情 #{{ selectedReport.id }}</h3>
           <h3 v-else>报告详情</h3>
-          <button class="primary-btn" :disabled="!selectedReport || loading.save" @click="saveCurrentReport">
-            {{ loading.save ? "保存中..." : "保存当前版本" }}
-          </button>
+          <div class="action-group">
+            <button class="ghost-btn" :disabled="!selectedReport || loading.export" @click="exportCurrentReport">
+              {{ loading.export ? "导出中..." : "导出 PDF" }}
+            </button>
+            <button class="primary-btn" :disabled="!selectedReport || loading.save" @click="saveCurrentReport">
+              {{ loading.save ? "保存中..." : "保存当前版本" }}
+            </button>
+          </div>
         </div>
 
         <div v-if="selectedReport" class="report-meta">
@@ -293,6 +364,31 @@ onMounted(async () => {
 
         <p v-else class="empty-text">请先加载匹配结果并生成报告版本。</p>
       </section>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title-row">
+        <h3>导出记录</h3>
+        <span class="muted">{{ exportsList.length }} 条记录</span>
+      </div>
+
+      <div v-if="selectedReport" class="export-list">
+        <button
+          v-for="item in exportsList"
+          :key="item.id"
+          class="export-item"
+          @click="triggerDownload(item.download_path)"
+        >
+          <strong>{{ item.file_name }}</strong>
+          <span>{{ Math.max(1, Math.round(item.file_size_bytes / 1024)) }} KB</span>
+          <span>{{ new Date(item.created_at).toLocaleString() }}</span>
+        </button>
+
+        <p v-if="!loading.exportList && exportsList.length === 0" class="empty-text">当前报告版本还没有导出记录。</p>
+        <p v-if="loading.exportList" class="empty-text">导出记录加载中...</p>
+      </div>
+
+      <p v-else class="empty-text">请先选择具体报告版本，再查看或下载导出记录。</p>
     </section>
   </section>
 </template>
@@ -436,6 +532,12 @@ textarea {
   gap: 12px;
 }
 
+.action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .muted {
   color: #64748b;
   font-size: 13px;
@@ -497,6 +599,22 @@ textarea {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.export-list {
+  display: grid;
+  gap: 10px;
+}
+
+.export-item {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fafc;
+  cursor: pointer;
 }
 
 .empty-text {

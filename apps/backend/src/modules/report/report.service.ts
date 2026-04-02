@@ -1,9 +1,15 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import type {
+  CareerReportExportRecord,
   CareerReportRecord,
   CareerReportSection,
   CareerReportSectionKey,
+  CreateReportExportRequest,
   CreateReportRequest,
   ReportListParams,
+  ReportExportListResponse,
   ReportListResponse,
   UpdateReportRequest,
 } from "@career/contracts/types";
@@ -12,6 +18,8 @@ import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { MatchingRepository } from "../matching/matching.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import type { ReportExportRepository } from "./report-export.repository.js";
+import type { ReportExporter } from "./report.exporter.js";
 import type { ReportGenerator } from "./report.generator.js";
 import type { ReportRepository } from "./report.repository.js";
 
@@ -86,15 +94,57 @@ export interface ReportService {
    * 注意：本次保存只更新当前版本，不复制新版本。
    */
   updateReport(reportId: number, input: UpdateReportRequest): CareerReportRecord;
+
+  /**
+   * 作用：为指定报告版本生成一份新的导出产物并落盘登记。
+   * 参数：reportId 为目标报告主键；input.format 当前固定为 pdf。
+   * 返回：导出记录，包含下载路径和文件元数据。
+   * 注意：每次导出都会生成新的文件与记录，不覆盖历史产物。
+   */
+  createReportExport(reportId: number, input: CreateReportExportRequest): Promise<CareerReportExportRecord>;
+
+  /**
+   * 作用：查询某个报告版本的历史导出记录。
+   * 参数：reportId 为报告主键。
+   * 返回：按导出时间倒序排列的导出记录列表。
+   * 注意：若报告不存在，优先返回 REPORT_NOT_FOUND。
+   */
+  listReportExports(reportId: number): ReportExportListResponse;
+
+  /**
+   * 作用：读取单条导出记录。
+   * 参数：exportId 为导出记录主键。
+   * 返回：导出记录详情。
+   * 注意：若记录不存在，返回 REPORT_EXPORT_NOT_FOUND。
+   */
+  getReportExport(exportId: number): CareerReportExportRecord;
+
+  /**
+   * 作用：解析导出记录对应的本地文件绝对路径，供下载路由使用。
+   * 参数：exportId 为导出记录主键。
+   * 返回：文件绝对路径与导出记录。
+   * 注意：若文件缺失，视为导出记录已损坏并返回 REPORT_EXPORT_NOT_FOUND。
+   */
+  resolveReportExportDownload(exportId: number): { record: CareerReportExportRecord; absoluteFilePath: string };
 }
+
+export type ReportServiceOptions = {
+  exportDir?: string;
+};
 
 export function createReportService(
   reportRepository: ReportRepository,
+  reportExportRepository: ReportExportRepository,
   matchingRepository: MatchingRepository,
   profileRepository: ProfileRepository,
   jobsRepository: JobsRepository,
   generator: ReportGenerator,
+  exporter: ReportExporter,
+  options: ReportServiceOptions = {},
 ): ReportService {
+  const exportDir =
+    options.exportDir || path.join(process.cwd(), "storage", "exports", "reports");
+
   function ensureMatchExists(matchId: number) {
     const match = matchingRepository.getMatchResultById(matchId);
     if (!match) {
@@ -149,6 +199,14 @@ export function createReportService(
     return report;
   }
 
+  function getReportExport(exportId: number): CareerReportExportRecord {
+    const record = reportExportRepository.getExportRecordById(exportId);
+    if (!record) {
+      throw new HttpError(404, "REPORT_EXPORT_NOT_FOUND", "报告导出记录不存在");
+    }
+    return record;
+  }
+
   function updateReport(reportId: number, input: UpdateReportRequest): CareerReportRecord {
     const existing = getReport(reportId);
     assertValidSectionSet(input.sections);
@@ -161,10 +219,75 @@ export function createReportService(
     return updated;
   }
 
+  async function createReportExport(
+    reportId: number,
+    input: CreateReportExportRequest,
+  ): Promise<CareerReportExportRecord> {
+    const report = getReport(reportId);
+    const profile = profileRepository.getStudentProfileById(report.student_profile_id);
+    if (!profile) {
+      throw new HttpError(404, "STUDENT_PROFILE_NOT_FOUND", "学生画像不存在");
+    }
+
+    const job = jobsRepository.getJobById(report.job_id);
+    if (!job) {
+      throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
+    }
+
+    try {
+      const exported = await exporter.export({
+        report,
+        profile,
+        job,
+      });
+
+      const exportId = reportExportRepository.reserveNextExportId();
+      const fileName = `report-${report.id}-v${report.version}-${exportId}.${exported.fileExtension}`;
+      fs.mkdirSync(exportDir, { recursive: true });
+      const absoluteFilePath = path.resolve(exportDir, fileName);
+      fs.writeFileSync(absoluteFilePath, exported.bytes);
+
+      return reportExportRepository.createExportRecord({
+        id: exportId,
+        report_id: report.id,
+        format: input.format,
+        file_name: fileName,
+        file_size_bytes: exported.bytes.byteLength,
+        download_path: `/api/v1/report-exports/${exportId}/download`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "报告导出失败";
+      throw new HttpError(500, "REPORT_EXPORT_GENERATION_FAILED", message);
+    }
+  }
+
+  function listReportExports(reportId: number): ReportExportListResponse {
+    getReport(reportId);
+    return reportExportRepository.listExportRecordsByReportId(reportId);
+  }
+
+  function resolveReportExportDownload(exportId: number) {
+    const record = getReportExport(exportId);
+    const absoluteFilePath = path.resolve(exportDir, record.file_name);
+
+    if (!fs.existsSync(absoluteFilePath)) {
+      throw new HttpError(404, "REPORT_EXPORT_NOT_FOUND", "导出文件不存在或已损坏");
+    }
+
+    return {
+      record,
+      absoluteFilePath,
+    };
+  }
+
   return {
     createReport,
     listReports,
     getReport,
     updateReport,
+    createReportExport,
+    listReportExports,
+    getReportExport,
+    resolveReportExportDownload,
   };
 }

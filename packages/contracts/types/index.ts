@@ -238,4 +238,25 @@ export type ReportListResponse = {
   items: CareerReportSummary[];
 };
 
+export type CareerReportExportFormat = "pdf";
+
+export type CareerReportExportRecord = {
+  id: number;
+  report_id: number;
+  format: CareerReportExportFormat;
+  file_name: string;
+  file_size_bytes: number;
+  created_at: string;
+  download_path: string;
+};
+
+export type CreateReportExportRequest = {
+  format: CareerReportExportFormat;
+};
+
+export type ReportExportListResponse = {
+  total: number;
+  items: CareerReportExportRecord[];
+};
+
 export type ApiErrorResponse = StructuredApiError;

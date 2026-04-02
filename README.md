@@ -85,7 +85,10 @@ npm run build
 11. `GET /api/v1/reports?match_id={match_id}`：查询某个匹配结果下的报告版本列表
 12. `GET /api/v1/reports/{report_id}`：查询职业报告详情
 13. `PATCH /api/v1/reports/{report_id}`：保存职业报告结构化章节编辑结果
-14. `GET /healthz`：服务健康检查（含存储文件路径）
+14. `POST /api/v1/reports/{report_id}/exports`：生成并登记 PDF 导出产物
+15. `GET /api/v1/reports/{report_id}/exports`：查询当前报告版本的导出记录
+16. `GET /api/v1/report-exports/{export_id}/download`：下载已生成的 PDF 文件
+17. `GET /healthz`：服务健康检查（含存储文件路径）
 
 ## 协作规范
 

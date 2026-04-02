@@ -444,6 +444,108 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/reports/{report_id}/exports:
+    post:
+      summary: Create Career Report Export
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReportExportRequest"
+      responses:
+        "201":
+          description: Career report export created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerReportExportRecord"
+        "400":
+          description: Invalid export request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Export generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      summary: List Career Report Exports
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Career report export list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportExportListResponse"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/report-exports/{export_id}/download:
+    get:
+      summary: Download Career Report Export
+      parameters:
+        - in: path
+          name: export_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: PDF file stream
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Export not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     DimensionScores:
@@ -947,3 +1049,43 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CareerReportSummary"
+
+    CreateReportExportRequest:
+      type: object
+      required: [format]
+      properties:
+        format:
+          type: string
+          enum: [pdf]
+
+    CareerReportExportRecord:
+      type: object
+      required: [id, report_id, format, file_name, file_size_bytes, created_at, download_path]
+      properties:
+        id:
+          type: integer
+        report_id:
+          type: integer
+        format:
+          type: string
+          enum: [pdf]
+        file_name:
+          type: string
+        file_size_bytes:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        download_path:
+          type: string
+
+    ReportExportListResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerReportExportRecord"

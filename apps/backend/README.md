@@ -44,6 +44,8 @@ cp apps/backend/.env.example apps/backend/.env
 - `PROFILE_STORE_PATH`
 - `MATCH_STORE_PATH`
 - `REPORT_STORE_PATH`
+- `REPORT_EXPORT_DIR`
+- `REPORT_EXPORT_STORE_PATH`
 - `MATCH_SCORING_VERSION`
 
 ## API
@@ -62,6 +64,9 @@ cp apps/backend/.env.example apps/backend/.env
 - `GET /api/v1/reports?match_id={match_id}`
 - `GET /api/v1/reports/{report_id}`
 - `PATCH /api/v1/reports/{report_id}`
+- `POST /api/v1/reports/{report_id}/exports`
+- `GET /api/v1/reports/{report_id}/exports`
+- `GET /api/v1/report-exports/{export_id}/download`
 
 详细说明见：
 

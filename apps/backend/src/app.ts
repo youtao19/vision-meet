@@ -7,7 +7,7 @@ import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createJsonJobsRepository } from "./modules/jobs/jobs.repository.json.js";
 import { createMatchingModule } from "./modules/matching/matching.module.js";
 import { createProfileModule } from "./modules/profile/profile.module.js";
-import { createReportModule } from "./modules/report/report.module.js";
+import { createReportExportDownloadModule, createReportModule } from "./modules/report/report.module.js";
 import { appEnv } from "./shared/config/env.js";
 import { HttpError } from "./shared/errors/http-error.js";
 
@@ -62,6 +62,19 @@ export function createApp(): express.Express {
       profileStorePath: appEnv.PROFILE_STORE_PATH,
       matchStorePath: appEnv.MATCH_STORE_PATH,
       reportStorePath: appEnv.REPORT_STORE_PATH,
+      reportExportDir: appEnv.REPORT_EXPORT_DIR,
+      reportExportStorePath: appEnv.REPORT_EXPORT_STORE_PATH,
+    }),
+  );
+  app.use(
+    "/api/v1/report-exports",
+    createReportExportDownloadModule({
+      dataStorePath: appEnv.DATA_STORE_PATH,
+      profileStorePath: appEnv.PROFILE_STORE_PATH,
+      matchStorePath: appEnv.MATCH_STORE_PATH,
+      reportStorePath: appEnv.REPORT_STORE_PATH,
+      reportExportDir: appEnv.REPORT_EXPORT_DIR,
+      reportExportStorePath: appEnv.REPORT_EXPORT_STORE_PATH,
     }),
   );
 

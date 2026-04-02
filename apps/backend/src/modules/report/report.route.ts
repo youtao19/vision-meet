@@ -2,7 +2,9 @@ import { Router } from "express";
 
 import { HttpError } from "../../shared/errors/http-error.js";
 import {
+  createReportExportSchema,
   createReportSchema,
+  exportIdParamsSchema,
   listReportsQuerySchema,
   reportIdParamsSchema,
   updateReportSchema,
@@ -68,6 +70,63 @@ export function createReportRouter(service: ReportService): Router {
 
     try {
       return res.json(service.updateReport(paramsParsed.data.report_id, bodyParsed.data));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.post("/:report_id/exports", async (req, res, next) => {
+    const paramsParsed = reportIdParamsSchema.safeParse(req.params);
+    if (!paramsParsed.success) {
+      return next(new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", paramsParsed.error.flatten()));
+    }
+
+    const bodyParsed = createReportExportSchema.safeParse(req.body);
+    if (!bodyParsed.success) {
+      return next(new HttpError(400, "VALIDATION_ERROR", "导出请求参数不合法", bodyParsed.error.flatten()));
+    }
+
+    try {
+      const created = await service.createReportExport(paramsParsed.data.report_id, bodyParsed.data);
+      return res.status(201).json(created);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get("/:report_id/exports", (req, res, next) => {
+    const paramsParsed = reportIdParamsSchema.safeParse(req.params);
+    if (!paramsParsed.success) {
+      return next(new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", paramsParsed.error.flatten()));
+    }
+
+    try {
+      return res.json(service.listReportExports(paramsParsed.data.report_id));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  return router;
+}
+
+/**
+ * 文件作用：单独暴露报告导出下载路由，避免把下载路径绑死在 /reports 前缀下。
+ */
+export function createReportExportDownloadRouter(service: ReportService): Router {
+  const router = Router();
+
+  router.get("/:export_id/download", (req, res, next) => {
+    const parsed = exportIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return next(new HttpError(400, "VALIDATION_ERROR", "导出下载参数不合法", parsed.error.flatten()));
+    }
+
+    try {
+      const { record, absoluteFilePath } = service.resolveReportExportDownload(parsed.data.export_id);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(record.file_name)}"`);
+      return res.sendFile(absoluteFilePath);
     } catch (error) {
       return next(error);
     }
