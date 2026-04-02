@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import { useRouter } from "vue-router";
 
 import type {
   JobRecord,
@@ -13,6 +14,7 @@ import { createMatch, fetchMatchDetail, fetchMatchList } from "@/shared/api/matc
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchStudentProfiles } from "@/shared/api/profile";
 
+const router = useRouter();
 const profiles = ref<StudentProfileRecord[]>([]);
 const jobs = ref<JobRecord[]>([]);
 const matches = ref<MatchResultSummary[]>([]);
@@ -171,6 +173,15 @@ async function repeatAnalyze(): Promise<void> {
   await submitCreateMatch();
 }
 
+function goToReport(matchId: number): void {
+  router.push({
+    path: "/report",
+    query: {
+      match_id: String(matchId),
+    },
+  });
+}
+
 onMounted(async () => {
   await bootstrap();
   await loadMatches();
@@ -254,7 +265,10 @@ onMounted(async () => {
         </ul>
       </div>
 
-      <button class="ghost-btn" :disabled="loading.create" @click="repeatAnalyze">重复分析（验证一致性）</button>
+      <div class="action-row">
+        <button class="ghost-btn" :disabled="loading.create" @click="repeatAnalyze">重复分析（验证一致性）</button>
+        <button class="primary-btn" @click="goToReport(selectedDetail.id)">生成/查看报告</button>
+      </div>
     </section>
 
     <section class="panel">
@@ -304,7 +318,10 @@ onMounted(async () => {
             <td>{{ item.total_score }}</td>
             <td>{{ new Date(item.created_at).toLocaleString() }}</td>
             <td>
-              <button class="table-btn" :disabled="loading.detail" @click="openDetail(item.id)">详情</button>
+              <div class="table-actions">
+                <button class="table-btn" :disabled="loading.detail" @click="openDetail(item.id)">详情</button>
+                <button class="table-btn" @click="goToReport(item.id)">报告</button>
+              </div>
             </td>
           </tr>
           <tr v-if="matches.length === 0">
@@ -451,6 +468,13 @@ input[type="text"] {
 
 .sub-panel h4 {
   margin: 0 0 6px;
+}
+
+.action-row,
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .result-table {

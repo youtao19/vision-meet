@@ -42,6 +42,9 @@ cp apps/backend/.env.example apps/backend/.env
 - `PORT`
 - `DATA_STORE_PATH`
 - `PROFILE_STORE_PATH`
+- `MATCH_STORE_PATH`
+- `REPORT_STORE_PATH`
+- `MATCH_SCORING_VERSION`
 
 ## API
 
@@ -51,6 +54,19 @@ cp apps/backend/.env.example apps/backend/.env
 - `POST /api/v1/jobs/profile/generate`
 - `GET /api/v1/profile`
 - `POST /api/v1/profile`
+- `POST /api/v1/profile/resume`
+- `POST /api/v1/matches`
+- `GET /api/v1/matches`
+- `GET /api/v1/matches/{match_id}`
+- `POST /api/v1/reports`
+- `GET /api/v1/reports?match_id={match_id}`
+- `GET /api/v1/reports/{report_id}`
+- `PATCH /api/v1/reports/{report_id}`
+
+详细说明见：
+
+- [`docs/接口文档.md`](../../docs/接口文档.md)
+- [`packages/contracts/openapi/career-agent.openapi.yaml`](../../packages/contracts/openapi/career-agent.openapi.yaml)
 
 ## 存储适配器
 
@@ -58,5 +74,7 @@ cp apps/backend/.env.example apps/backend/.env
 
 - `modules/jobs/jobs.repository.json.ts`
 - `modules/profile/profile.repository.json.ts`
+- `modules/matching/matching.repository.json.ts`
+- `modules/report/report.repository.json.ts`
 
 后续接 PostgreSQL/pgvector/Neo4j 时，新增 repository adapter 文件，不修改 route/service 调用链。

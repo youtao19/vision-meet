@@ -64,6 +64,12 @@ npm run build
 1. 后端 API：`http://127.0.0.1:8000/api/v1/jobs`
 1. 前端：`http://127.0.0.1:5173`
 
+## 接口文档
+
+- 人读版接口文档：[`docs/接口文档.md`](./docs/接口文档.md)
+- OpenAPI 契约：[`packages/contracts/openapi/career-agent.openapi.yaml`](./packages/contracts/openapi/career-agent.openapi.yaml)
+- 共享类型：[`packages/contracts/types/index.ts`](./packages/contracts/types/index.ts)
+
 ## 当前后端已实现 API
 
 1. `POST /api/v1/jobs/import`：岗位数据导入（csv/tsv/json/xls/xlsx）
@@ -75,7 +81,11 @@ npm run build
 7. `POST /api/v1/matches`：创建人岗匹配结果（支持复现/缓存语义）
 8. `GET /api/v1/matches`：匹配结果列表查询（按画像/岗位筛选）
 9. `GET /api/v1/matches/{match_id}`：匹配结果详情查询
-10. `GET /healthz`：服务健康检查（含存储文件路径）
+10. `POST /api/v1/reports`：基于匹配结果生成职业报告版本
+11. `GET /api/v1/reports?match_id={match_id}`：查询某个匹配结果下的报告版本列表
+12. `GET /api/v1/reports/{report_id}`：查询职业报告详情
+13. `PATCH /api/v1/reports/{report_id}`：保存职业报告结构化章节编辑结果
+14. `GET /healthz`：服务健康检查（含存储文件路径）
 
 ## 协作规范
 

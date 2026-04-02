@@ -192,4 +192,50 @@ export type MatchResultListResponse = {
   items: MatchResultSummary[];
 };
 
+export type CareerReportSectionKey =
+  | "overview"
+  | "match_analysis"
+  | "strengths"
+  | "gaps_and_actions"
+  | "short_term_plan"
+  | "mid_term_plan";
+
+export type CareerReportSection = {
+  key: CareerReportSectionKey;
+  title: string;
+  content: string;
+};
+
+export type CareerReportSummary = {
+  id: number;
+  match_id: number;
+  version: number;
+  student_profile_id: number;
+  job_id: number;
+  total_score: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CareerReportRecord = CareerReportSummary & {
+  sections: CareerReportSection[];
+};
+
+export type CreateReportRequest = {
+  match_id: number;
+};
+
+export type UpdateReportRequest = {
+  sections: CareerReportSection[];
+};
+
+export type ReportListParams = {
+  match_id: number;
+};
+
+export type ReportListResponse = {
+  total: number;
+  items: CareerReportSummary[];
+};
+
 export type ApiErrorResponse = StructuredApiError;

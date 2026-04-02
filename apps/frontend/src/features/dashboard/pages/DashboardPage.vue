@@ -6,6 +6,7 @@
       <RouterLink to="/">首页</RouterLink>
       <RouterLink to="/profile">学生画像</RouterLink>
       <RouterLink to="/matching">人岗匹配</RouterLink>
+      <RouterLink to="/report">职业报告</RouterLink>
     </nav>
   </section>
 </template>
