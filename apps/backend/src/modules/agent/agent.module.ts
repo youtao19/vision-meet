@@ -1,17 +1,22 @@
 import type { Router } from "express";
+import type { Pool } from "pg";
 
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { MatchingService } from "../matching/matching.service.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import type { ReportService } from "../report/report.service.js";
 import type { KnowledgeService } from "../knowledge/knowledge.service.js";
-import type { LlmClient } from "../../shared/llm/llm-client.js";
 import { createAgentRouter } from "./agent.route.js";
-import { createJsonAgentRepository } from "./agent.repository.json.js";
+import { createPgAgentRepository } from "./agent.repository.pg.js";
 import { createAgentService } from "./agent.service.js";
 
 export type AgentModuleOptions = {
-  runStorePath?: string;
+  pool: Pool;
+  piAgentDir?: string;
+  sessionStoreDir?: string;
+  model?: string;
+  thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  cwd?: string;
 };
 
 export type AgentModuleDependencies = {
@@ -20,7 +25,6 @@ export type AgentModuleDependencies = {
   knowledgeService: KnowledgeService;
   matchingService: MatchingService;
   reportService: ReportService;
-  llmClient: LlmClient;
 };
 
 /**
@@ -29,9 +33,9 @@ export type AgentModuleDependencies = {
  */
 export function createAgentModule(
   dependencies: AgentModuleDependencies,
-  options: AgentModuleOptions = {},
+  options: AgentModuleOptions,
 ): Router {
-  const agentRepository = createJsonAgentRepository(options.runStorePath);
+  const agentRepository = createPgAgentRepository(options.pool);
   const service = createAgentService({
     agentRepository,
     profileRepository: dependencies.profileRepository,
@@ -39,7 +43,11 @@ export function createAgentModule(
     knowledgeService: dependencies.knowledgeService,
     matchingService: dependencies.matchingService,
     reportService: dependencies.reportService,
-    llmClient: dependencies.llmClient,
+    piAgentDir: options.piAgentDir,
+    sessionStoreDir: options.sessionStoreDir,
+    model: options.model,
+    thinkingLevel: options.thinkingLevel,
+    cwd: options.cwd,
   });
 
   return createAgentRouter(service);

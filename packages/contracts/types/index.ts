@@ -365,42 +365,86 @@ export type KnowledgeEvaluationResponse = {
   cases: KnowledgeEvaluationCaseResult[];
 };
 
-export type AgentWarningCode = "EVIDENCE_INSUFFICIENT" | "REPORT_TEMPLATE_FALLBACK";
+export type AgentWarningCode =
+  | "EVIDENCE_INSUFFICIENT"
+  | "KNOWLEDGE_SEARCH_FAILED"
+  | "REPORT_TEMPLATE_FALLBACK"
+  | "REPORT_GENERATION_FAILED"
+  | "FINAL_SUMMARY_FALLBACK";
 
-export type AgentToolTraceStatus = "success" | "warning" | "error" | "skipped";
+export type AgentTaskStatus = "success" | "partial_success" | "failed";
 
-export type AgentToolTraceStep =
-  | "validate_context"
+export type AgentDeliverable = "match_analysis" | "career_report";
+
+export type AgentToolName =
+  | "task_planning"
+  | "context_lookup"
   | "knowledge_search"
-  | "matching"
-  | "llm_analysis"
-  | "report_generation";
+  | "match_evaluation"
+  | "report_generation"
+  | "final_answer";
 
-export type AgentToolTraceItem = {
-  step: AgentToolTraceStep;
-  status: AgentToolTraceStatus;
+export type AgentStepTraceStatus = "success" | "warning" | "error" | "skipped";
+
+export type AgentPlanStep = {
+  id: string;
+  tool: AgentToolName;
+  title: string;
+  purpose: string;
+};
+
+export type AgentStepTraceItem = {
+  step_id: string;
+  tool: AgentToolName;
+  title: string;
+  status: AgentStepTraceStatus;
   duration_ms: number;
   input_summary: string;
   output_summary: string;
   error_code?: string;
 };
 
-export type AgentAnalyzeRequest = {
+export type CreateAgentTaskRequest = {
   student_profile_id: number;
   job_id: number;
+  objective?: string;
+  deliverables?: AgentDeliverable[];
   force_recalculate?: boolean;
   top_k?: number;
 };
 
-export type AgentAnalyzeResponse = {
-  agent_run_id: number;
-  trace_id: string;
-  model: string | null;
+export type AgentTaskResult = {
+  summary: string;
   knowledge_hits: KnowledgeSearchResultItem[];
-  match_result: MatchResultDetail;
+  match_result: MatchResultDetail | null;
   report: CareerReportRecord | null;
   warnings: AgentWarningCode[];
-  tool_trace: AgentToolTraceItem[];
 };
+
+export type AgentTaskResponse = {
+  task_id: number;
+  trace_id: string;
+  status: AgentTaskStatus;
+  student_profile_id: number;
+  job_id: number;
+  objective: string;
+  deliverables: AgentDeliverable[];
+  model: string | null;
+  planned_steps: AgentPlanStep[];
+  step_trace: AgentStepTraceItem[];
+  result: AgentTaskResult;
+  created_at: string;
+  finished_at: string;
+};
+
+/**
+ * 文件作用：为旧命名保留兼容别名，避免前后端在本轮重构期间出现大面积断裂。
+ * 注意：新代码应优先使用 Task / Step 语义，而不是 Analyze / ToolTrace 语义。
+ */
+export type AgentToolTraceStatus = AgentStepTraceStatus;
+export type AgentToolTraceStep = AgentToolName;
+export type AgentToolTraceItem = AgentStepTraceItem;
+export type AgentAnalyzeRequest = CreateAgentTaskRequest;
+export type AgentAnalyzeResponse = AgentTaskResponse;
 
 export type ApiErrorResponse = StructuredApiError;

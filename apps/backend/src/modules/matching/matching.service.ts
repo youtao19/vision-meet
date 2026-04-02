@@ -26,9 +26,9 @@ import type {
  * 依赖关系：仅依赖 repository 抽象，不直接依赖具体存储 adapter。
  */
 export interface MatchingService {
-  createMatch(input: CreateMatchRequest): MatchResultDetail;
-  listMatches(params: MatchListParams): MatchResultListResponse;
-  getMatchDetail(matchId: number): MatchResultDetail;
+  createMatch(input: CreateMatchRequest): Promise<MatchResultDetail>;
+  listMatches(params: MatchListParams): Promise<MatchResultListResponse>;
+  getMatchDetail(matchId: number): Promise<MatchResultDetail>;
 }
 
 const DIMENSION_ORDER: DimensionKey[] = [
@@ -251,13 +251,13 @@ function buildGapAndExplanation(params: {
   };
 }
 
-function ensureJobProfileSnapshot(jobId: number, jobsRepository: JobsRepository) {
-  const latest = jobsRepository.getLatestProfileByJobId(jobId);
+async function ensureJobProfileSnapshot(jobId: number, jobsRepository: JobsRepository) {
+  const latest = await jobsRepository.getLatestProfileByJobId(jobId);
   if (latest) {
     return latest;
   }
 
-  const job = jobsRepository.getJobById(jobId);
+  const job = await jobsRepository.getJobById(jobId);
   if (!job) {
     throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
   }
@@ -312,18 +312,18 @@ export function createMatchingService(
   jobsRepository: JobsRepository,
   options: MatchingServiceOptions,
 ): MatchingService {
-  function createMatch(input: CreateMatchRequest): MatchResultDetail {
-    const profile = profileRepository.getStudentProfileById(input.student_profile_id);
+  async function createMatch(input: CreateMatchRequest): Promise<MatchResultDetail> {
+    const profile = await profileRepository.getStudentProfileById(input.student_profile_id);
     if (!profile) {
       throw new HttpError(404, "STUDENT_PROFILE_NOT_FOUND", "学生画像不存在");
     }
 
-    const job = jobsRepository.getJobById(input.job_id);
+    const job = await jobsRepository.getJobById(input.job_id);
     if (!job) {
       throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
     }
 
-    const latestJobProfile = ensureJobProfileSnapshot(job.id, jobsRepository);
+    const latestJobProfile = await ensureJobProfileSnapshot(job.id, jobsRepository);
 
     const inputFingerprint = createMatchFingerprint({
       student_profile_id: profile.id,
@@ -348,7 +348,7 @@ export function createMatchingService(
     };
 
     if (!input.force_recalculate) {
-      const reusable = matchingRepository.findReusableResult(uniqueKey);
+      const reusable = await matchingRepository.findReusableResult(uniqueKey);
       if (reusable) {
         return {
           ...reusable,
@@ -390,12 +390,12 @@ export function createMatchingService(
     );
   }
 
-  function listMatches(params: MatchListParams): MatchResultListResponse {
+  async function listMatches(params: MatchListParams): Promise<MatchResultListResponse> {
     return matchingRepository.listMatchResults(params);
   }
 
-  function getMatchDetail(matchId: number): MatchResultDetail {
-    const matched = matchingRepository.getMatchResultById(matchId);
+  async function getMatchDetail(matchId: number): Promise<MatchResultDetail> {
+    const matched = await matchingRepository.getMatchResultById(matchId);
     if (!matched) {
       throw new HttpError(404, "MATCH_NOT_FOUND", "匹配结果不存在");
     }

@@ -1,9 +1,9 @@
-import type { AgentAnalyzeRequest, AgentAnalyzeResponse } from "@career/contracts/types";
+import type { AgentTaskResponse, CreateAgentTaskRequest } from "@career/contracts/types";
 
 import { requestJson } from "./http";
 
-export async function runAgentAnalysis(payload: AgentAnalyzeRequest): Promise<AgentAnalyzeResponse> {
-  return requestJson<AgentAnalyzeResponse>("/api/v1/agent/analyze", {
+export async function createAgentTask(payload: CreateAgentTaskRequest): Promise<AgentTaskResponse> {
+  return requestJson<AgentTaskResponse>("/api/v1/agent/tasks", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

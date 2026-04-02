@@ -9,10 +9,9 @@ export type JobCreateInput = Omit<JobRecord, "id" | "created_at">;
 export type JobProfileCreateInput = Omit<JobProfileRecord, "id" | "created_at">;
 
 export interface JobsRepository {
-  addJobs(rows: JobCreateInput[]): { imported: number; insertedJobs: JobRecord[] };
-  listJobs(params: JobsListParams): JobsListResponse;
-  getJobById(jobId: number): JobRecord | null;
-  getLatestProfileByJobId(jobId: number): JobProfileRecord | null;
-  createJobProfile(profile: JobProfileCreateInput): JobProfileRecord;
-  getStorePath(): string;
+  addJobs(rows: JobCreateInput[]): Promise<{ imported: number; insertedJobs: JobRecord[] }>;
+  listJobs(params: JobsListParams): Promise<JobsListResponse>;
+  getJobById(jobId: number): Promise<JobRecord | null>;
+  getLatestProfileByJobId(jobId: number): Promise<JobProfileRecord | null>;
+  createJobProfile(profile: JobProfileCreateInput): Promise<JobProfileRecord>;
 }

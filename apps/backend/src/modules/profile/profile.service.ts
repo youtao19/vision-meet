@@ -342,12 +342,12 @@ function buildProfileInputFromResume(
  * - input: 标准画像输入。
  * - sourceType/sourceDigest: 数据来源标记与可追踪摘要。
  */
-function createProfileRecord(
+async function createProfileRecord(
   repository: ProfileRepository,
   input: CreateStudentProfileRequest,
   sourceType: "manual" | "resume",
   sourceDigest: string,
-): StudentProfileRecord {
+): Promise<StudentProfileRecord> {
   const skills = uniqueNonEmpty(input.skills);
   const certificates = uniqueNonEmpty(input.certificates || []);
   const experience = normalizeExperience(input.experience);
@@ -419,7 +419,7 @@ export function createProfileService(
       parse_mode: input.parse_mode ?? "tolerant",
     });
     const mappedInput = buildProfileInputFromResume(input);
-    const profile = createProfileRecord(repository, mappedInput, "resume", digest);
+    const profile = await createProfileRecord(repository, mappedInput, "resume", digest);
     if (options.onResumeProfileCreated) {
       await options.onResumeProfileCreated({
         profile,

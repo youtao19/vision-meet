@@ -89,7 +89,7 @@ export interface ReportService {
    * 返回：按 version 倒序排列的报告摘要列表。
    * 注意：若 match_id 不存在，应优先返回明确 404。
    */
-  listReports(params: ReportListParams): ReportListResponse;
+  listReports(params: ReportListParams): Promise<ReportListResponse>;
 
   /**
    * 作用：查询单份报告详情。
@@ -97,7 +97,7 @@ export interface ReportService {
    * 返回：完整报告记录，包含结构化章节。
    * 注意：不存在时返回 REPORT_NOT_FOUND。
    */
-  getReport(reportId: number): CareerReportRecord;
+  getReport(reportId: number): Promise<CareerReportRecord>;
 
   /**
    * 作用：保存当前报告版本的结构化章节编辑结果。
@@ -105,7 +105,7 @@ export interface ReportService {
    * 返回：更新后的报告详情。
    * 注意：本次保存只更新当前版本，不复制新版本。
    */
-  updateReport(reportId: number, input: UpdateReportRequest): CareerReportRecord;
+  updateReport(reportId: number, input: UpdateReportRequest): Promise<CareerReportRecord>;
 
   /**
    * 作用：为指定报告版本生成一份新的导出产物并落盘登记。
@@ -121,7 +121,7 @@ export interface ReportService {
    * 返回：按导出时间倒序排列的导出记录列表。
    * 注意：若报告不存在，优先返回 REPORT_NOT_FOUND。
    */
-  listReportExports(reportId: number): ReportExportListResponse;
+  listReportExports(reportId: number): Promise<ReportExportListResponse>;
 
   /**
    * 作用：读取单条导出记录。
@@ -129,7 +129,7 @@ export interface ReportService {
    * 返回：导出记录详情。
    * 注意：若记录不存在，返回 REPORT_EXPORT_NOT_FOUND。
    */
-  getReportExport(exportId: number): CareerReportExportRecord;
+  getReportExport(exportId: number): Promise<CareerReportExportRecord>;
 
   /**
    * 作用：解析导出记录对应的本地文件绝对路径，供下载路由使用。
@@ -137,7 +137,9 @@ export interface ReportService {
    * 返回：文件绝对路径与导出记录。
    * 注意：若文件缺失，视为导出记录已损坏并返回 REPORT_EXPORT_NOT_FOUND。
    */
-  resolveReportExportDownload(exportId: number): { record: CareerReportExportRecord; absoluteFilePath: string };
+  resolveReportExportDownload(
+    exportId: number,
+  ): Promise<{ record: CareerReportExportRecord; absoluteFilePath: string }>;
 }
 
 export type ReportServiceOptions = {
@@ -167,8 +169,8 @@ export function createReportService(
   const exportDir =
     options.exportDir || path.join(process.cwd(), "storage", "exports", "reports");
 
-  function ensureMatchExists(matchId: number) {
-    const match = matchingRepository.getMatchResultById(matchId);
+  async function ensureMatchExists(matchId: number) {
+    const match = await matchingRepository.getMatchResultById(matchId);
     if (!match) {
       throw new HttpError(404, "MATCH_NOT_FOUND", "匹配结果不存在");
     }
@@ -179,19 +181,19 @@ export function createReportService(
     input: CreateReportRequest,
     context?: ReportCreateContext,
   ): Promise<ReportCreateResult> {
-    const match = ensureMatchExists(input.match_id);
+    const match = await ensureMatchExists(input.match_id);
 
-    const profile = profileRepository.getStudentProfileById(match.student_profile_id);
+    const profile = await profileRepository.getStudentProfileById(match.student_profile_id);
     if (!profile) {
       throw new HttpError(404, "STUDENT_PROFILE_NOT_FOUND", "学生画像不存在");
     }
 
-    const job = jobsRepository.getJobById(match.job_id);
+    const job = await jobsRepository.getJobById(match.job_id);
     if (!job) {
       throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
     }
 
-    const existing = reportRepository.listReports({ match_id: input.match_id }).items;
+    const existing = (await reportRepository.listReports({ match_id: input.match_id })).items;
     const nextVersion = existing.length > 0 ? existing[0].version + 1 : 1;
     const generated = await generator.generate({
       match,
@@ -204,7 +206,7 @@ export function createReportService(
     assertValidSectionSet(generated.sections);
 
     return {
-      report: reportRepository.createReport({
+      report: await reportRepository.createReport({
         match_id: input.match_id,
         version: nextVersion,
         student_profile_id: match.student_profile_id,
@@ -224,32 +226,32 @@ export function createReportService(
     return result.report;
   }
 
-  function listReports(params: ReportListParams): ReportListResponse {
-    ensureMatchExists(params.match_id);
+  async function listReports(params: ReportListParams): Promise<ReportListResponse> {
+    await ensureMatchExists(params.match_id);
     return reportRepository.listReports(params);
   }
 
-  function getReport(reportId: number): CareerReportRecord {
-    const report = reportRepository.getReportById(reportId);
+  async function getReport(reportId: number): Promise<CareerReportRecord> {
+    const report = await reportRepository.getReportById(reportId);
     if (!report) {
       throw new HttpError(404, "REPORT_NOT_FOUND", "报告不存在");
     }
     return report;
   }
 
-  function getReportExport(exportId: number): CareerReportExportRecord {
-    const record = reportExportRepository.getExportRecordById(exportId);
+  async function getReportExport(exportId: number): Promise<CareerReportExportRecord> {
+    const record = await reportExportRepository.getExportRecordById(exportId);
     if (!record) {
       throw new HttpError(404, "REPORT_EXPORT_NOT_FOUND", "报告导出记录不存在");
     }
     return record;
   }
 
-  function updateReport(reportId: number, input: UpdateReportRequest): CareerReportRecord {
-    const existing = getReport(reportId);
+  async function updateReport(reportId: number, input: UpdateReportRequest): Promise<CareerReportRecord> {
+    const existing = await getReport(reportId);
     assertValidSectionSet(input.sections);
 
-    const updated = reportRepository.updateReport(existing.id, normalizeSectionOrder(input.sections));
+    const updated = await reportRepository.updateReport(existing.id, normalizeSectionOrder(input.sections));
     if (!updated) {
       throw new HttpError(404, "REPORT_NOT_FOUND", "报告不存在");
     }
@@ -261,13 +263,13 @@ export function createReportService(
     reportId: number,
     input: CreateReportExportRequest,
   ): Promise<CareerReportExportRecord> {
-    const report = getReport(reportId);
-    const profile = profileRepository.getStudentProfileById(report.student_profile_id);
+    const report = await getReport(reportId);
+    const profile = await profileRepository.getStudentProfileById(report.student_profile_id);
     if (!profile) {
       throw new HttpError(404, "STUDENT_PROFILE_NOT_FOUND", "学生画像不存在");
     }
 
-    const job = jobsRepository.getJobById(report.job_id);
+    const job = await jobsRepository.getJobById(report.job_id);
     if (!job) {
       throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
     }
@@ -279,7 +281,7 @@ export function createReportService(
         job,
       });
 
-      const exportId = reportExportRepository.reserveNextExportId();
+      const exportId = await reportExportRepository.reserveNextExportId();
       const fileName = `report-${report.id}-v${report.version}-${exportId}.${exported.fileExtension}`;
       fs.mkdirSync(exportDir, { recursive: true });
       const absoluteFilePath = path.resolve(exportDir, fileName);
@@ -299,13 +301,13 @@ export function createReportService(
     }
   }
 
-  function listReportExports(reportId: number): ReportExportListResponse {
-    getReport(reportId);
+  async function listReportExports(reportId: number): Promise<ReportExportListResponse> {
+    await getReport(reportId);
     return reportExportRepository.listExportRecordsByReportId(reportId);
   }
 
-  function resolveReportExportDownload(exportId: number) {
-    const record = getReportExport(exportId);
+  async function resolveReportExportDownload(exportId: number) {
+    const record = await getReportExport(exportId);
     const absoluteFilePath = path.resolve(exportDir, record.file_name);
 
     if (!fs.existsSync(absoluteFilePath)) {

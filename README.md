@@ -8,7 +8,7 @@
 1. 前端：Vue3 + TypeScript + Pinia + Vue Router
 2. 后端：Node.js + Express + TypeScript
 3. 契约：OpenAPI + 共享 TypeScript 类型（`packages/contracts`）
-4. 数据层：JSON 文件（当前）/ PostgreSQL + pgvector（目标）
+4. 数据层：PostgreSQL + pgvector
 5. 图谱：Neo4j（目标）
 
 ## 核心协作约束（摘要）
@@ -38,19 +38,36 @@ career-agent/
 
 ## 快速开始（根目录）
 
-1. 安装依赖
+1. 先切到 Node 22.12+
+
+```bash
+node -v
+# 期望看到 v22.12.x 或更高的 22.x
+```
+
+仓库已提供 [`.nvmrc`](./.nvmrc) 和 [`.node-version`](./.node-version)，统一要求使用 Node `22.12.0`。
+
+2. 启动 PostgreSQL（本地 docker compose 场景）
+
+```bash
+docker compose -f infra/docker-compose.yml up -d postgres
+```
+
+若使用仓库自带 compose，记得把后端 `PGPORT` 配成 `5433`。
+
+3. 安装依赖
 
 ```bash
 npm install
 ```
 
-2. 启动前后端
+4. 启动前后端
 
 ```bash
 npm run dev
 ```
 
-3. 常用命令
+5. 常用命令
 
 ```bash
 npm run dev:backend
@@ -65,7 +82,7 @@ npm run moonshot:smoke
 npm run moonshot:smoke:sdk
 ```
 
-4. 访问地址
+6. 访问地址
 1. 后端健康检查：`http://127.0.0.1:8000/healthz`
 1. 后端 API：`http://127.0.0.1:8000/api/v1/jobs`
 1. 前端：`http://127.0.0.1:5173`
@@ -97,8 +114,9 @@ npm run moonshot:smoke:sdk
 17. `POST /api/v1/reports/{report_id}/exports`：生成并登记 PDF 导出产物
 18. `GET /api/v1/reports/{report_id}/exports`：查询当前报告版本的导出记录
 19. `GET /api/v1/report-exports/{export_id}/download`：下载已生成的 PDF 文件
-20. `POST /api/v1/agent/analyze`：执行 Pi Agent 同步编排分析（检索 -> 匹配 -> LLM 摘要 -> 报告）
-21. `GET /healthz`：服务健康检查（含存储文件路径）
+20. `POST /api/v1/agent/tasks`：创建一次 Agent 任务（任务规划 -> 工具执行 -> 结果汇总）
+21. `GET /api/v1/agent/tasks/{task_id}`：查询单个 Agent 任务结果
+22. `GET /healthz`：服务健康检查（含数据库连接摘要）
 
 ## 知识库说明
 
@@ -107,13 +125,15 @@ npm run moonshot:smoke:sdk
 3. PostgreSQL/pgvector 初始化 SQL 位于 [`infra/sql/knowledge.init.sql`](./infra/sql/knowledge.init.sql)。
 4. 简历上传成功后，会自动把简历原文同步写入知识库，并通过 `student_profile_id` 建立关联。
 
-## Pi Agent 说明
+## Agent 说明
 
-1. Pi Agent V1 通过 `/api/v1/agent/analyze` 暴露同步编排入口，固定执行“上下文校验 -> 知识检索 -> 匹配分析 -> LLM 摘要 -> 报告生成”。
-2. 若知识检索为空，会返回匹配结果和 `EVIDENCE_INSUFFICIENT` 告警，但不会强行生成证据型报告。
-3. 大模型通过 OpenAI 兼容接口接入，后端需配置 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL`、`LLM_TIMEOUT_MS`、`LLM_TEMPERATURE`。
-4. 如需绕开业务链路单独验证 Moonshot/Kimi 凭证，可直接运行 `npm run moonshot:smoke`，脚本会先验证 `/models` 再验证最小 `chat/completions`。
-5. 如需严格按 Moonshot 官方文档的 OpenAI SDK 方式验证，可运行 `npm run moonshot:smoke:sdk`，用于排除自写 HTTP 请求与 SDK 行为差异。
+1. 当前 `/api/v1/agent/tasks` 已切换为真实的 Pi SDK 运行时：后端不再手写固定 workflow，而是把 `load_task_context`、`search_knowledge`、`create_match`、`create_report` 封装成 Pi 可调用工具，由 Pi 决定调用顺序并返回最终总结。
+2. Agent 默认使用独立配置目录 `~/.career-agent/pi-agent`，不会把其他项目目录当成自己的运行目录；但如果独立目录缺少 `auth.json` 或 `models.json`，会自动从 `~/.openclaw/agents/main/agent` 复制缺失文件做一次兼容导入。如需自定义，可通过 `AGENT_PI_DIR`、`AGENT_SESSION_STORE_DIR`、`AGENT_MODEL`、`AGENT_THINKING_LEVEL` 覆盖。
+3. 当前业务报告模块仍通过现有 OpenAI 兼容 LLM 配置工作，因此若需要生成职业报告，后端仍需配置 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL`、`LLM_TIMEOUT_MS`、`LLM_TEMPERATURE`。
+4. 若只想让 Pi Agent 跑起来，需先在独立 Agent 目录准备好 `auth.json` / `models.json`，或确保对应 provider 的标准环境变量已存在；若显式设置 `AGENT_MODEL`，格式必须为 `provider/model`。
+5. 当前代码已通过 `npm run type-check`、`npm run build:backend` 和 `createApp()` 级别验证；真实任务执行仍依赖本机的 Agent 凭证、知识库和业务数据是否准备完毕。
+6. 如需绕开业务链路单独验证 Moonshot/Kimi 凭证，可直接运行 `npm run moonshot:smoke`，脚本会先验证 `/models` 再验证最小 `chat/completions`。
+7. 如需严格按 Moonshot 官方文档的 OpenAI SDK 方式验证，可运行 `npm run moonshot:smoke:sdk`，用于排除自写 HTTP 请求与 SDK 行为差异。
 
 ## 协作规范
 

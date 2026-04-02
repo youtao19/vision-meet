@@ -11,16 +11,15 @@ import { generateJobProfile } from "./jobs.profile.js";
 import type { JobsRepository } from "./jobs.repository.js";
 
 export interface JobsService {
-  importJobs(file: { originalname: string; buffer: Buffer }): JobImportResponse;
-  listJobs(params: JobsListParams): JobsListResponse;
-  generateProfile(input: JobProfileGenerateRequest): JobProfileGenerateResponse;
-  getStorePath(): string;
+  importJobs(file: { originalname: string; buffer: Buffer }): Promise<JobImportResponse>;
+  listJobs(params: JobsListParams): Promise<JobsListResponse>;
+  generateProfile(input: JobProfileGenerateRequest): Promise<JobProfileGenerateResponse>;
 }
 
 export function createJobsService(repository: JobsRepository): JobsService {
-  function importJobs(file: { originalname: string; buffer: Buffer }): JobImportResponse {
+  async function importJobs(file: { originalname: string; buffer: Buffer }): Promise<JobImportResponse> {
     const parsed = parseUploadedJobs(file);
-    const { imported } = repository.addJobs(parsed.rows);
+    const { imported } = await repository.addJobs(parsed.rows);
 
     return {
       imported,
@@ -29,17 +28,17 @@ export function createJobsService(repository: JobsRepository): JobsService {
     };
   }
 
-  function listJobs(params: JobsListParams): JobsListResponse {
+  async function listJobs(params: JobsListParams): Promise<JobsListResponse> {
     return repository.listJobs(params);
   }
 
-  function generateProfile(input: JobProfileGenerateRequest): JobProfileGenerateResponse {
-    const job = repository.getJobById(input.job_id);
+  async function generateProfile(input: JobProfileGenerateRequest): Promise<JobProfileGenerateResponse> {
+    const job = await repository.getJobById(input.job_id);
     if (!job) {
       throw new Error("NOT_FOUND:岗位不存在");
     }
 
-    const latest = repository.getLatestProfileByJobId(input.job_id);
+    const latest = await repository.getLatestProfileByJobId(input.job_id);
     if (latest && !input.force_regenerate) {
       return { ...latest, cached: true };
     }
@@ -47,7 +46,7 @@ export function createJobsService(repository: JobsRepository): JobsService {
     const generated = generateJobProfile(job);
     const profileVersion = latest ? latest.profile_version + 1 : 1;
 
-    const profile = repository.createJobProfile({
+    const profile = await repository.createJobProfile({
       job_id: job.id,
       profile_version: profileVersion,
       hard_skills: generated.hard_skills,
@@ -65,6 +64,5 @@ export function createJobsService(repository: JobsRepository): JobsService {
     importJobs,
     listJobs,
     generateProfile,
-    getStorePath: repository.getStorePath,
   };
 }

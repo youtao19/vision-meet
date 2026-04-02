@@ -1,33 +1,39 @@
-import type { AgentToolTraceItem, AgentWarningCode } from "@career/contracts/types";
+import type {
+  AgentDeliverable,
+  AgentPlanStep,
+  AgentStepTraceItem,
+  AgentTaskResult,
+  AgentTaskStatus,
+} from "@career/contracts/types";
 
 /**
- * 文件作用：定义 agent 编排运行记录的存储抽象。
- * 设计边界：当前只负责审计落库，不暴露额外查询接口，后续需要列表/详情时再扩展。
+ * 文件作用：定义任务型 agent 运行记录的存储抽象。
+ * 设计边界：repository 负责保存任务快照，service 决定如何规划和执行工具。
  */
-export type AgentRunStatus = "success" | "partial_success" | "failed";
-
-export type AgentRunCreateInput = {
+export type AgentTaskCreateInput = {
   trace_id: string;
   model: string | null;
+  status: AgentTaskStatus;
   student_profile_id: number;
   job_id: number;
+  objective: string;
+  deliverables: AgentDeliverable[];
   force_recalculate: boolean;
   top_k: number;
-  status: AgentRunStatus;
-  knowledge_hit_count: number;
-  match_result_id: number | null;
-  report_id: number | null;
-  warnings: AgentWarningCode[];
-  tool_trace: AgentToolTraceItem[];
+  planned_steps: AgentPlanStep[];
+  step_trace: AgentStepTraceItem[];
+  result: AgentTaskResult;
   error_code?: string;
   error_message?: string;
+  created_at: string;
+  finished_at: string;
 };
 
-export type AgentRunRecord = AgentRunCreateInput & {
+export type AgentTaskRecord = AgentTaskCreateInput & {
   id: number;
-  created_at: string;
 };
 
 export interface AgentRepository {
-  createRun(input: AgentRunCreateInput): AgentRunRecord;
+  createTask(input: AgentTaskCreateInput): Promise<AgentTaskRecord>;
+  getTaskById(taskId: number): Promise<AgentTaskRecord | undefined>;
 }

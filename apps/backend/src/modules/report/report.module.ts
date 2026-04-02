@@ -1,29 +1,26 @@
 import type { Router } from "express";
+import type { Pool } from "pg";
 import type { LlmClient } from "../../shared/llm/llm-client.js";
 
-import { createJsonJobsRepository } from "../jobs/jobs.repository.json.js";
+import { createPgJobsRepository } from "../jobs/jobs.repository.pg.js";
 import type { JobsRepository } from "../jobs/jobs.repository.js";
-import { createJsonMatchingRepository } from "../matching/matching.repository.json.js";
+import { createPgMatchingRepository } from "../matching/matching.repository.pg.js";
 import type { MatchingRepository } from "../matching/matching.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
-import { createJsonProfileRepository } from "../profile/profile.repository.json.js";
-import { createJsonReportExportRepository } from "./report-export.repository.json.js";
+import { createPgProfileRepository } from "../profile/profile.repository.pg.js";
+import { createPgReportExportRepository } from "./report-export.repository.pg.js";
 import type { ReportExportRepository } from "./report-export.repository.js";
 import { createLlmFirstReportGenerator } from "./llm-report.generator.js";
 import { createPlaywrightReportExporter } from "./playwright-report.exporter.js";
 import { createReportExportDownloadRouter, createReportRouter } from "./report.route.js";
-import { createJsonReportRepository } from "./report.repository.json.js";
+import { createPgReportRepository } from "./report.repository.pg.js";
 import type { ReportRepository } from "./report.repository.js";
 import { createReportService } from "./report.service.js";
 import { createTemplateReportGenerator } from "./template-report.generator.js";
 
 export type ReportModuleOptions = {
-  dataStorePath?: string;
-  profileStorePath?: string;
-  matchStorePath?: string;
-  reportStorePath?: string;
+  pool: Pool;
   reportExportDir?: string;
-  reportExportStorePath?: string;
 };
 
 export type ReportServiceDependencies = {
@@ -35,9 +32,13 @@ export type ReportServiceDependencies = {
   llmClient?: LlmClient | null;
 };
 
+export type ReportServiceFactoryOptions = {
+  reportExportDir?: string;
+};
+
 export function createReportServiceFromDependencies(
   dependencies: ReportServiceDependencies,
-  options: ReportModuleOptions = {},
+  options: ReportServiceFactoryOptions = {},
 ) {
   const templateGenerator = createTemplateReportGenerator();
   const generator = createLlmFirstReportGenerator(dependencies.llmClient ?? null, templateGenerator);
@@ -61,12 +62,12 @@ export function createReportServiceFromDependencies(
  * 文件作用：装配 report 领域依赖。
  * 依赖关系：统一在 module 中注入 repository 与 generator，避免 route/service 感知具体实现。
  */
-export function createReportModule(options: ReportModuleOptions = {}): Router {
-  const reportRepository = createJsonReportRepository(options.reportStorePath);
-  const reportExportRepository = createJsonReportExportRepository(options.reportExportStorePath);
-  const matchingRepository = createJsonMatchingRepository(options.matchStorePath);
-  const profileRepository = createJsonProfileRepository(options.profileStorePath);
-  const jobsRepository = createJsonJobsRepository(options.dataStorePath);
+export function createReportModule(options: ReportModuleOptions): Router {
+  const reportRepository = createPgReportRepository(options.pool);
+  const reportExportRepository = createPgReportExportRepository(options.pool);
+  const matchingRepository = createPgMatchingRepository(options.pool);
+  const profileRepository = createPgProfileRepository(options.pool);
+  const jobsRepository = createPgJobsRepository(options.pool);
   const service = createReportServiceFromDependencies(
     {
       reportRepository,
@@ -81,12 +82,12 @@ export function createReportModule(options: ReportModuleOptions = {}): Router {
   return createReportRouter(service);
 }
 
-export function createReportExportDownloadModule(options: ReportModuleOptions = {}): Router {
-  const reportRepository = createJsonReportRepository(options.reportStorePath);
-  const reportExportRepository = createJsonReportExportRepository(options.reportExportStorePath);
-  const matchingRepository = createJsonMatchingRepository(options.matchStorePath);
-  const profileRepository = createJsonProfileRepository(options.profileStorePath);
-  const jobsRepository = createJsonJobsRepository(options.dataStorePath);
+export function createReportExportDownloadModule(options: ReportModuleOptions): Router {
+  const reportRepository = createPgReportRepository(options.pool);
+  const reportExportRepository = createPgReportExportRepository(options.pool);
+  const matchingRepository = createPgMatchingRepository(options.pool);
+  const profileRepository = createPgProfileRepository(options.pool);
+  const jobsRepository = createPgJobsRepository(options.pool);
   const service = createReportServiceFromDependencies(
     {
       reportRepository,

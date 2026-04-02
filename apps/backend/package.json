@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.12.0 <23"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -20,6 +20,8 @@
     "moonshot:smoke:sdk": "tsx src/scripts/moonshot-openai-sdk-smoke.ts"
   },
   "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.64.0",
+    "@sinclair/typebox": "^0.34.41",
     "@career/contracts": "*",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

@@ -2,13 +2,9 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
-import type {
-  AgentAnalyzeResponse,
-  JobRecord,
-  StudentProfileRecord,
-} from "@career/contracts/types";
+import type { AgentTaskResponse, JobRecord, StudentProfileRecord } from "@career/contracts/types";
 
-import { runAgentAnalysis } from "@/shared/api/agent";
+import { createAgentTask } from "@/shared/api/agent";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchJobs } from "@/shared/api/jobs";
 import { fetchStudentProfiles } from "@/shared/api/profile";
@@ -17,7 +13,7 @@ const router = useRouter();
 
 const profiles = ref<StudentProfileRecord[]>([]);
 const jobs = ref<JobRecord[]>([]);
-const result = ref<AgentAnalyzeResponse | null>(null);
+const result = ref<AgentTaskResponse | null>(null);
 
 const loading = reactive({
   bootstrap: false,
@@ -27,8 +23,13 @@ const loading = reactive({
 const form = reactive({
   studentProfileId: "",
   jobId: "",
+  objective: "",
   forceRecalculate: false,
   topK: 5,
+  deliverables: {
+    matchAnalysis: true,
+    careerReport: true,
+  },
 });
 
 const uiState = reactive({
@@ -76,11 +77,27 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-async function submitAnalyze(): Promise<void> {
+const selectedDeliverables = computed(() => {
+  const items: Array<"match_analysis" | "career_report"> = [];
+  if (form.deliverables.matchAnalysis) {
+    items.push("match_analysis");
+  }
+  if (form.deliverables.careerReport) {
+    items.push("career_report");
+  }
+  return items;
+});
+
+async function submitTask(): Promise<void> {
   const studentProfileId = toPositiveInt(form.studentProfileId);
   const jobId = toPositiveInt(form.jobId);
   if (!studentProfileId || !jobId) {
     uiState.error = "请选择合法的学生画像和岗位";
+    return;
+  }
+
+  if (selectedDeliverables.value.length === 0) {
+    uiState.error = "至少选择一个任务交付物";
     return;
   }
 
@@ -89,16 +106,18 @@ async function submitAnalyze(): Promise<void> {
   uiState.success = "";
 
   try {
-    result.value = await runAgentAnalysis({
+    result.value = await createAgentTask({
       student_profile_id: studentProfileId,
       job_id: jobId,
+      objective: form.objective.trim() || undefined,
+      deliverables: selectedDeliverables.value,
       force_recalculate: form.forceRecalculate,
       top_k: form.topK,
     });
 
-    uiState.success = result.value.report
-      ? `Pi Agent 已完成分析并生成报告 #${result.value.report.id}`
-      : "Pi Agent 已完成匹配分析，但本次未生成证据型报告";
+    uiState.success = result.value.result.report
+      ? `Agent 任务 #${result.value.task_id} 已完成，并生成报告 #${result.value.result.report.id}`
+      : `Agent 任务 #${result.value.task_id} 已完成，当前未生成报告产物`;
   } catch (error) {
     uiState.error = formatApiError(error);
   } finally {
@@ -107,20 +126,24 @@ async function submitAnalyze(): Promise<void> {
 }
 
 function openReport(): void {
-  if (!result.value) {
+  if (!result.value?.result.match_result) {
     return;
   }
 
   router.push({
     path: "/report",
     query: {
-      match_id: String(result.value.match_result.id),
+      match_id: String(result.value.result.match_result.id),
     },
   });
 }
 
 const canAnalyze = computed(() => {
-  return toPositiveInt(form.studentProfileId) !== undefined && toPositiveInt(form.jobId) !== undefined;
+  return (
+    toPositiveInt(form.studentProfileId) !== undefined &&
+    toPositiveInt(form.jobId) !== undefined &&
+    selectedDeliverables.value.length > 0
+  );
 });
 
 onMounted(async () => {
@@ -132,8 +155,8 @@ onMounted(async () => {
   <section class="agent-page">
     <header class="page-header">
       <div>
-        <h2>Pi Agent 编排分析</h2>
-        <p>统一执行知识检索、匹配分析、LLM 摘要和报告生成，输出可追踪的工具轨迹。</p>
+        <h2>任务型 Agent 执行器</h2>
+        <p>围绕明确任务目标自动规划步骤、调用工具，并返回可追踪的最终产物。</p>
       </div>
       <RouterLink class="nav-link" to="/matching">返回匹配页</RouterLink>
     </header>
@@ -142,7 +165,7 @@ onMounted(async () => {
     <p v-if="uiState.success" class="notice notice-success">{{ uiState.success }}</p>
 
     <section class="panel">
-      <h3>执行参数</h3>
+      <h3>任务参数</h3>
       <div class="grid two-col">
         <label>
           学生画像
@@ -165,6 +188,16 @@ onMounted(async () => {
         </label>
       </div>
 
+      <label>
+        任务目标
+        <textarea
+          v-model="form.objective"
+          rows="3"
+          :disabled="loading.analyze"
+          placeholder="例如：评估该学生是否适合该岗位，并生成一份可以继续编辑的职业报告"
+        />
+      </label>
+
       <div class="grid two-col">
         <label>
           检索 Top K
@@ -177,32 +210,50 @@ onMounted(async () => {
         </label>
       </div>
 
-      <button class="primary-btn" :disabled="!canAnalyze || loading.analyze" @click="submitAnalyze">
-        {{ loading.analyze ? "编排执行中..." : "运行 Pi Agent" }}
+      <div class="deliverable-grid">
+        <label class="checkbox-row">
+          <input v-model="form.deliverables.matchAnalysis" type="checkbox" :disabled="loading.analyze" />
+          输出匹配结论
+        </label>
+        <label class="checkbox-row">
+          <input v-model="form.deliverables.careerReport" type="checkbox" :disabled="loading.analyze" />
+          输出职业报告
+        </label>
+      </div>
+
+      <button class="primary-btn" :disabled="!canAnalyze || loading.analyze" @click="submitTask">
+        {{ loading.analyze ? "任务执行中..." : "创建 Agent 任务" }}
       </button>
     </section>
 
     <section v-if="result" class="result-layout">
       <section class="panel">
         <div class="panel-title-row">
-          <h3>执行状态</h3>
-          <span class="trace-tag">run #{{ result.agent_run_id }}</span>
+          <h3>任务状态</h3>
+          <span class="trace-tag">task #{{ result.task_id }}</span>
         </div>
         <p>trace_id：{{ result.trace_id }}</p>
+        <p>状态：{{ result.status }}</p>
         <p>模型：{{ result.model || "未返回" }}</p>
-        <p>匹配结果：#{{ result.match_result.id }}，总分 {{ result.match_result.total_score }}</p>
-        <p v-if="result.warnings.length === 0">本次执行未触发降级告警。</p>
+        <p>目标：{{ result.objective }}</p>
+        <p v-if="result.result.match_result">
+          匹配结果：#{{ result.result.match_result.id }}，总分 {{ result.result.match_result.total_score }}
+        </p>
+        <p v-if="result.result.warnings.length === 0">本次执行未触发降级告警。</p>
         <div v-else class="warning-box">
           <p>降级提示：</p>
           <ul>
-            <li
-              v-for="warning in result.warnings"
-              :key="warning"
-            >
+            <li v-for="warning in result.result.warnings" :key="warning">
               {{
                 warning === "EVIDENCE_INSUFFICIENT"
-                  ? "已完成匹配，但未生成证据型报告。"
-                  : "报告生成已回退到模板兜底版本。"
+                  ? "证据不足，部分结论依赖本地规则和已有数据。"
+                  : warning === "KNOWLEDGE_SEARCH_FAILED"
+                    ? "知识检索失败，任务已降级继续执行。"
+                    : warning === "REPORT_TEMPLATE_FALLBACK"
+                      ? "报告生成已回退到模板兜底版本。"
+                      : warning === "REPORT_GENERATION_FAILED"
+                        ? "报告生成失败，但匹配结论已保留。"
+                        : "最终总结使用了规则兜底版本。"
               }}
             </li>
           </ul>
@@ -210,9 +261,19 @@ onMounted(async () => {
       </section>
 
       <section class="panel">
+        <h3>执行计划</h3>
+        <ol class="plan-list">
+          <li v-for="step in result.planned_steps" :key="step.id">
+            <strong>{{ step.title }}</strong>
+            <p class="muted">{{ step.purpose }}</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="panel">
         <h3>证据片段</h3>
-        <div v-if="result.knowledge_hits.length > 0" class="knowledge-list">
-          <article v-for="item in result.knowledge_hits" :key="item.id" class="knowledge-card">
+        <div v-if="result.result.knowledge_hits.length > 0" class="knowledge-list">
+          <article v-for="item in result.result.knowledge_hits" :key="item.id" class="knowledge-card">
             <header>
               <strong>{{ item.title }}</strong>
               <span>score {{ item.final_score.toFixed(3) }}</span>
@@ -225,39 +286,43 @@ onMounted(async () => {
       </section>
 
       <section class="panel">
-        <h3>匹配摘要</h3>
-        <ul class="score-grid">
-          <li>基础要求：{{ result.match_result.dimension_scores.base_requirements }}</li>
-          <li>职业技能：{{ result.match_result.dimension_scores.professional_skills }}</li>
-          <li>职业素养：{{ result.match_result.dimension_scores.professional_quality }}</li>
-          <li>发展潜力：{{ result.match_result.dimension_scores.development_potential }}</li>
-        </ul>
-        <div class="sub-panel">
-          <h4>建议</h4>
-          <ul>
-            <li v-for="item in result.match_result.suggestions" :key="item">{{ item }}</li>
+        <h3>最终总结</h3>
+        <p>{{ result.result.summary }}</p>
+        <template v-if="result.result.match_result">
+          <ul class="score-grid">
+            <li>基础要求：{{ result.result.match_result.dimension_scores.base_requirements }}</li>
+            <li>职业技能：{{ result.result.match_result.dimension_scores.professional_skills }}</li>
+            <li>职业素养：{{ result.result.match_result.dimension_scores.professional_quality }}</li>
+            <li>发展潜力：{{ result.result.match_result.dimension_scores.development_potential }}</li>
           </ul>
-        </div>
+          <div class="sub-panel">
+            <h4>建议</h4>
+            <ul>
+              <li v-for="item in result.result.match_result.suggestions" :key="item">{{ item }}</li>
+            </ul>
+          </div>
+        </template>
       </section>
 
       <section class="panel">
         <div class="panel-title-row">
           <h3>报告结果</h3>
-          <button v-if="result.report" class="primary-btn" @click="openReport">查看报告</button>
+          <button v-if="result.result.report" class="primary-btn" @click="openReport">查看报告</button>
         </div>
-        <div v-if="result.report" class="report-card">
-          <p>报告 #{{ result.report.id }}，版本 V{{ result.report.version }}</p>
-          <p>章节数：{{ result.report.sections.length }}，总分：{{ result.report.total_score }}</p>
+        <div v-if="result.result.report" class="report-card">
+          <p>报告 #{{ result.result.report.id }}，版本 V{{ result.result.report.version }}</p>
+          <p>章节数：{{ result.result.report.sections.length }}，总分：{{ result.result.report.total_score }}</p>
         </div>
-        <p v-else class="empty-text">当前只有匹配结果，未生成证据型报告。</p>
+        <p v-else class="empty-text">当前未生成报告产物。</p>
       </section>
 
       <section class="panel full-width">
-        <h3>工具轨迹</h3>
+        <h3>步骤轨迹</h3>
         <table class="trace-table">
           <thead>
             <tr>
               <th>步骤</th>
+              <th>工具</th>
               <th>状态</th>
               <th>耗时</th>
               <th>输入摘要</th>
@@ -265,8 +330,9 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in result.tool_trace" :key="`${item.step}-${item.input_summary}`">
-              <td>{{ item.step }}</td>
+            <tr v-for="item in result.step_trace" :key="`${item.step_id}-${item.input_summary}`">
+              <td>{{ item.title }}</td>
+              <td>{{ item.tool }}</td>
               <td>{{ item.status }}</td>
               <td>{{ item.duration_ms }} ms</td>
               <td>{{ item.input_summary }}</td>
@@ -339,12 +405,17 @@ label {
 }
 
 select,
+textarea,
 input[type="number"] {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid #cbd5e1;
   font: inherit;
+}
+
+textarea {
+  resize: vertical;
 }
 
 .checkbox-row {
@@ -355,6 +426,13 @@ input[type="number"] {
 
 .checkbox-row input {
   width: auto;
+}
+
+.deliverable-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
 }
 
 .primary-btn,
@@ -399,6 +477,11 @@ input[type="number"] {
   color: #9a3412;
 }
 
+.warning-box ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
 .result-layout {
   display: grid;
   gap: 16px;
@@ -423,7 +506,8 @@ input[type="number"] {
 }
 
 .knowledge-list,
-.score-grid {
+.score-grid,
+.plan-list {
   display: grid;
   gap: 12px;
 }
@@ -445,7 +529,8 @@ input[type="number"] {
 }
 
 .knowledge-card p,
-.report-card p {
+.report-card p,
+.plan-list p {
   margin: 0;
 }
 
@@ -459,6 +544,11 @@ input[type="number"] {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+
+.plan-list {
+  margin: 0;
+  padding-left: 20px;
 }
 
 .trace-table {

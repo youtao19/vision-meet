@@ -1,15 +1,16 @@
 import type { Router } from "express";
+import type { Pool } from "pg";
 
-import { createJsonJobsRepository } from "./jobs.repository.json.js";
+import { createPgJobsRepository } from "./jobs.repository.pg.js";
 import { createJobsRouter } from "./jobs.route.js";
 import { createJobsService } from "./jobs.service.js";
 
 export type JobsModuleOptions = {
-  dataStorePath?: string;
+  pool: Pool;
 };
 
-export function createJobsModule(options: JobsModuleOptions = {}): Router {
-  const repository = createJsonJobsRepository(options.dataStorePath);
+export function createJobsModule(options: JobsModuleOptions): Router {
+  const repository = createPgJobsRepository(options.pool);
   const service = createJobsService(repository);
   return createJobsRouter(service);
 }

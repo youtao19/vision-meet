@@ -5,31 +5,36 @@ import express from "express";
 
 import { createAgentModule } from "./modules/agent/agent.module.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
-import { createJsonJobsRepository } from "./modules/jobs/jobs.repository.json.js";
+import { createPgJobsRepository } from "./modules/jobs/jobs.repository.pg.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
 import { createMatchingRouter } from "./modules/matching/matching.route.js";
-import { createJsonMatchingRepository } from "./modules/matching/matching.repository.json.js";
+import { createPgMatchingRepository } from "./modules/matching/matching.repository.pg.js";
 import { createMatchingServiceFromDependencies } from "./modules/matching/matching.module.js";
 import { createProfileModule } from "./modules/profile/profile.module.js";
-import { createJsonProfileRepository } from "./modules/profile/profile.repository.json.js";
-import {
-  createJsonReportExportRepository,
-} from "./modules/report/report-export.repository.json.js";
+import { createPgProfileRepository } from "./modules/profile/profile.repository.pg.js";
+import { createPgReportExportRepository } from "./modules/report/report-export.repository.pg.js";
 import { createReportExportDownloadRouter, createReportRouter } from "./modules/report/report.route.js";
-import { createJsonReportRepository } from "./modules/report/report.repository.json.js";
+import { createPgReportRepository } from "./modules/report/report.repository.pg.js";
 import { createReportServiceFromDependencies } from "./modules/report/report.module.js";
 import { appEnv } from "./shared/config/env.js";
+import { createAppPgPool, formatPgConnectionLabel } from "./shared/db/postgres.js";
 import { HttpError } from "./shared/errors/http-error.js";
 import { createOpenAiCompatibleLlmClient } from "./shared/llm/openai-compatible-llm.client.js";
 
 export function createApp(): express.Express {
   const app = express();
-  const healthRepository = createJsonJobsRepository(appEnv.DATA_STORE_PATH);
-  const jobsRepository = createJsonJobsRepository(appEnv.DATA_STORE_PATH);
-  const profileRepository = createJsonProfileRepository(appEnv.PROFILE_STORE_PATH);
-  const matchingRepository = createJsonMatchingRepository(appEnv.MATCH_STORE_PATH);
-  const reportRepository = createJsonReportRepository(appEnv.REPORT_STORE_PATH);
-  const reportExportRepository = createJsonReportExportRepository(appEnv.REPORT_EXPORT_STORE_PATH);
+  const appDataPool = createAppPgPool({
+    host: appEnv.PGHOST,
+    port: appEnv.PGPORT,
+    database: appEnv.PGDATABASE,
+    user: appEnv.PGUSER,
+    password: appEnv.PGPASSWORD,
+  });
+  const jobsRepository = createPgJobsRepository(appDataPool);
+  const profileRepository = createPgProfileRepository(appDataPool);
+  const matchingRepository = createPgMatchingRepository(appDataPool);
+  const reportRepository = createPgReportRepository(appDataPool);
+  const reportExportRepository = createPgReportExportRepository(appDataPool);
   const knowledgeModule = createKnowledgeModule({
     host: appEnv.PGHOST,
     port: appEnv.PGPORT,
@@ -54,9 +59,6 @@ export function createApp(): express.Express {
       jobsRepository,
     },
     {
-      dataStorePath: appEnv.DATA_STORE_PATH,
-      profileStorePath: appEnv.PROFILE_STORE_PATH,
-      matchStorePath: appEnv.MATCH_STORE_PATH,
       scoringVersion: appEnv.MATCH_SCORING_VERSION,
     },
   );
@@ -70,12 +72,7 @@ export function createApp(): express.Express {
       llmClient,
     },
     {
-      dataStorePath: appEnv.DATA_STORE_PATH,
-      profileStorePath: appEnv.PROFILE_STORE_PATH,
-      matchStorePath: appEnv.MATCH_STORE_PATH,
-      reportStorePath: appEnv.REPORT_STORE_PATH,
       reportExportDir: appEnv.REPORT_EXPORT_DIR,
-      reportExportStorePath: appEnv.REPORT_EXPORT_STORE_PATH,
     },
   );
 
@@ -90,24 +87,34 @@ export function createApp(): express.Express {
     next();
   });
 
-  app.get("/healthz", (_req, res) => {
-    res.json({
-      status: "ok",
-      env: appEnv.APP_ENV,
-      store: healthRepository.getStorePath(),
-    });
+  app.get("/healthz", async (_req, res, next) => {
+    try {
+      await appDataPool.query("SELECT 1");
+      res.json({
+        status: "ok",
+        env: appEnv.APP_ENV,
+        database: formatPgConnectionLabel({
+          host: appEnv.PGHOST,
+          port: appEnv.PGPORT,
+          database: appEnv.PGDATABASE,
+          user: appEnv.PGUSER,
+        }),
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.use(
     "/api/v1/jobs",
     createJobsModule({
-      dataStorePath: appEnv.DATA_STORE_PATH,
+      pool: appDataPool,
     }),
   );
   app.use(
     "/api/v1/profile",
     createProfileModule({
-      profileStorePath: appEnv.PROFILE_STORE_PATH,
+      pool: appDataPool,
       onResumeProfileCreated: ({ profile, resumeInput }) =>
         knowledgeModule.service.indexResumeProfile({ profile, resumeInput }),
     }),
@@ -125,10 +132,14 @@ export function createApp(): express.Express {
         knowledgeService: knowledgeModule.service,
         matchingService,
         reportService,
-        llmClient,
       },
       {
-        runStorePath: appEnv.AGENT_RUN_STORE_PATH,
+        pool: appDataPool,
+        piAgentDir: appEnv.AGENT_PI_DIR,
+        sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
+        model: appEnv.AGENT_MODEL,
+        thinkingLevel: appEnv.AGENT_THINKING_LEVEL,
+        cwd: process.cwd(),
       },
     ),
   );

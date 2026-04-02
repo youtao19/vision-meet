@@ -1,4 +1,5 @@
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 import dotenv from "dotenv";
@@ -16,12 +17,7 @@ for (const envFile of envFileCandidates) {
 const rawEnvSchema = z.object({
   APP_ENV: z.string().default("dev"),
   PORT: z.coerce.number().int().positive().default(8000),
-  DATA_STORE_PATH: z.string().optional(),
-  PROFILE_STORE_PATH: z.string().optional(),
-  MATCH_STORE_PATH: z.string().optional(),
-  REPORT_STORE_PATH: z.string().optional(),
   REPORT_EXPORT_DIR: z.string().optional(),
-  REPORT_EXPORT_STORE_PATH: z.string().optional(),
   MATCH_SCORING_VERSION: z.string().trim().min(1).default("v1"),
   PGHOST: z.string().default("127.0.0.1"),
   PGPORT: z.coerce.number().int().positive().default(5432),
@@ -42,7 +38,12 @@ const rawEnvSchema = z.object({
   LLM_MODEL: z.string().trim().min(1).optional(),
   LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(20000),
   LLM_TEMPERATURE: z.coerce.number().min(0).max(2).optional(),
-  AGENT_RUN_STORE_PATH: z.string().optional(),
+  AGENT_PI_DIR: z.string().optional(),
+  AGENT_SESSION_STORE_DIR: z.string().optional(),
+  AGENT_MODEL: z.string().trim().min(1).optional(),
+  AGENT_THINKING_LEVEL: z
+    .enum(["off", "minimal", "low", "medium", "high", "xhigh"])
+    .default("medium"),
 });
 
 const envSchema = rawEnvSchema.transform((env) => {
@@ -63,6 +64,10 @@ const envSchema = rawEnvSchema.transform((env) => {
     LLM_API_KEY: env.LLM_API_KEY || env.MOONSHOT_API_KEY || env.KIMI_API_KEY,
     LLM_MODEL: normalizedModel,
     LLM_TEMPERATURE: env.LLM_TEMPERATURE ?? (isKimiModel ? 1 : 0.2),
+    AGENT_PI_DIR: env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"),
+    AGENT_SESSION_STORE_DIR:
+      env.AGENT_SESSION_STORE_DIR ||
+      path.join(env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"), "sessions"),
   };
 });
 

@@ -19,8 +19,8 @@ export type MatchResultUniqueKey = Pick<
 >;
 
 export interface MatchingRepository {
-  createMatchResult(input: MatchResultCreateInput): MatchResultDetail;
-  getMatchResultById(matchId: number): MatchResultDetail | null;
-  listMatchResults(params: MatchListParams): MatchResultListResponse;
-  findReusableResult(uniqueKey: MatchResultUniqueKey): MatchResultDetail | null;
+  createMatchResult(input: MatchResultCreateInput): Promise<MatchResultDetail>;
+  getMatchResultById(matchId: number): Promise<MatchResultDetail | null>;
+  listMatchResults(params: MatchListParams): Promise<MatchResultListResponse>;
+  findReusableResult(uniqueKey: MatchResultUniqueKey): Promise<MatchResultDetail | null>;
 }

@@ -19,12 +19,12 @@ npm run dev:backend
 - `modules/jobs/jobs.schemas.ts`
 - `modules/jobs/jobs.service.ts`
 - `modules/jobs/jobs.repository.ts`
-- `modules/jobs/jobs.repository.json.ts`
+- `modules/jobs/jobs.repository.pg.ts`
 - `modules/profile/profile.route.ts`
 - `modules/profile/profile.schemas.ts`
 - `modules/profile/profile.service.ts`
 - `modules/profile/profile.repository.ts`
-- `modules/profile/profile.repository.json.ts`
+- `modules/profile/profile.repository.pg.ts`
 
 ## 配置
 
@@ -36,22 +36,11 @@ npm run dev:backend
 cp apps/backend/.env.example apps/backend/.env
 ```
 
-若后端改走 Docker PostgreSQL（`docker compose` 暴露在 `5433`）：
-
-```bash
-cp apps/backend/.env.docker.example apps/backend/.env
-```
-
 支持变量：
 
 - `APP_ENV`
 - `PORT`
-- `DATA_STORE_PATH`
-- `PROFILE_STORE_PATH`
-- `MATCH_STORE_PATH`
-- `REPORT_STORE_PATH`
 - `REPORT_EXPORT_DIR`
-- `REPORT_EXPORT_STORE_PATH`
 - `MATCH_SCORING_VERSION`
 - `PGHOST`
 - `PGPORT`
@@ -92,14 +81,16 @@ cp apps/backend/.env.docker.example apps/backend/.env
 
 ## 存储适配器
 
-当前使用 JSON 存储适配器：
+当前结构化数据统一使用 PostgreSQL 存储适配器：
 
-- `modules/jobs/jobs.repository.json.ts`
-- `modules/profile/profile.repository.json.ts`
-- `modules/matching/matching.repository.json.ts`
-- `modules/report/report.repository.json.ts`
+- `modules/jobs/jobs.repository.pg.ts`
+- `modules/profile/profile.repository.pg.ts`
+- `modules/matching/matching.repository.pg.ts`
+- `modules/report/report.repository.pg.ts`
+- `modules/report/report-export.repository.pg.ts`
+- `modules/agent/agent.repository.pg.ts`
 
-后续接 PostgreSQL/pgvector/Neo4j 时，新增 repository adapter 文件，不修改 route/service 调用链。
+知识检索仍由 `modules/knowledge/knowledge.repository.pg.ts` 负责，并使用 pgvector 承载向量索引。
 
 ## 知识库脚本
 

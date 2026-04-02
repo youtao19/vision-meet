@@ -10,8 +10,8 @@ import type {
 export type CareerReportExportCreateInput = Omit<CareerReportExportRecord, "created_at">;
 
 export interface ReportExportRepository {
-  reserveNextExportId(): number;
-  createExportRecord(input: CareerReportExportCreateInput): CareerReportExportRecord;
-  listExportRecordsByReportId(reportId: number): ReportExportListResponse;
-  getExportRecordById(exportId: number): CareerReportExportRecord | null;
+  reserveNextExportId(): Promise<number>;
+  createExportRecord(input: CareerReportExportCreateInput): Promise<CareerReportExportRecord>;
+  listExportRecordsByReportId(reportId: number): Promise<ReportExportListResponse>;
+  getExportRecordById(exportId: number): Promise<CareerReportExportRecord | null>;
 }

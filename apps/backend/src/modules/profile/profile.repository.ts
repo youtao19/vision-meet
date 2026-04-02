@@ -10,7 +10,7 @@ import type {
 export type StudentProfileCreateInput = Omit<StudentProfileRecord, "id" | "created_at">;
 
 export interface ProfileRepository {
-  listStudentProfiles(): ListStudentProfilesResponse;
-  getStudentProfileById(profileId: number): StudentProfileRecord | null;
-  createStudentProfile(input: StudentProfileCreateInput): StudentProfileRecord;
+  listStudentProfiles(): Promise<ListStudentProfilesResponse>;
+  getStudentProfileById(profileId: number): Promise<StudentProfileRecord | null>;
+  createStudentProfile(input: StudentProfileCreateInput): Promise<StudentProfileRecord>;
 }

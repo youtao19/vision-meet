@@ -390,22 +390,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/v1/agent/analyze:
+  /api/v1/agent/tasks:
     post:
-      summary: Run Pi Agent Analysis
+      summary: Create Agent Task
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AgentAnalyzeRequest"
+              $ref: "#/components/schemas/AgentTaskRequest"
       responses:
-        "200":
-          description: Agent analysis completed or partially completed
+        "201":
+          description: Agent task completed or partially completed
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AgentAnalyzeResponse"
+                $ref: "#/components/schemas/AgentTaskResponse"
         "400":
           description: Invalid agent request
           content:
@@ -420,6 +420,30 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Agent orchestration or model call failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/agent/tasks/{task_id}:
+    get:
+      summary: Get Agent Task
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Agent task detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTaskResponse"
+        "404":
+          description: Agent task not found
           content:
             application/json:
               schema:
@@ -1344,15 +1368,50 @@ components:
 
     AgentWarningCode:
       type: string
-      enum: [EVIDENCE_INSUFFICIENT, REPORT_TEMPLATE_FALLBACK]
+      enum:
+        [
+          EVIDENCE_INSUFFICIENT,
+          KNOWLEDGE_SEARCH_FAILED,
+          REPORT_TEMPLATE_FALLBACK,
+          REPORT_GENERATION_FAILED,
+          FINAL_SUMMARY_FALLBACK,
+        ]
 
-    AgentToolTraceItem:
+    AgentDeliverable:
+      type: string
+      enum: [match_analysis, career_report]
+
+    AgentTaskStatus:
+      type: string
+      enum: [success, partial_success, failed]
+
+    AgentPlanStep:
       type: object
-      required: [step, status, duration_ms, input_summary, output_summary]
+      required: [id, tool, title, purpose]
       properties:
-        step:
+        id:
           type: string
-          enum: [validate_context, knowledge_search, matching, llm_analysis, report_generation]
+        tool:
+          type: string
+          enum:
+            [task_planning, context_lookup, knowledge_search, match_evaluation, report_generation, final_answer]
+        title:
+          type: string
+        purpose:
+          type: string
+
+    AgentStepTraceItem:
+      type: object
+      required: [step_id, tool, title, status, duration_ms, input_summary, output_summary]
+      properties:
+        step_id:
+          type: string
+        tool:
+          type: string
+          enum:
+            [task_planning, context_lookup, knowledge_search, match_evaluation, report_generation, final_answer]
+        title:
+          type: string
         status:
           type: string
           enum: [success, warning, error, skipped]
@@ -1366,7 +1425,7 @@ components:
         error_code:
           type: string
 
-    AgentAnalyzeRequest:
+    AgentTaskRequest:
       type: object
       required: [student_profile_id, job_id]
       properties:
@@ -1376,6 +1435,15 @@ components:
         job_id:
           type: integer
           minimum: 1
+        objective:
+          type: string
+          maxLength: 200
+        deliverables:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/AgentDeliverable"
         force_recalculate:
           type: boolean
           default: false
@@ -1385,24 +1453,20 @@ components:
           maximum: 10
           default: 5
 
-    AgentAnalyzeResponse:
+    AgentTaskResult:
       type: object
-      required:
-        [agent_run_id, trace_id, model, knowledge_hits, match_result, report, warnings, tool_trace]
+      required: [summary, knowledge_hits, match_result, report, warnings]
       properties:
-        agent_run_id:
-          type: integer
-        trace_id:
+        summary:
           type: string
-        model:
-          type: string
-          nullable: true
         knowledge_hits:
           type: array
           items:
             $ref: "#/components/schemas/KnowledgeSearchResultItem"
         match_result:
-          $ref: "#/components/schemas/MatchResultDetail"
+          allOf:
+            - $ref: "#/components/schemas/MatchResultDetail"
+          nullable: true
         report:
           allOf:
             - $ref: "#/components/schemas/CareerReportRecord"
@@ -1411,10 +1475,61 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AgentWarningCode"
-        tool_trace:
+
+    AgentTaskResponse:
+      type: object
+      required:
+        [
+          task_id,
+          trace_id,
+          status,
+          student_profile_id,
+          job_id,
+          objective,
+          deliverables,
+          model,
+          planned_steps,
+          step_trace,
+          result,
+          created_at,
+          finished_at,
+        ]
+      properties:
+        task_id:
+          type: integer
+        trace_id:
+          type: string
+        status:
+          $ref: "#/components/schemas/AgentTaskStatus"
+        student_profile_id:
+          type: integer
+        job_id:
+          type: integer
+        objective:
+          type: string
+        deliverables:
           type: array
           items:
-            $ref: "#/components/schemas/AgentToolTraceItem"
+            $ref: "#/components/schemas/AgentDeliverable"
+        model:
+          type: string
+          nullable: true
+        planned_steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentPlanStep"
+        step_trace:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentStepTraceItem"
+        result:
+          $ref: "#/components/schemas/AgentTaskResult"
+        created_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
 
     CareerReportSection:
       type: object

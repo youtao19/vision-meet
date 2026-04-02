@@ -10,13 +10,13 @@ const upload = multer({ storage: multer.memoryStorage() });
 export function createJobsRouter(service: JobsService): Router {
   const router = Router();
 
-  router.post("/import", upload.single("file"), (req, res, next) => {
+  router.post("/import", upload.single("file"), async (req, res, next) => {
     try {
       if (!req.file) {
         return next(new HttpError(400, "VALIDATION_ERROR", "缺少上传文件字段 file"));
       }
 
-      const result = service.importJobs({
+      const result = await service.importJobs({
         originalname: req.file.originalname,
         buffer: req.file.buffer,
       });
@@ -28,23 +28,27 @@ export function createJobsRouter(service: JobsService): Router {
     }
   });
 
-  router.get("", (req, res, next) => {
+  router.get("", async (req, res, next) => {
     const parsed = listJobsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       return next(new HttpError(400, "VALIDATION_ERROR", "岗位查询参数不合法", parsed.error.flatten()));
     }
 
-    return res.json(service.listJobs(parsed.data));
+    try {
+      return res.json(await service.listJobs(parsed.data));
+    } catch (error) {
+      return next(error);
+    }
   });
 
-  router.post("/profile/generate", (req, res, next) => {
+  router.post("/profile/generate", async (req, res, next) => {
     const parsed = generateProfileSchema.safeParse(req.body);
     if (!parsed.success) {
       return next(new HttpError(400, "VALIDATION_ERROR", "岗位画像请求参数不合法", parsed.error.flatten()));
     }
 
     try {
-      const result = service.generateProfile(parsed.data);
+      const result = await service.generateProfile(parsed.data);
       return res.json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : "画像生成失败";

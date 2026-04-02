@@ -12,8 +12,8 @@ import type {
 export type CareerReportCreateInput = Omit<CareerReportRecord, "id" | "created_at" | "updated_at">;
 
 export interface ReportRepository {
-  createReport(input: CareerReportCreateInput): CareerReportRecord;
-  listReports(params: ReportListParams): ReportListResponse;
-  getReportById(reportId: number): CareerReportRecord | null;
-  updateReport(reportId: number, sections: CareerReportSection[]): CareerReportRecord | null;
+  createReport(input: CareerReportCreateInput): Promise<CareerReportRecord>;
+  listReports(params: ReportListParams): Promise<ReportListResponse>;
+  getReportById(reportId: number): Promise<CareerReportRecord | null>;
+  updateReport(reportId: number, sections: CareerReportSection[]): Promise<CareerReportRecord | null>;
 }

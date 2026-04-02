@@ -1,17 +1,18 @@
 import type { Router } from "express";
+import type { Pool } from "pg";
 
-import { createJsonProfileRepository } from "./profile.repository.json.js";
+import { createPgProfileRepository } from "./profile.repository.pg.js";
 import { createProfileRouter } from "./profile.route.js";
 import type { ResumeProfileCreatedHook } from "./profile.service.js";
 import { createProfileService } from "./profile.service.js";
 
 export type ProfileModuleOptions = {
-  profileStorePath?: string;
+  pool: Pool;
   onResumeProfileCreated?: ResumeProfileCreatedHook;
 };
 
-export function createProfileModule(options: ProfileModuleOptions = {}): Router {
-  const repository = createJsonProfileRepository(options.profileStorePath);
+export function createProfileModule(options: ProfileModuleOptions): Router {
+  const repository = createPgProfileRepository(options.pool);
   const service = createProfileService(repository, {
     onResumeProfileCreated: options.onResumeProfileCreated,
   });
