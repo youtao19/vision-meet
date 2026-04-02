@@ -57,6 +57,10 @@ npm run dev:backend
 npm run dev:frontend
 npm run type-check
 npm run build
+npm run knowledge:init
+npm run knowledge:index:jobs
+npm run knowledge:index:project-docs
+npm run knowledge:eval
 ```
 
 4. 访问地址
@@ -81,14 +85,24 @@ npm run build
 7. `POST /api/v1/matches`：创建人岗匹配结果（支持复现/缓存语义）
 8. `GET /api/v1/matches`：匹配结果列表查询（按画像/岗位筛选）
 9. `GET /api/v1/matches/{match_id}`：匹配结果详情查询
-10. `POST /api/v1/reports`：基于匹配结果生成职业报告版本
-11. `GET /api/v1/reports?match_id={match_id}`：查询某个匹配结果下的报告版本列表
-12. `GET /api/v1/reports/{report_id}`：查询职业报告详情
-13. `PATCH /api/v1/reports/{report_id}`：保存职业报告结构化章节编辑结果
-14. `POST /api/v1/reports/{report_id}/exports`：生成并登记 PDF 导出产物
-15. `GET /api/v1/reports/{report_id}/exports`：查询当前报告版本的导出记录
-16. `GET /api/v1/report-exports/{export_id}/download`：下载已生成的 PDF 文件
-17. `GET /healthz`：服务健康检查（含存储文件路径）
+10. `POST /api/v1/knowledge/index`：索引岗位数据 / 简历文本 / 内部项目文档
+11. `POST /api/v1/knowledge/search`：执行知识检索（默认仅查 `career_runtime`）
+12. `POST /api/v1/knowledge/evaluations`：执行知识检索基线评测
+13. `POST /api/v1/reports`：基于匹配结果生成职业报告版本
+14. `GET /api/v1/reports?match_id={match_id}`：查询某个匹配结果下的报告版本列表
+15. `GET /api/v1/reports/{report_id}`：查询职业报告详情
+16. `PATCH /api/v1/reports/{report_id}`：保存职业报告结构化章节编辑结果
+17. `POST /api/v1/reports/{report_id}/exports`：生成并登记 PDF 导出产物
+18. `GET /api/v1/reports/{report_id}/exports`：查询当前报告版本的导出记录
+19. `GET /api/v1/report-exports/{export_id}/download`：下载已生成的 PDF 文件
+20. `GET /healthz`：服务健康检查（含存储文件路径）
+
+## 知识库说明
+
+1. 业务知识库命名空间为 `career_runtime`，只收录岗位数据与学生简历文本。
+2. 项目文档只进入 `internal_project_docs`，用于内部调试与评测，不参与默认用户检索。
+3. PostgreSQL/pgvector 初始化 SQL 位于 [`infra/sql/knowledge.init.sql`](./infra/sql/knowledge.init.sql)。
+4. 简历上传成功后，会自动把简历原文同步写入知识库，并通过 `student_profile_id` 建立关联。
 
 ## 协作规范
 

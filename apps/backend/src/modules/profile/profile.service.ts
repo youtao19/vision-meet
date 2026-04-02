@@ -17,10 +17,17 @@ import type { ProfileRepository, StudentProfileCreateInput } from "./profile.rep
  * 依赖关系：仅依赖 ProfileRepository 抽象，不接触具体存储实现。
  */
 export interface ProfileService {
-  listProfiles(): ListStudentProfilesResponse;
-  createProfile(input: CreateStudentProfileRequest): StudentProfileRecord;
-  createProfileFromResume(input: CreateStudentProfileFromResumeRequest): StudentProfileRecord;
+  listProfiles(): Promise<ListStudentProfilesResponse>;
+  createProfile(input: CreateStudentProfileRequest): Promise<StudentProfileRecord>;
+  createProfileFromResume(
+    input: CreateStudentProfileFromResumeRequest,
+  ): Promise<StudentProfileRecord>;
 }
+
+export type ResumeProfileCreatedHook = (params: {
+  profile: StudentProfileRecord;
+  resumeInput: CreateStudentProfileFromResumeRequest;
+}) => Promise<void> | void;
 
 const SCORE_WEIGHTS = {
   base_requirements: 0.2,
@@ -61,7 +68,14 @@ const RESUME_SKILL_KEYWORDS = [
   "机器学习",
 ];
 
-const RESUME_CERTIFICATE_KEYWORDS = ["英语六级", "英语四级", "pmp", "软考", "教师资格证", "计算机二级"];
+const RESUME_CERTIFICATE_KEYWORDS = [
+  "英语六级",
+  "英语四级",
+  "pmp",
+  "软考",
+  "教师资格证",
+  "计算机二级",
+];
 
 type MissingItemRule = {
   key: string;
@@ -102,9 +116,7 @@ function normalizeOptionalText(value?: string): string | null {
   return normalized ? normalized : null;
 }
 
-function normalizeExperience(
-  input?: Partial<StudentProfileExperience>,
-): StudentProfileExperience {
+function normalizeExperience(input?: Partial<StudentProfileExperience>): StudentProfileExperience {
   return {
     internship_count: input?.internship_count ?? EMPTY_EXPERIENCE.internship_count,
     project_count: input?.project_count ?? EMPTY_EXPERIENCE.project_count,
@@ -217,7 +229,9 @@ function calculateCompleteness(input: CreateStudentProfileRequest): {
   ];
 
   const missingItems = checks.filter((check) => check.isMissing).map((check) => check.key);
-  const completenessScore = clampScore(((checks.length - missingItems.length) / checks.length) * 100);
+  const completenessScore = clampScore(
+    ((checks.length - missingItems.length) / checks.length) * 100,
+  );
   return { completenessScore, missingItems };
 }
 
@@ -251,7 +265,9 @@ function extractResumeGraduationYear(content: string): number | undefined {
 
 function extractResumeSkills(content: string): string[] {
   const lowered = content.toLowerCase();
-  const matched = RESUME_SKILL_KEYWORDS.filter((keyword) => lowered.includes(keyword.toLowerCase()));
+  const matched = RESUME_SKILL_KEYWORDS.filter((keyword) =>
+    lowered.includes(keyword.toLowerCase()),
+  );
   return uniqueNonEmpty(matched);
 }
 
@@ -376,8 +392,13 @@ function createProfileRecord(
   return repository.createStudentProfile(recordInput);
 }
 
-export function createProfileService(repository: ProfileRepository): ProfileService {
-  function createProfile(input: CreateStudentProfileRequest): StudentProfileRecord {
+export function createProfileService(
+  repository: ProfileRepository,
+  options: {
+    onResumeProfileCreated?: ResumeProfileCreatedHook;
+  } = {},
+): ProfileService {
+  async function createProfile(input: CreateStudentProfileRequest): Promise<StudentProfileRecord> {
     const sourceDigest = buildSha256Digest({
       source_type: "manual",
       payload: input,
@@ -386,9 +407,9 @@ export function createProfileService(repository: ProfileRepository): ProfileServ
     return createProfileRecord(repository, input, "manual", sourceDigest);
   }
 
-  function createProfileFromResume(
+  async function createProfileFromResume(
     input: CreateStudentProfileFromResumeRequest,
-  ): StudentProfileRecord {
+  ): Promise<StudentProfileRecord> {
     const digest = buildSha256Digest({
       source_type: "resume",
       file_name: input.file_name,
@@ -398,12 +419,18 @@ export function createProfileService(repository: ProfileRepository): ProfileServ
       parse_mode: input.parse_mode ?? "tolerant",
     });
     const mappedInput = buildProfileInputFromResume(input);
-
-    return createProfileRecord(repository, mappedInput, "resume", digest);
+    const profile = createProfileRecord(repository, mappedInput, "resume", digest);
+    if (options.onResumeProfileCreated) {
+      await options.onResumeProfileCreated({
+        profile,
+        resumeInput: input,
+      });
+    }
+    return profile;
   }
 
   return {
-    listProfiles: repository.listStudentProfiles,
+    listProfiles: async () => repository.listStudentProfiles(),
     createProfile,
     createProfileFromResume,
   };

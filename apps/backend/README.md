@@ -47,6 +47,14 @@ cp apps/backend/.env.example apps/backend/.env
 - `REPORT_EXPORT_DIR`
 - `REPORT_EXPORT_STORE_PATH`
 - `MATCH_SCORING_VERSION`
+- `PGHOST`
+- `PGPORT`
+- `PGDATABASE`
+- `PGUSER`
+- `PGPASSWORD`
+- `PGVECTOR_DIM`
+- `KNOWLEDGE_TOP_K`
+- `KNOWLEDGE_REINDEX_BATCH_SIZE`
 
 ## API
 
@@ -60,6 +68,9 @@ cp apps/backend/.env.example apps/backend/.env
 - `POST /api/v1/matches`
 - `GET /api/v1/matches`
 - `GET /api/v1/matches/{match_id}`
+- `POST /api/v1/knowledge/index`
+- `POST /api/v1/knowledge/search`
+- `POST /api/v1/knowledge/evaluations`
 - `POST /api/v1/reports`
 - `GET /api/v1/reports?match_id={match_id}`
 - `GET /api/v1/reports/{report_id}`
@@ -83,3 +94,20 @@ cp apps/backend/.env.example apps/backend/.env
 - `modules/report/report.repository.json.ts`
 
 后续接 PostgreSQL/pgvector/Neo4j 时，新增 repository adapter 文件，不修改 route/service 调用链。
+
+## 知识库脚本
+
+从仓库根目录执行：
+
+```bash
+npm run knowledge:init
+npm run knowledge:index:jobs
+npm run knowledge:index:project-docs
+npm run knowledge:eval
+```
+
+说明：
+
+- `knowledge:index:jobs` 只索引岗位数据到 `career_runtime`
+- `knowledge:index:project-docs` 只索引 `docs/*.md` 到 `internal_project_docs`
+- 简历文本不需要单独脚本，走 `POST /api/v1/profile/resume` 时会自动同步入库

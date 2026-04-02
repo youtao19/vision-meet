@@ -259,4 +259,110 @@ export type ReportExportListResponse = {
   items: CareerReportExportRecord[];
 };
 
+export type KnowledgeSourceKind = "job_dataset" | "resume_text" | "project_doc";
+
+export type KnowledgeNamespace = "career_runtime" | "internal_project_docs";
+
+export type KnowledgeIndexItem = {
+  source_id?: string;
+  source_path?: string;
+  title?: string;
+  text?: string;
+  section_path?: string | null;
+  job_id?: number | null;
+  profile_id?: number | null;
+};
+
+export type KnowledgeDocumentRecord = {
+  id: number;
+  namespace: KnowledgeNamespace;
+  source_kind: KnowledgeSourceKind;
+  source_id: string;
+  title: string;
+  source_path: string | null;
+  section_path: string | null;
+  job_id: number | null;
+  profile_id: number | null;
+  content_digest: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type KnowledgeChunkRecord = {
+  id: number;
+  document_id: number;
+  chunk_index: number;
+  chunk_text: string;
+  token_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type KnowledgeIndexRequest = {
+  namespace?: KnowledgeNamespace;
+  source_kind: KnowledgeSourceKind;
+  force_reindex?: boolean;
+  items: KnowledgeIndexItem[];
+};
+
+export type KnowledgeIndexResponse = {
+  namespace: KnowledgeNamespace;
+  source_kind: KnowledgeSourceKind;
+  indexed_documents: number;
+  indexed_chunks: number;
+  skipped_documents: number;
+};
+
+export type KnowledgeSearchRequest = {
+  query: string;
+  namespace?: KnowledgeNamespace;
+  source_kinds?: KnowledgeSourceKind[];
+  student_profile_id?: number;
+  limit?: number;
+};
+
+export type KnowledgeSearchResultItem = {
+  id: number;
+  document_id: number;
+  namespace: KnowledgeNamespace;
+  source_kind: KnowledgeSourceKind;
+  source_id: string;
+  title: string;
+  chunk_index: number;
+  chunk_text: string;
+  source_path: string | null;
+  section_path: string | null;
+  job_id: number | null;
+  profile_id: number | null;
+  keyword_score: number;
+  vector_score: number;
+  final_score: number;
+};
+
+export type KnowledgeSearchResponse = {
+  total: number;
+  items: KnowledgeSearchResultItem[];
+};
+
+export type KnowledgeEvaluationRequest = {
+  namespace?: KnowledgeNamespace;
+  top_k?: number;
+};
+
+export type KnowledgeEvaluationCaseResult = {
+  query: string;
+  expected_terms: string[];
+  hit: boolean;
+  reciprocal_rank: number;
+  matched_chunk_ids: number[];
+};
+
+export type KnowledgeEvaluationResponse = {
+  namespace: KnowledgeNamespace;
+  top_k: number;
+  recall_at_k: number;
+  mrr: number;
+  cases: KnowledgeEvaluationCaseResult[];
+};
+
 export type ApiErrorResponse = StructuredApiError;

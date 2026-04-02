@@ -303,6 +303,93 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/knowledge/index:
+    post:
+      summary: Index Knowledge Sources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeIndexRequest"
+      responses:
+        "201":
+          description: Knowledge indexed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeIndexResponse"
+        "400":
+          description: Invalid knowledge index request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/knowledge/search:
+    post:
+      summary: Search Knowledge Chunks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeSearchRequest"
+      responses:
+        "200":
+          description: Knowledge search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSearchResponse"
+        "400":
+          description: Invalid knowledge search request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/knowledge/evaluations:
+    post:
+      summary: Evaluate Knowledge Retrieval Baseline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeEvaluationRequest"
+      responses:
+        "200":
+          description: Evaluation metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeEvaluationResponse"
+        "400":
+          description: Invalid knowledge evaluation request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/reports:
     post:
       summary: Create Career Report
@@ -550,7 +637,8 @@ components:
   schemas:
     DimensionScores:
       type: object
-      required: [base_requirements, professional_skills, professional_quality, development_potential]
+      required:
+        [base_requirements, professional_skills, professional_quality, development_potential]
       properties:
         base_requirements:
           type: number
@@ -870,7 +958,8 @@ components:
       properties:
         dimension:
           type: string
-          enum: [base_requirements, professional_skills, professional_quality, development_potential]
+          enum:
+            [base_requirements, professional_skills, professional_quality, development_potential]
         target_score:
           type: number
           minimum: 0
@@ -892,7 +981,8 @@ components:
       properties:
         dimension:
           type: string
-          enum: [base_requirements, professional_skills, professional_quality, development_potential]
+          enum:
+            [base_requirements, professional_skills, professional_quality, development_potential]
         reasoning:
           type: string
         improvement_actions:
@@ -969,6 +1059,253 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MatchResultSummary"
+
+    KnowledgeSourceKind:
+      type: string
+      enum: [job_dataset, resume_text, project_doc]
+
+    KnowledgeNamespace:
+      type: string
+      enum: [career_runtime, internal_project_docs]
+
+    KnowledgeIndexItem:
+      type: object
+      properties:
+        source_id:
+          type: string
+        source_path:
+          type: string
+        title:
+          type: string
+        text:
+          type: string
+        section_path:
+          type: string
+          nullable: true
+        job_id:
+          type: integer
+          nullable: true
+        profile_id:
+          type: integer
+          nullable: true
+
+    KnowledgeDocumentRecord:
+      type: object
+      required:
+        [id, namespace, source_kind, source_id, title, content_digest, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+        namespace:
+          $ref: "#/components/schemas/KnowledgeNamespace"
+        source_kind:
+          $ref: "#/components/schemas/KnowledgeSourceKind"
+        source_id:
+          type: string
+        title:
+          type: string
+        source_path:
+          type: string
+          nullable: true
+        section_path:
+          type: string
+          nullable: true
+        job_id:
+          type: integer
+          nullable: true
+        profile_id:
+          type: integer
+          nullable: true
+        content_digest:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    KnowledgeChunkRecord:
+      type: object
+      required: [id, document_id, chunk_index, chunk_text, token_count, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+        document_id:
+          type: integer
+        chunk_index:
+          type: integer
+        chunk_text:
+          type: string
+        token_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    KnowledgeIndexRequest:
+      type: object
+      required: [source_kind, items]
+      properties:
+        namespace:
+          $ref: "#/components/schemas/KnowledgeNamespace"
+        source_kind:
+          $ref: "#/components/schemas/KnowledgeSourceKind"
+        force_reindex:
+          type: boolean
+          default: false
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/KnowledgeIndexItem"
+
+    KnowledgeIndexResponse:
+      type: object
+      required: [namespace, source_kind, indexed_documents, indexed_chunks, skipped_documents]
+      properties:
+        namespace:
+          $ref: "#/components/schemas/KnowledgeNamespace"
+        source_kind:
+          $ref: "#/components/schemas/KnowledgeSourceKind"
+        indexed_documents:
+          type: integer
+        indexed_chunks:
+          type: integer
+        skipped_documents:
+          type: integer
+
+    KnowledgeSearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+        namespace:
+          $ref: "#/components/schemas/KnowledgeNamespace"
+        source_kinds:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeSourceKind"
+        student_profile_id:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 20
+
+    KnowledgeSearchResultItem:
+      type: object
+      required:
+        [
+          id,
+          document_id,
+          namespace,
+          source_kind,
+          source_id,
+          title,
+          chunk_index,
+          chunk_text,
+          keyword_score,
+          vector_score,
+          final_score,
+        ]
+      properties:
+        id:
+          type: integer
+        document_id:
+          type: integer
+        namespace:
+          $ref: "#/components/schemas/KnowledgeNamespace"
+        source_kind:
+          $ref: "#/components/schemas/KnowledgeSourceKind"
+        source_id:
+          type: string
+        title:
+          type: string
+        chunk_index:
+          type: integer
+        chunk_text:
+          type: string
+        source_path:
+          type: string
+          nullable: true
+        section_path:
+          type: string
+          nullable: true
+        job_id:
+          type: integer
+          nullable: true
+        profile_id:
+          type: integer
+          nullable: true
+        keyword_score:
+          type: number
+        vector_score:
+          type: number
+        final_score:
+          type: number
+
+    KnowledgeSearchResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeSearchResultItem"
+
+    KnowledgeEvaluationRequest:
+      type: object
+      properties:
+        namespace:
+          $ref: "#/components/schemas/KnowledgeNamespace"
+        top_k:
+          type: integer
+          minimum: 1
+          maximum: 20
+
+    KnowledgeEvaluationCaseResult:
+      type: object
+      required: [query, expected_terms, hit, reciprocal_rank, matched_chunk_ids]
+      properties:
+        query:
+          type: string
+        expected_terms:
+          type: array
+          items:
+            type: string
+        hit:
+          type: boolean
+        reciprocal_rank:
+          type: number
+        matched_chunk_ids:
+          type: array
+          items:
+            type: integer
+
+    KnowledgeEvaluationResponse:
+      type: object
+      required: [namespace, top_k, recall_at_k, mrr, cases]
+      properties:
+        namespace:
+          $ref: "#/components/schemas/KnowledgeNamespace"
+        top_k:
+          type: integer
+        recall_at_k:
+          type: number
+        mrr:
+          type: number
+        cases:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeEvaluationCaseResult"
 
     CareerReportSection:
       type: object

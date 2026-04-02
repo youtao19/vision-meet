@@ -5,15 +5,29 @@ import express from "express";
 
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createJsonJobsRepository } from "./modules/jobs/jobs.repository.json.js";
+import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
 import { createMatchingModule } from "./modules/matching/matching.module.js";
 import { createProfileModule } from "./modules/profile/profile.module.js";
-import { createReportExportDownloadModule, createReportModule } from "./modules/report/report.module.js";
+import {
+  createReportExportDownloadModule,
+  createReportModule,
+} from "./modules/report/report.module.js";
 import { appEnv } from "./shared/config/env.js";
 import { HttpError } from "./shared/errors/http-error.js";
 
 export function createApp(): express.Express {
   const app = express();
   const healthRepository = createJsonJobsRepository(appEnv.DATA_STORE_PATH);
+  const knowledgeModule = createKnowledgeModule({
+    host: appEnv.PGHOST,
+    port: appEnv.PGPORT,
+    database: appEnv.PGDATABASE,
+    user: appEnv.PGUSER,
+    password: appEnv.PGPASSWORD,
+    vectorDim: appEnv.PGVECTOR_DIM,
+    defaultTopK: appEnv.KNOWLEDGE_TOP_K,
+    reindexBatchSize: appEnv.KNOWLEDGE_REINDEX_BATCH_SIZE,
+  });
 
   app.use(cors());
   app.use(express.json({ limit: "2mb" }));
@@ -44,8 +58,11 @@ export function createApp(): express.Express {
     "/api/v1/profile",
     createProfileModule({
       profileStorePath: appEnv.PROFILE_STORE_PATH,
+      onResumeProfileCreated: ({ profile, resumeInput }) =>
+        knowledgeModule.service.indexResumeProfile({ profile, resumeInput }),
     }),
   );
+  app.use("/api/v1/knowledge", knowledgeModule.router);
   app.use(
     "/api/v1/matches",
     createMatchingModule({
