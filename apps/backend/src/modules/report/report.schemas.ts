@@ -9,6 +9,7 @@ export const reportSectionSchema = z.object({
     "match_analysis",
     "strengths",
     "gaps_and_actions",
+    "career_path",
     "short_term_plan",
     "mid_term_plan",
   ]),
@@ -29,7 +30,7 @@ export const reportIdParamsSchema = z.object({
 });
 
 export const updateReportSchema = z.object({
-  sections: z.array(reportSectionSchema).length(6),
+  sections: z.array(reportSectionSchema).length(7),
 });
 
 export const createReportExportSchema = z.object({

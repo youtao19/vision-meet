@@ -197,6 +197,7 @@ export type CareerReportSectionKey =
   | "match_analysis"
   | "strengths"
   | "gaps_and_actions"
+  | "career_path"
   | "short_term_plan"
   | "mid_term_plan";
 
@@ -257,6 +258,71 @@ export type CreateReportExportRequest = {
 export type ReportExportListResponse = {
   total: number;
   items: CareerReportExportRecord[];
+};
+
+export type CareerPathRelationType = "promotion" | "transition";
+
+export type CareerPathTransitionCost = "low" | "medium" | "high";
+
+export type CareerPathNodeCategory = "target" | "promotion" | "transition";
+
+export type CareerPathNode = {
+  id: string;
+  role_key: string;
+  title: string;
+  description: string;
+  family: string;
+  level: number;
+  aliases: string[];
+  typical_skills: string[];
+  category: CareerPathNodeCategory;
+  is_target: boolean;
+};
+
+export type CareerPathEdge = {
+  id: string;
+  source: string;
+  target: string;
+  relation_type: CareerPathRelationType;
+  reason: string;
+  required_skills: string[];
+  transition_cost: CareerPathTransitionCost;
+  direction_label: string;
+};
+
+export type CareerRouteStep = {
+  node_id: string;
+  role_key: string;
+  title: string;
+  relation_type: CareerPathRelationType | null;
+  reason: string | null;
+  required_skills: string[];
+  transition_cost: CareerPathTransitionCost | null;
+  gap_skills: string[];
+};
+
+export type CareerRouteRecommendation = {
+  route_id: string;
+  route_type: CareerPathRelationType;
+  title: string;
+  summary: string;
+  suitability_score: number;
+  missing_skills: string[];
+  steps: CareerRouteStep[];
+};
+
+export type CareerPathGraphResponse = {
+  job_id: number;
+  job_title: string;
+  student_profile_id: number | null;
+  depth: number;
+  canonical_role_key: string;
+  canonical_role_title: string;
+  target_node_id: string;
+  nodes: CareerPathNode[];
+  edges: CareerPathEdge[];
+  promotion_routes: CareerRouteRecommendation[];
+  transition_routes: CareerRouteRecommendation[];
 };
 
 export type KnowledgeSourceKind = "job_dataset" | "resume_text" | "project_doc";

@@ -4,6 +4,7 @@ import cors from "cors";
 import express from "express";
 
 import { createAgentModule } from "./modules/agent/agent.module.js";
+import { createCareerPathModule } from "./modules/career-path/career-path.module.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createPgJobsRepository } from "./modules/jobs/jobs.repository.pg.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
@@ -34,6 +35,17 @@ export function createApp(): express.Express {
   const matchingRepository = createPgMatchingRepository(appDataPool);
   const reportRepository = createPgReportRepository(appDataPool);
   const reportExportRepository = createPgReportExportRepository(appDataPool);
+  const careerPathModule = createCareerPathModule(
+    {
+      jobsRepository,
+      profileRepository,
+    },
+    {
+      uri: appEnv.NEO4J_URI,
+      username: appEnv.NEO4J_USERNAME,
+      password: appEnv.NEO4J_PASSWORD,
+    },
+  );
   const knowledgeModule = createKnowledgeModule({
     host: appEnv.PGHOST,
     port: appEnv.PGPORT,
@@ -61,6 +73,7 @@ export function createApp(): express.Express {
       matchingRepository,
       profileRepository,
       jobsRepository,
+      careerPathService: careerPathModule.service,
     },
     {
       reportExportDir: appEnv.REPORT_EXPORT_DIR,
@@ -111,6 +124,7 @@ export function createApp(): express.Express {
     }),
   );
   app.use("/api/v1/knowledge", knowledgeModule.router);
+  app.use("/api/v1/career-paths", careerPathModule.router);
   app.use("/api/v1/matches", createMatchingRouter(matchingService));
   app.use("/api/v1/reports", createReportRouter(reportService));
   app.use("/api/v1/report-exports", createReportExportDownloadRouter(reportService));

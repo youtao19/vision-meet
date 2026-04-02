@@ -1,6 +1,7 @@
 import type { Router } from "express";
 import type { Pool } from "pg";
 
+import type { CareerPathService } from "../career-path/career-path.service.js";
 import { createPgJobsRepository } from "../jobs/jobs.repository.pg.js";
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import { createPgMatchingRepository } from "../matching/matching.repository.pg.js";
@@ -27,6 +28,7 @@ export type ReportServiceDependencies = {
   matchingRepository: MatchingRepository;
   profileRepository: ProfileRepository;
   jobsRepository: JobsRepository;
+  careerPathService?: CareerPathService;
 };
 
 export type ReportServiceFactoryOptions = {
@@ -48,6 +50,7 @@ export function createReportServiceFromDependencies(
     dependencies.jobsRepository,
     generator,
     exporter,
+    dependencies.careerPathService,
     {
       exportDir: options.reportExportDir,
     },

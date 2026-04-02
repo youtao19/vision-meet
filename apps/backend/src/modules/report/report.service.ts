@@ -18,6 +18,7 @@ import type {
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { MatchingRepository } from "../matching/matching.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
+import type { CareerPathService } from "../career-path/career-path.service.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import type { ReportExportRepository } from "./report-export.repository.js";
 import type { ReportExporter } from "./report.exporter.js";
@@ -29,6 +30,7 @@ const SECTION_ORDER: CareerReportSectionKey[] = [
   "match_analysis",
   "strengths",
   "gaps_and_actions",
+  "career_path",
   "short_term_plan",
   "mid_term_plan",
 ];
@@ -164,6 +166,7 @@ export function createReportService(
   jobsRepository: JobsRepository,
   generator: ReportGenerator,
   exporter: ReportExporter,
+  careerPathService?: CareerPathService,
   options: ReportServiceOptions = {},
 ): ReportService {
   const exportDir =
@@ -195,10 +198,24 @@ export function createReportService(
 
     const existing = (await reportRepository.listReports({ match_id: input.match_id })).items;
     const nextVersion = existing.length > 0 ? existing[0].version + 1 : 1;
+    let careerPath = null;
+    if (careerPathService) {
+      try {
+        careerPath = await careerPathService.getCareerPathGraph({
+          job_id: job.id,
+          student_profile_id: profile.id,
+          depth: 2,
+        });
+      } catch {
+        // 图谱属于增强能力，不应阻断报告主链路。
+        careerPath = null;
+      }
+    }
     const generated = await generator.generate({
       match,
       profile,
       job,
+      career_path: careerPath,
       knowledge_hits: context?.knowledge_hits,
       agent_summary: context?.agent_summary,
     });

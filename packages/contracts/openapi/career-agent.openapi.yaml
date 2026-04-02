@@ -303,6 +303,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/career-paths/jobs/{job_id}:
+    get:
+      summary: Get Career Path Graph For Job
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: student_profile_id
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: depth
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 3
+            default: 2
+      responses:
+        "200":
+          description: Career path graph result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerPathGraphResponse"
+        "404":
+          description: Job or canonical career role not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Neo4j graph service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/knowledge/index:
     post:
       summary: Index Knowledge Sources
@@ -1572,7 +1620,7 @@ components:
         key:
           type: string
           enum:
-            [overview, match_analysis, strengths, gaps_and_actions, short_term_plan, mid_term_plan]
+            [overview, match_analysis, strengths, gaps_and_actions, career_path, short_term_plan, mid_term_plan]
         title:
           type: string
         content:
@@ -1629,8 +1677,8 @@ components:
       properties:
         sections:
           type: array
-          minItems: 6
-          maxItems: 6
+          minItems: 7
+          maxItems: 7
           items:
             $ref: "#/components/schemas/CareerReportSection"
 
@@ -1684,3 +1732,163 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CareerReportExportRecord"
+
+    CareerPathNode:
+      type: object
+      required: [id, role_key, title, description, family, level, aliases, typical_skills, category, is_target]
+      properties:
+        id:
+          type: string
+        role_key:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        family:
+          type: string
+        level:
+          type: integer
+        aliases:
+          type: array
+          items:
+            type: string
+        typical_skills:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+          enum: [target, promotion, transition]
+        is_target:
+          type: boolean
+
+    CareerPathEdge:
+      type: object
+      required:
+        [id, source, target, relation_type, reason, required_skills, transition_cost, direction_label]
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        relation_type:
+          type: string
+          enum: [promotion, transition]
+        reason:
+          type: string
+        required_skills:
+          type: array
+          items:
+            type: string
+        transition_cost:
+          type: string
+          enum: [low, medium, high]
+        direction_label:
+          type: string
+
+    CareerRouteStep:
+      type: object
+      required:
+        [node_id, role_key, title, relation_type, reason, required_skills, transition_cost, gap_skills]
+      properties:
+        node_id:
+          type: string
+        role_key:
+          type: string
+        title:
+          type: string
+        relation_type:
+          type: string
+          nullable: true
+          enum: [promotion, transition]
+        reason:
+          type: string
+          nullable: true
+        required_skills:
+          type: array
+          items:
+            type: string
+        transition_cost:
+          type: string
+          nullable: true
+          enum: [low, medium, high]
+        gap_skills:
+          type: array
+          items:
+            type: string
+
+    CareerRouteRecommendation:
+      type: object
+      required: [route_id, route_type, title, summary, suitability_score, missing_skills, steps]
+      properties:
+        route_id:
+          type: string
+        route_type:
+          type: string
+          enum: [promotion, transition]
+        title:
+          type: string
+        summary:
+          type: string
+        suitability_score:
+          type: integer
+        missing_skills:
+          type: array
+          items:
+            type: string
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerRouteStep"
+
+    CareerPathGraphResponse:
+      type: object
+      required:
+        [
+          job_id,
+          job_title,
+          student_profile_id,
+          depth,
+          canonical_role_key,
+          canonical_role_title,
+          target_node_id,
+          nodes,
+          edges,
+          promotion_routes,
+          transition_routes,
+        ]
+      properties:
+        job_id:
+          type: integer
+        job_title:
+          type: string
+        student_profile_id:
+          type: integer
+          nullable: true
+        depth:
+          type: integer
+        canonical_role_key:
+          type: string
+        canonical_role_title:
+          type: string
+        target_node_id:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerPathNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerPathEdge"
+        promotion_routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerRouteRecommendation"
+        transition_routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerRouteRecommendation"

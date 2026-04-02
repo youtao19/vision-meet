@@ -1,4 +1,5 @@
 import type {
+  CareerPathGraphResponse,
   CareerReportSection,
   KnowledgeSearchResultItem,
   MatchResultDetail,
@@ -14,6 +15,7 @@ export type ReportGeneratorInput = {
   match: MatchResultDetail;
   profile: StudentProfileRecord;
   job: JobRecord;
+  career_path?: CareerPathGraphResponse | null;
   knowledge_hits?: KnowledgeSearchResultItem[];
   agent_summary?: string;
 };

@@ -85,6 +85,26 @@ function triggerDownload(downloadPath: string): void {
   document.body.removeChild(anchor);
 }
 
+function openCareerPath(): void {
+  const jobId = selectedReport.value?.job_id ?? matchDetail.value?.job_id;
+  const studentProfileId =
+    selectedReport.value?.student_profile_id ?? matchDetail.value?.student_profile_id;
+
+  if (!jobId) {
+    uiState.error = "当前报告上下文缺少岗位信息，无法打开图谱页";
+    return;
+  }
+
+  router.push({
+    path: "/career-paths",
+    query: {
+      job_id: String(jobId),
+      ...(studentProfileId ? { student_profile_id: String(studentProfileId) } : {}),
+      depth: "2",
+    },
+  });
+}
+
 async function loadMatchDetail(matchId: number): Promise<void> {
   loading.match = true;
   try {
@@ -304,6 +324,7 @@ onMounted(async () => {
       <div v-if="matchDetail" class="match-card">
         <p>匹配结果 #{{ matchDetail.id }} | 学生画像 #{{ matchDetail.student_profile_id }} | 岗位 #{{ matchDetail.job_id }}</p>
         <p>总分 {{ matchDetail.total_score }}，四维分数已可直接用于报告生成与后续复测。</p>
+        <button class="ghost-btn inline-btn" @click="openCareerPath">打开职业路径图谱</button>
       </div>
     </section>
 
@@ -357,6 +378,9 @@ onMounted(async () => {
             <header>
               <p class="section-key">{{ section.key }}</p>
               <h4>{{ section.title }}</h4>
+              <button v-if="section.key === 'career_path'" class="inline-link-btn" type="button" @click="openCareerPath">
+                在图谱页查看
+              </button>
             </header>
             <textarea v-model="section.content" rows="6" :disabled="loading.save"></textarea>
           </article>
@@ -497,6 +521,10 @@ textarea {
   color: #0f172a;
 }
 
+.inline-btn {
+  margin-top: 10px;
+}
+
 .primary-btn:disabled,
 .ghost-btn:disabled {
   opacity: 0.6;
@@ -586,6 +614,8 @@ textarea {
 
 .section-card header {
   margin-bottom: 10px;
+  display: grid;
+  gap: 4px;
 }
 
 .section-card h4 {
@@ -599,6 +629,16 @@ textarea {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.inline-link-btn {
+  width: fit-content;
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: #0f766e;
+  cursor: pointer;
+  font-size: 13px;
 }
 
 .export-list {

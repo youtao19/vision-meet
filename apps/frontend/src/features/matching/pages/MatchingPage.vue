@@ -182,6 +182,17 @@ function goToReport(matchId: number): void {
   });
 }
 
+function goToCareerPath(jobId: number, studentProfileId?: number): void {
+  router.push({
+    path: "/career-paths",
+    query: {
+      job_id: String(jobId),
+      ...(studentProfileId ? { student_profile_id: String(studentProfileId) } : {}),
+      depth: "2",
+    },
+  });
+}
+
 onMounted(async () => {
   await bootstrap();
   await loadMatches();
@@ -267,6 +278,9 @@ onMounted(async () => {
 
       <div class="action-row">
         <button class="ghost-btn" :disabled="loading.create" @click="repeatAnalyze">重复分析（验证一致性）</button>
+        <button class="ghost-btn" @click="goToCareerPath(selectedDetail.job_id, selectedDetail.student_profile_id)">
+          查看路径规划
+        </button>
         <button class="primary-btn" @click="goToReport(selectedDetail.id)">生成/查看报告</button>
       </div>
     </section>
@@ -320,6 +334,7 @@ onMounted(async () => {
             <td>
               <div class="table-actions">
                 <button class="table-btn" :disabled="loading.detail" @click="openDetail(item.id)">详情</button>
+                <button class="table-btn" @click="goToCareerPath(item.job_id, item.student_profile_id)">路径</button>
                 <button class="table-btn" @click="goToReport(item.id)">报告</button>
               </div>
             </td>

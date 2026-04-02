@@ -11,6 +11,7 @@ const SECTION_TITLES: Record<CareerReportSectionKey, string> = {
   match_analysis: "匹配分析",
   strengths: "优势总结",
   gaps_and_actions: "差距与改进动作",
+  career_path: "职业目标与路径规划",
   short_term_plan: "短期行动计划",
   mid_term_plan: "中期行动计划",
 };
@@ -106,6 +107,28 @@ function buildShortTermPlan(input: ReportGeneratorInput): string {
     .join("\n");
 }
 
+function buildCareerPath(input: ReportGeneratorInput): string {
+  if (!input.career_path) {
+    return [
+      `当前岗位【${input.job.title}】尚未命中可用图谱，暂无法输出结构化路径图。`,
+      `建议先围绕目标岗位继续沉淀项目、实习与技能证据，待岗位进入图谱覆盖范围后再查看推荐路径。`,
+    ].join("\n");
+  }
+
+  const promotionLines = input.career_path.promotion_routes.slice(0, 2).map((route, index) => {
+    return `${index + 1}. ${route.title}；适配度 ${route.suitability_score} 分；${route.summary}`;
+  });
+  const transitionLines = input.career_path.transition_routes.slice(0, 2).map((route, index) => {
+    return `${index + 1}. ${route.title}；适配度 ${route.suitability_score} 分；${route.summary}`;
+  });
+
+  return [
+    `当前岗位已映射到规范岗位【${input.career_path.canonical_role_title}】，图谱深度 ${input.career_path.depth}。`,
+    `优先晋升路径：${promotionLines.length > 0 ? promotionLines.join("\n") : "当前暂无更高阶晋升路径，建议先巩固岗位核心能力。"}。`,
+    `可选换岗路径：${transitionLines.length > 0 ? transitionLines.join("\n") : "当前暂无推荐换岗路径。"}。`,
+  ].join("\n");
+}
+
 function buildMidTermPlan(input: ReportGeneratorInput): string {
   const weakestDimensions = Object.entries(input.match.dimension_scores)
     .sort((a, b) => a[1] - b[1])
@@ -141,6 +164,7 @@ export function createTemplateReportGenerator(): ReportGenerator {
           createSection("match_analysis", buildMatchAnalysis(input)),
           createSection("strengths", buildStrengths(input)),
           createSection("gaps_and_actions", buildGapsAndActions(input)),
+          createSection("career_path", buildCareerPath(input)),
           createSection("short_term_plan", buildShortTermPlan(input)),
           createSection("mid_term_plan", buildMidTermPlan(input)),
         ],
