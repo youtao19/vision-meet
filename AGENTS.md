@@ -158,3 +158,7 @@
 
 ## Recent Changes
 - 001-student-profile-matching: Added TypeScript 5.x（Node.js 20+、Vue 3） + Express、multer、zod、Vue Router、Pinia、Fetch API
+
+
+
+Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
