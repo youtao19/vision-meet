@@ -8,7 +8,7 @@ import type {
 
 /**
  * 文件作用：定义报告生成器抽象。
- * 设计边界：service 只依赖该接口，后续可平滑替换为 LLM 或混合生成方案。
+ * 设计边界：service 只依赖该接口，当前默认实现为稳定可复现的模板生成。
  */
 export type ReportGeneratorInput = {
   match: MatchResultDetail;
@@ -20,7 +20,7 @@ export type ReportGeneratorInput = {
 
 export type ReportGeneratorResult = {
   sections: CareerReportSection[];
-  mode: "llm" | "template";
+  mode: "template";
 };
 
 export interface ReportGenerator {

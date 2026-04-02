@@ -368,7 +368,6 @@ export type KnowledgeEvaluationResponse = {
 export type AgentWarningCode =
   | "EVIDENCE_INSUFFICIENT"
   | "KNOWLEDGE_SEARCH_FAILED"
-  | "REPORT_TEMPLATE_FALLBACK"
   | "REPORT_GENERATION_FAILED"
   | "FINAL_SUMMARY_FALLBACK";
 
@@ -444,6 +443,8 @@ export type AgentTaskResponse = {
 export type AgentToolTraceStatus = AgentStepTraceStatus;
 export type AgentToolTraceStep = AgentToolName;
 export type AgentToolTraceItem = AgentStepTraceItem;
+export type AgentChatRequest = CreateAgentTaskRequest;
+export type AgentChatResponse = AgentTaskResponse;
 export type AgentAnalyzeRequest = CreateAgentTaskRequest;
 export type AgentAnalyzeResponse = AgentTaskResponse;
 

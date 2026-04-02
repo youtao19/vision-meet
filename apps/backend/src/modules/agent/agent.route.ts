@@ -33,6 +33,9 @@ export function createAgentRouter(service: AgentService): Router {
 
   router.post("/tasks", handleCreateTask);
 
+  // 兼容更早的聊天式入口，让旧前端 / 调试脚本直接复用当前任务型 Agent。
+  router.post("/chat", handleCreateTask);
+
   // 兼容旧入口，避免前端或外部调试脚本在本轮重构中立即断裂。
   router.post("/analyze", handleCreateTask);
 

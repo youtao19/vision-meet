@@ -425,6 +425,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1/agent/chat:
+    post:
+      summary: Create Agent Task From Legacy Chat Path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentTaskRequest"
+      responses:
+        "201":
+          description: Agent task completed or partially completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTaskResponse"
+        "400":
+          description: Invalid agent request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Student profile or job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Agent orchestration or model call failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/agent/tasks/{task_id}:
     get:
       summary: Get Agent Task
@@ -1372,7 +1407,6 @@ components:
         [
           EVIDENCE_INSUFFICIENT,
           KNOWLEDGE_SEARCH_FAILED,
-          REPORT_TEMPLATE_FALLBACK,
           REPORT_GENERATION_FAILED,
           FINAL_SUMMARY_FALLBACK,
         ]

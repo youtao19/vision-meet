@@ -153,7 +153,7 @@ export type ReportCreateContext = {
 
 export type ReportCreateResult = {
   report: CareerReportRecord;
-  generator_mode: "llm" | "template";
+  generator_mode: "template";
 };
 
 export function createReportService(

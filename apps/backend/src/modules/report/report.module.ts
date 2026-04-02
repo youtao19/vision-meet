@@ -1,6 +1,5 @@
 import type { Router } from "express";
 import type { Pool } from "pg";
-import type { LlmClient } from "../../shared/llm/llm-client.js";
 
 import { createPgJobsRepository } from "../jobs/jobs.repository.pg.js";
 import type { JobsRepository } from "../jobs/jobs.repository.js";
@@ -10,7 +9,6 @@ import type { ProfileRepository } from "../profile/profile.repository.js";
 import { createPgProfileRepository } from "../profile/profile.repository.pg.js";
 import { createPgReportExportRepository } from "./report-export.repository.pg.js";
 import type { ReportExportRepository } from "./report-export.repository.js";
-import { createLlmFirstReportGenerator } from "./llm-report.generator.js";
 import { createPlaywrightReportExporter } from "./playwright-report.exporter.js";
 import { createReportExportDownloadRouter, createReportRouter } from "./report.route.js";
 import { createPgReportRepository } from "./report.repository.pg.js";
@@ -29,7 +27,6 @@ export type ReportServiceDependencies = {
   matchingRepository: MatchingRepository;
   profileRepository: ProfileRepository;
   jobsRepository: JobsRepository;
-  llmClient?: LlmClient | null;
 };
 
 export type ReportServiceFactoryOptions = {
@@ -40,8 +37,7 @@ export function createReportServiceFromDependencies(
   dependencies: ReportServiceDependencies,
   options: ReportServiceFactoryOptions = {},
 ) {
-  const templateGenerator = createTemplateReportGenerator();
-  const generator = createLlmFirstReportGenerator(dependencies.llmClient ?? null, templateGenerator);
+  const generator = createTemplateReportGenerator();
   const exporter = createPlaywrightReportExporter();
 
   return createReportService(

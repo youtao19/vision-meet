@@ -74,12 +74,11 @@ npm run dev:backend
 npm run dev:frontend
 npm run type-check
 npm run build
+npm run agent:smoke
 npm run knowledge:init
 npm run knowledge:index:jobs
 npm run knowledge:index:project-docs
 npm run knowledge:eval
-npm run moonshot:smoke
-npm run moonshot:smoke:sdk
 ```
 
 6. 访问地址
@@ -114,9 +113,10 @@ npm run moonshot:smoke:sdk
 17. `POST /api/v1/reports/{report_id}/exports`：生成并登记 PDF 导出产物
 18. `GET /api/v1/reports/{report_id}/exports`：查询当前报告版本的导出记录
 19. `GET /api/v1/report-exports/{export_id}/download`：下载已生成的 PDF 文件
-20. `POST /api/v1/agent/tasks`：创建一次 Agent 任务（任务规划 -> 工具执行 -> 结果汇总）
-21. `GET /api/v1/agent/tasks/{task_id}`：查询单个 Agent 任务结果
-22. `GET /healthz`：服务健康检查（含数据库连接摘要）
+20. `POST /api/v1/agent/chat`：兼容旧聊天式入口，内部转到当前任务型 Agent
+21. `POST /api/v1/agent/tasks`：创建一次 Agent 任务（任务规划 -> 工具执行 -> 结果汇总）
+22. `GET /api/v1/agent/tasks/{task_id}`：查询单个 Agent 任务结果
+23. `GET /healthz`：服务健康检查（含数据库连接摘要）
 
 ## 知识库说明
 
@@ -129,11 +129,11 @@ npm run moonshot:smoke:sdk
 
 1. 当前 `/api/v1/agent/tasks` 已切换为真实的 Pi SDK 运行时：后端不再手写固定 workflow，而是把 `load_task_context`、`search_knowledge`、`create_match`、`create_report` 封装成 Pi 可调用工具，由 Pi 决定调用顺序并返回最终总结。
 2. Agent 默认使用独立配置目录 `~/.career-agent/pi-agent`，不会把其他项目目录当成自己的运行目录；但如果独立目录缺少 `auth.json` 或 `models.json`，会自动从 `~/.openclaw/agents/main/agent` 复制缺失文件做一次兼容导入。如需自定义，可通过 `AGENT_PI_DIR`、`AGENT_SESSION_STORE_DIR`、`AGENT_MODEL`、`AGENT_THINKING_LEVEL` 覆盖。
-3. 当前业务报告模块仍通过现有 OpenAI 兼容 LLM 配置工作，因此若需要生成职业报告，后端仍需配置 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL`、`LLM_TIMEOUT_MS`、`LLM_TEMPERATURE`。
-4. 若只想让 Pi Agent 跑起来，需先在独立 Agent 目录准备好 `auth.json` / `models.json`，或确保对应 provider 的标准环境变量已存在；若显式设置 `AGENT_MODEL`，格式必须为 `provider/model`。
-5. 当前代码已通过 `npm run type-check`、`npm run build:backend` 和 `createApp()` 级别验证；真实任务执行仍依赖本机的 Agent 凭证、知识库和业务数据是否准备完毕。
-6. 如需绕开业务链路单独验证 Moonshot/Kimi 凭证，可直接运行 `npm run moonshot:smoke`，脚本会先验证 `/models` 再验证最小 `chat/completions`。
-7. 如需严格按 Moonshot 官方文档的 OpenAI SDK 方式验证，可运行 `npm run moonshot:smoke:sdk`，用于排除自写 HTTP 请求与 SDK 行为差异。
+3. 当前职业报告生成已回到稳定可复现的模板链路，不再依赖独立聊天补全客户端。
+4. 若未显式设置 `AGENT_MODEL`，后端会优先沿用 `MOONSHOT_MODEL` / `KIMI_MODEL`。
+5. 若只想让 Pi Agent 跑起来，需先在独立 Agent 目录准备好 `auth.json` / `models.json`，或确保对应 provider 的标准环境变量已存在；若显式设置 `AGENT_MODEL`，格式必须为 `provider/model`。
+6. 旧入口 `/api/v1/agent/chat` 现已直接复用任务型 Agent，便于历史前端和脚本平滑迁移；`/api/v1/agent/analyze` 仍继续兼容。
+7. 当前代码已通过 `npm run type-check`、`npm run build:backend` 和 `createApp()` 级别验证；如需单独做 Agent 联通性检查，可运行 `npm run agent:smoke`。
 
 ## 协作规范
 

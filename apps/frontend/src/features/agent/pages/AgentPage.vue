@@ -249,11 +249,9 @@ onMounted(async () => {
                   ? "证据不足，部分结论依赖本地规则和已有数据。"
                   : warning === "KNOWLEDGE_SEARCH_FAILED"
                     ? "知识检索失败，任务已降级继续执行。"
-                    : warning === "REPORT_TEMPLATE_FALLBACK"
-                      ? "报告生成已回退到模板兜底版本。"
-                      : warning === "REPORT_GENERATION_FAILED"
-                        ? "报告生成失败，但匹配结论已保留。"
-                        : "最终总结使用了规则兜底版本。"
+                    : warning === "REPORT_GENERATION_FAILED"
+                      ? "报告生成失败，但匹配结论已保留。"
+                      : "最终总结使用了规则兜底版本。"
               }}
             </li>
           </ul>

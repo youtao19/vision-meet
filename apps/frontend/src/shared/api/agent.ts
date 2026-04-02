@@ -3,7 +3,7 @@ import type { AgentTaskResponse, CreateAgentTaskRequest } from "@career/contract
 import { requestJson } from "./http";
 
 export async function createAgentTask(payload: CreateAgentTaskRequest): Promise<AgentTaskResponse> {
-  return requestJson<AgentTaskResponse>("/api/v1/agent/tasks", {
+  return requestJson<AgentTaskResponse>("/api/v1/agent/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

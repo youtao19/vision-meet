@@ -33,11 +33,6 @@ const rawEnvSchema = z.object({
   KIMI_BASE_URL: z.string().trim().url().optional(),
   KIMI_API_KEY: z.string().trim().min(1).optional(),
   KIMI_MODEL: z.string().trim().min(1).optional(),
-  LLM_BASE_URL: z.string().trim().url().optional(),
-  LLM_API_KEY: z.string().trim().min(1).optional(),
-  LLM_MODEL: z.string().trim().min(1).optional(),
-  LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(20000),
-  LLM_TEMPERATURE: z.coerce.number().min(0).max(2).optional(),
   AGENT_PI_DIR: z.string().optional(),
   AGENT_SESSION_STORE_DIR: z.string().optional(),
   AGENT_MODEL: z.string().trim().min(1).optional(),
@@ -47,27 +42,13 @@ const rawEnvSchema = z.object({
 });
 
 const envSchema = rawEnvSchema.transform((env) => {
-  const resolvedModel = env.LLM_MODEL || env.MOONSHOT_MODEL || env.KIMI_MODEL;
-  const normalizedModel =
-    resolvedModel && resolvedModel.startsWith("moonshot/")
-      ? resolvedModel.slice("moonshot/".length)
-      : resolvedModel;
-  const isKimiModel = normalizedModel?.startsWith("kimi-") ?? false;
-
   return {
     ...env,
-    LLM_BASE_URL:
-      env.LLM_BASE_URL ||
-      env.MOONSHOT_BASE_URL ||
-      env.KIMI_BASE_URL ||
-      (isKimiModel ? "https://api.moonshot.ai/v1" : undefined),
-    LLM_API_KEY: env.LLM_API_KEY || env.MOONSHOT_API_KEY || env.KIMI_API_KEY,
-    LLM_MODEL: normalizedModel,
-    LLM_TEMPERATURE: env.LLM_TEMPERATURE ?? (isKimiModel ? 1 : 0.2),
     AGENT_PI_DIR: env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"),
     AGENT_SESSION_STORE_DIR:
       env.AGENT_SESSION_STORE_DIR ||
       path.join(env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"), "sessions"),
+    AGENT_MODEL: env.AGENT_MODEL || env.MOONSHOT_MODEL || env.KIMI_MODEL,
   };
 });
 

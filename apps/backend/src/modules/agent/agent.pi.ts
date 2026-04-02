@@ -166,7 +166,7 @@ function parseModelRef(modelRef?: string): { provider: string; modelId: string }
     throw new HttpError(
       500,
       "AGENT_MODEL_INVALID",
-      "AGENT_MODEL 必须采用 provider/model 的格式，例如 openai/gpt-5.1",
+      "AGENT_MODEL 必须采用 provider/model 的格式，例如 moonshot/kimi-k2.5",
     );
   }
 
@@ -654,10 +654,6 @@ export async function runPiCareerAgent(
         },
       );
       state.report = reportResult.report;
-
-      if (reportResult.generator_mode === "template") {
-        appendWarning(warnings, "REPORT_TEMPLATE_FALLBACK");
-      }
 
       return {
         content: [

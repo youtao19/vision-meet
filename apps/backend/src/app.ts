@@ -19,7 +19,6 @@ import { createReportServiceFromDependencies } from "./modules/report/report.mod
 import { appEnv } from "./shared/config/env.js";
 import { createAppPgPool, formatPgConnectionLabel } from "./shared/db/postgres.js";
 import { HttpError } from "./shared/errors/http-error.js";
-import { createOpenAiCompatibleLlmClient } from "./shared/llm/openai-compatible-llm.client.js";
 
 export function createApp(): express.Express {
   const app = express();
@@ -45,13 +44,6 @@ export function createApp(): express.Express {
     defaultTopK: appEnv.KNOWLEDGE_TOP_K,
     reindexBatchSize: appEnv.KNOWLEDGE_REINDEX_BATCH_SIZE,
   });
-  const llmClient = createOpenAiCompatibleLlmClient({
-    baseUrl: appEnv.LLM_BASE_URL,
-    apiKey: appEnv.LLM_API_KEY,
-    model: appEnv.LLM_MODEL,
-    timeoutMs: appEnv.LLM_TIMEOUT_MS,
-    temperature: appEnv.LLM_TEMPERATURE,
-  });
   const matchingService = createMatchingServiceFromDependencies(
     {
       matchingRepository,
@@ -69,7 +61,6 @@ export function createApp(): express.Express {
       matchingRepository,
       profileRepository,
       jobsRepository,
-      llmClient,
     },
     {
       reportExportDir: appEnv.REPORT_EXPORT_DIR,
