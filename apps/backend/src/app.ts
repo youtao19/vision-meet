@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import cors from "cors";
 import express from "express";
 
+import { createAiModule } from "./modules/ai/ai.module.js";
 import { createAgentModule } from "./modules/agent/agent.module.js";
 import { createCareerPathModule } from "./modules/career-path/career-path.module.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
@@ -18,7 +19,10 @@ import { createMatchingServiceFromDependencies } from "./modules/matching/matchi
 import { createProfileModule } from "./modules/profile/profile.module.js";
 import { createPgProfileRepository } from "./modules/profile/profile.repository.pg.js";
 import { createPgReportExportRepository } from "./modules/report/report-export.repository.pg.js";
-import { createReportExportDownloadRouter, createReportRouter } from "./modules/report/report.route.js";
+import {
+  createReportExportDownloadRouter,
+  createReportRouter,
+} from "./modules/report/report.route.js";
 import { createPgReportRepository } from "./modules/report/report.repository.pg.js";
 import { createReportServiceFromDependencies } from "./modules/report/report.module.js";
 import { appEnv } from "./shared/config/env.js";
@@ -163,6 +167,26 @@ export function createApp(): express.Express {
   app.use("/api/v2/matches", createMatchingRouter(matchingService));
   app.use("/api/v2/reports", createReportRouter(reportService));
   app.use("/api/v2/report-exports", createReportExportDownloadRouter(reportService));
+  app.use(
+    "/api/v2/ai",
+    createAiModule(
+      {
+        profileRepository,
+        jobsRepository,
+        knowledgeService: knowledgeModule.service,
+        matchingService,
+        reportService,
+      },
+      {
+        pool: appDataPool,
+        piAgentDir: appEnv.AGENT_PI_DIR,
+        sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
+        model: appEnv.AGENT_MODEL,
+        thinkingLevel: appEnv.AGENT_THINKING_LEVEL,
+        cwd: process.cwd(),
+      },
+    ),
+  );
   app.use(
     "/api/v1/agent",
     createAgentModule(

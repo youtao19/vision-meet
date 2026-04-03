@@ -599,5 +599,11 @@ export type AgentChatRequest = CreateAgentTaskRequest;
 export type AgentChatResponse = AgentTaskResponse;
 export type AgentAnalyzeRequest = CreateAgentTaskRequest;
 export type AgentAnalyzeResponse = AgentTaskResponse;
+export type AiTaskStatus = AgentTaskStatus;
+export type CreateAiTaskRequest = CreateAgentTaskRequest;
+export type AiTaskResult = AgentTaskResult;
+export type AiTaskResponse = AgentTaskResponse;
+export type AiChatRequest = CreateAiTaskRequest;
+export type AiChatResponse = AiTaskResponse;
 
 export type ApiErrorResponse = StructuredApiError;

@@ -38,14 +38,14 @@ career-agent/
 
 ## 快速开始（根目录）
 
-1. 先切到 Node 22.12+
+1. 先切到 Node 22.20+
 
 ```bash
 node -v
-# 期望看到 v22.12.x 或更高的 22.x
+# 期望看到 v22.20.x 或更高的 22.x
 ```
 
-仓库已提供 [`.nvmrc`](./.nvmrc) 和 [`.node-version`](./.node-version)，统一要求使用 Node `22.12.0`。
+仓库已提供 [`.nvmrc`](./.nvmrc) 和 [`.node-version`](./.node-version)，统一要求使用 Node `22.20.0`。
 
 2. 启动 PostgreSQL（本地 docker compose 场景）
 

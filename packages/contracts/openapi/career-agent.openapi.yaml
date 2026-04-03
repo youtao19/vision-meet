@@ -828,6 +828,100 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v2/ai/tasks:
+    post:
+      summary: Create AI Task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentTaskRequest"
+      responses:
+        "201":
+          description: AI task completed or partially completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTaskResponse"
+        "400":
+          description: Invalid AI request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Student profile or job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: AI orchestration or model call failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v2/ai/chat:
+    post:
+      summary: Create AI Task From Chat-Compatible Path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentTaskRequest"
+      responses:
+        "201":
+          description: AI task completed or partially completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTaskResponse"
+        "400":
+          description: Invalid AI request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Student profile or job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: AI orchestration or model call failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v2/ai/tasks/{task_id}:
+    get:
+      summary: Get AI Task
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: AI task detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTaskResponse"
+        "404":
+          description: AI task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/reports:
     post:
       summary: Create Career Report
@@ -1926,7 +2020,14 @@ components:
         tool:
           type: string
           enum:
-            [task_planning, context_lookup, knowledge_search, match_evaluation, report_generation, final_answer]
+            [
+              task_planning,
+              context_lookup,
+              knowledge_search,
+              match_evaluation,
+              report_generation,
+              final_answer,
+            ]
         title:
           type: string
         purpose:
@@ -1941,7 +2042,14 @@ components:
         tool:
           type: string
           enum:
-            [task_planning, context_lookup, knowledge_search, match_evaluation, report_generation, final_answer]
+            [
+              task_planning,
+              context_lookup,
+              knowledge_search,
+              match_evaluation,
+              report_generation,
+              final_answer,
+            ]
         title:
           type: string
         status:
@@ -2070,7 +2178,15 @@ components:
         key:
           type: string
           enum:
-            [overview, match_analysis, strengths, gaps_and_actions, career_path, short_term_plan, mid_term_plan]
+            [
+              overview,
+              match_analysis,
+              strengths,
+              gaps_and_actions,
+              career_path,
+              short_term_plan,
+              mid_term_plan,
+            ]
         title:
           type: string
         content:
@@ -2204,7 +2320,20 @@ components:
 
     CareerPathNode:
       type: object
-      required: [id, job_id, role_key, title, description, family, level, aliases, typical_skills, category, is_target]
+      required:
+        [
+          id,
+          job_id,
+          role_key,
+          title,
+          description,
+          family,
+          level,
+          aliases,
+          typical_skills,
+          category,
+          is_target,
+        ]
       properties:
         id:
           type: string
@@ -2238,7 +2367,18 @@ components:
     CareerPathEdge:
       type: object
       required:
-        [id, source, target, relation_type, reason, required_skills, gap_skills, transition_cost, direction_label, score]
+        [
+          id,
+          source,
+          target,
+          relation_type,
+          reason,
+          required_skills,
+          gap_skills,
+          transition_cost,
+          direction_label,
+          score,
+        ]
       properties:
         id:
           type: string
@@ -2270,7 +2410,16 @@ components:
     CareerRouteStep:
       type: object
       required:
-        [node_id, role_key, title, relation_type, reason, required_skills, transition_cost, gap_skills]
+        [
+          node_id,
+          role_key,
+          title,
+          relation_type,
+          reason,
+          required_skills,
+          transition_cost,
+          gap_skills,
+        ]
       properties:
         node_id:
           type: string
