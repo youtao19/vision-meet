@@ -371,6 +371,26 @@ onMounted(async () => {
           <span>match_id: {{ selectedReport.match_id }}</span>
           <span>version: V{{ selectedReport.version }}</span>
           <span>总分: {{ selectedReport.total_score }}</span>
+          <span>生成模式: {{ selectedReport.generator_mode }}</span>
+        </div>
+
+        <div v-if="selectedReport" class="sub-panel">
+          <h4>证据引用</h4>
+          <ul>
+            <li v-for="item in selectedReport.evidence_refs" :key="item">{{ item }}</li>
+          </ul>
+        </div>
+
+        <div v-if="selectedReport" class="sub-panel">
+          <h4>结构化行动计划</h4>
+          <p>短期行动：</p>
+          <ul>
+            <li v-for="item in selectedReport.action_plan.short_term" :key="`s-${item}`">{{ item }}</li>
+          </ul>
+          <p>中期行动：</p>
+          <ul>
+            <li v-for="item in selectedReport.action_plan.mid_term" :key="`m-${item}`">{{ item }}</li>
+          </ul>
         </div>
 
         <div v-if="editableSections.length > 0" class="section-list">

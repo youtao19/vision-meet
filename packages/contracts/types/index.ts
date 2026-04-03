@@ -53,6 +53,69 @@ export type JobProfileRecord = {
   created_at: string;
 };
 
+export type JobPipelineMode = "full" | "incremental";
+
+export type JobPipelineTaskStatus = "queued" | "running" | "succeeded" | "failed";
+
+export type JobProfileGenerationMode = "agent" | "heuristic";
+
+export type JobProfileV2Record = {
+  id: number;
+  job_id: number;
+  profile_version: number;
+  normalized_title: string;
+  job_family: string;
+  job_level: number;
+  professional_skills: string[];
+  certificate_requirements: string[];
+  innovation_score: number;
+  learning_score: number;
+  stress_tolerance_score: number;
+  communication_score: number;
+  internship_score: number;
+  summary: string;
+  confidence: number;
+  generation_model: string | null;
+  generation_mode: JobProfileGenerationMode;
+  extracted_features: Record<string, unknown>;
+  created_at: string;
+};
+
+export type JobProfilesV2ListParams = {
+  keyword?: string;
+  job_family?: string;
+  offset: number;
+  limit: number;
+};
+
+export type JobProfilesV2ListResponse = {
+  total: number;
+  items: JobProfileV2Record[];
+};
+
+export type JobPipelineRunRequest = {
+  mode?: JobPipelineMode;
+};
+
+export type JobPipelineTaskRecord = {
+  id: number;
+  mode: JobPipelineMode;
+  status: JobPipelineTaskStatus;
+  total_jobs: number;
+  processed_jobs: number;
+  success_profiles: number;
+  failed_profiles: number;
+  graph_nodes: number;
+  graph_edges: number;
+  family_count: number;
+  message: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type JobsListParams = {
   keyword?: string;
   industry?: string;
@@ -153,6 +216,7 @@ export type MatchExplanationItem = {
   dimension: DimensionKey;
   reasoning: string;
   improvement_actions: string[];
+  evidence_refs: string[];
 };
 
 export type CreateMatchRequest = {
@@ -178,6 +242,8 @@ export type MatchResultDetail = MatchResultSummary & {
   gaps: MatchGapItem[];
   suggestions: string[];
   explanations: MatchExplanationItem[];
+  path_recommendations: CareerRouteRecommendation[];
+  evidence_refs: string[];
 };
 
 export type MatchListParams = {
@@ -220,6 +286,12 @@ export type CareerReportSummary = {
 
 export type CareerReportRecord = CareerReportSummary & {
   sections: CareerReportSection[];
+  generator_mode: "template" | "llm";
+  evidence_refs: string[];
+  action_plan: {
+    short_term: string[];
+    mid_term: string[];
+  };
 };
 
 export type CreateReportRequest = {
@@ -268,6 +340,7 @@ export type CareerPathNodeCategory = "target" | "promotion" | "transition";
 
 export type CareerPathNode = {
   id: string;
+  job_id: number | null;
   role_key: string;
   title: string;
   description: string;
@@ -286,8 +359,10 @@ export type CareerPathEdge = {
   relation_type: CareerPathRelationType;
   reason: string;
   required_skills: string[];
+  gap_skills: string[];
   transition_cost: CareerPathTransitionCost;
   direction_label: string;
+  score: number;
 };
 
 export type CareerRouteStep = {
@@ -318,6 +393,17 @@ export type CareerPathGraphResponse = {
   depth: number;
   canonical_role_key: string;
   canonical_role_title: string;
+  target_node_id: string;
+  nodes: CareerPathNode[];
+  edges: CareerPathEdge[];
+  promotion_routes: CareerRouteRecommendation[];
+  transition_routes: CareerRouteRecommendation[];
+};
+
+export type CareerPathV2GraphResponse = {
+  job_id: number;
+  job_title: string;
+  depth: number;
   target_node_id: string;
   nodes: CareerPathNode[];
   edges: CareerPathEdge[];

@@ -276,6 +276,22 @@ onMounted(async () => {
         </ul>
       </div>
 
+      <div class="sub-panel">
+        <h4>证据引用</h4>
+        <ul>
+          <li v-for="item in selectedDetail.evidence_refs" :key="item">{{ item }}</li>
+        </ul>
+      </div>
+
+      <div class="sub-panel">
+        <h4>路径建议</h4>
+        <ul>
+          <li v-for="item in selectedDetail.path_recommendations" :key="item.route_id">
+            {{ item.title }}（适配度 {{ item.suitability_score }}）
+          </li>
+        </ul>
+      </div>
+
       <div class="action-row">
         <button class="ghost-btn" :disabled="loading.create" @click="repeatAnalyze">重复分析（验证一致性）</button>
         <button class="ghost-btn" @click="goToCareerPath(selectedDetail.job_id, selectedDetail.student_profile_id)">

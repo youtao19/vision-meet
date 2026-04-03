@@ -155,7 +155,7 @@ export type ReportCreateContext = {
 
 export type ReportCreateResult = {
   report: CareerReportRecord;
-  generator_mode: "template";
+  generator_mode: "template" | "llm";
 };
 
 export function createReportService(
@@ -230,6 +230,9 @@ export function createReportService(
         job_id: match.job_id,
         total_score: match.total_score,
         sections: normalizeSectionOrder(generated.sections),
+        generator_mode: generated.mode,
+        evidence_refs: generated.evidence_refs,
+        action_plan: generated.action_plan,
       }),
       generator_mode: generated.mode,
     };
@@ -310,7 +313,7 @@ export function createReportService(
         format: input.format,
         file_name: fileName,
         file_size_bytes: exported.bytes.byteLength,
-        download_path: `/api/v1/report-exports/${exportId}/download`,
+        download_path: `/api/v2/report-exports/${exportId}/download`,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "报告导出失败";

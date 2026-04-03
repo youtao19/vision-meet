@@ -157,6 +157,8 @@ function createSection(key: CareerReportSectionKey, content: string): CareerRepo
 export function createTemplateReportGenerator(): ReportGenerator {
   return {
     async generate(input: ReportGeneratorInput) {
+      const shortTermPlan = buildShortTermPlan(input).split("\n").filter(Boolean);
+      const midTermPlan = buildMidTermPlan(input).split("\n").filter(Boolean);
       return {
         mode: "template" as const,
         sections: [
@@ -168,6 +170,11 @@ export function createTemplateReportGenerator(): ReportGenerator {
           createSection("short_term_plan", buildShortTermPlan(input)),
           createSection("mid_term_plan", buildMidTermPlan(input)),
         ],
+        evidence_refs: input.match.gaps.flatMap((item) => item.evidence).slice(0, 12),
+        action_plan: {
+          short_term: shortTermPlan,
+          mid_term: midTermPlan,
+        },
       };
     },
   };

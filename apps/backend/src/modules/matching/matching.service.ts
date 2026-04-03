@@ -1,4 +1,5 @@
 import type {
+  CareerRouteRecommendation,
   CreateMatchRequest,
   DimensionKey,
   DimensionScores,
@@ -191,6 +192,7 @@ function buildGapAndExplanation(params: {
   gaps: MatchGapItem[];
   explanations: MatchExplanationItem[];
   suggestions: string[];
+  evidenceRefs: string[];
 } {
   const profileSkillsLower = new Set(params.profile.skills.map((item) => item.toLowerCase()));
   const missingHardSkills = params.hardSkills.filter(
@@ -223,6 +225,7 @@ function buildGapAndExplanation(params: {
       dimension,
       reasoning: `该维度匹配分 ${params.matchScores[dimension]}，学生当前能力 ${currentScore}，岗位目标 ${targetScore}。`,
       improvement_actions: actions,
+      evidence_refs: evidence,
     });
   }
 
@@ -248,6 +251,7 @@ function buildGapAndExplanation(params: {
     gaps,
     explanations,
     suggestions: suggestions.length > 0 ? suggestions : ["继续保持当前能力结构并定期复测"],
+    evidenceRefs: Array.from(new Set(gaps.flatMap((item) => item.evidence))).slice(0, 12),
   };
 }
 
@@ -285,6 +289,8 @@ function buildMatchCreateInput(params: {
   gaps: MatchGapItem[];
   explanations: MatchExplanationItem[];
   suggestions: string[];
+  pathRecommendations: CareerRouteRecommendation[];
+  evidenceRefs: string[];
   jobId: number;
 }): MatchResultCreateInput {
   return {
@@ -299,11 +305,21 @@ function buildMatchCreateInput(params: {
     gaps: params.gaps,
     explanations: params.explanations,
     suggestions: params.suggestions,
+    path_recommendations: params.pathRecommendations,
+    evidence_refs: params.evidenceRefs,
   };
 }
 
 export type MatchingServiceOptions = {
   scoringVersion: string;
+  careerPathResolver?: (input: {
+    job_id: number;
+    student_profile_id: number;
+    depth: number;
+  }) => Promise<{
+    promotion_routes: CareerRouteRecommendation[];
+    transition_routes: CareerRouteRecommendation[];
+  }>;
 };
 
 export function createMatchingService(
@@ -367,12 +383,28 @@ export function createMatchingService(
     const matchScores = buildMatchDimensionScores(profile.dimension_scores, targetScores);
     const weights = resolveDimensionWeights(latestJobProfile.skill_weights);
     const totalScore = calculateTotalScore(matchScores, weights);
-    const { gaps, explanations, suggestions } = buildGapAndExplanation({
+    const { gaps, explanations, suggestions, evidenceRefs } = buildGapAndExplanation({
       profile,
       hardSkills: latestJobProfile.hard_skills,
       targetScores,
       matchScores,
     });
+
+    let pathRecommendations: CareerRouteRecommendation[] = [];
+    if (options.careerPathResolver) {
+      try {
+        const graph = await options.careerPathResolver({
+          job_id: job.id,
+          student_profile_id: profile.id,
+          depth: 2,
+        });
+        pathRecommendations = [...graph.promotion_routes, ...graph.transition_routes]
+          .sort((left, right) => right.suitability_score - left.suitability_score)
+          .slice(0, 4);
+      } catch {
+        pathRecommendations = [];
+      }
+    }
 
     return matchingRepository.createMatchResult(
       buildMatchCreateInput({
@@ -385,6 +417,8 @@ export function createMatchingService(
         gaps,
         explanations,
         suggestions,
+        pathRecommendations,
+        evidenceRefs,
         jobId: job.id,
       }),
     );

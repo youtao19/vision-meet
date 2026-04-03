@@ -33,6 +33,8 @@ function mapMatchResultDetail(row: Record<string, unknown>): MatchResultDetail {
     gaps: (row.gaps as MatchResultDetail["gaps"]) ?? [],
     suggestions: (row.suggestions as string[]) ?? [],
     explanations: (row.explanations as MatchResultDetail["explanations"]) ?? [],
+    path_recommendations: (row.path_recommendations as MatchResultDetail["path_recommendations"]) ?? [],
+    evidence_refs: Array.isArray(row.evidence_refs) ? (row.evidence_refs as string[]) : [],
     created_at: new Date(String(row.created_at)).toISOString(),
   };
 }
@@ -73,8 +75,18 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
             gaps JSONB NOT NULL DEFAULT '[]'::jsonb,
             suggestions JSONB NOT NULL DEFAULT '[]'::jsonb,
             explanations JSONB NOT NULL DEFAULT '[]'::jsonb,
+            path_recommendations JSONB NOT NULL DEFAULT '[]'::jsonb,
+            evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           )
+        `);
+        await pool.query(`
+          ALTER TABLE match_results
+          ADD COLUMN IF NOT EXISTS path_recommendations JSONB NOT NULL DEFAULT '[]'::jsonb
+        `);
+        await pool.query(`
+          ALTER TABLE match_results
+          ADD COLUMN IF NOT EXISTS evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]
         `);
         await pool.query(`
           CREATE INDEX IF NOT EXISTS match_results_list_idx
@@ -111,9 +123,11 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
           total_score,
           gaps,
           suggestions,
-          explanations
+          explanations,
+          path_recommendations,
+          evidence_refs
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, $10::jsonb, $11::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::text[])
         RETURNING *
       `,
       [
@@ -128,6 +142,8 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
         JSON.stringify(input.gaps),
         JSON.stringify(input.suggestions),
         JSON.stringify(input.explanations),
+        JSON.stringify(input.path_recommendations ?? []),
+        input.evidence_refs ?? [],
       ],
     );
 

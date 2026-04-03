@@ -14,6 +14,7 @@ import {
   DefaultResourceLoader,
   ModelRegistry,
   SessionManager,
+  type AgentSessionEvent,
 } from "@mariozechner/pi-coding-agent";
 
 import { appEnv } from "../shared/config/env.js";
@@ -70,6 +71,34 @@ function parseModelRef(modelRef?: string): { provider: string; modelId: string }
   };
 }
 
+function summarizeAssistantMessage(message: unknown): string {
+  if (!message || typeof message !== "object") {
+    return "";
+  }
+
+  const content = (message as { content?: unknown }).content;
+  if (typeof content === "string") {
+    return content.trim();
+  }
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  return content
+    .flatMap((item) => {
+      if (typeof item === "string") {
+        return [item];
+      }
+      if (!item || typeof item !== "object") {
+        return [];
+      }
+      const text = (item as { text?: unknown }).text;
+      return typeof text === "string" ? [text] : [];
+    })
+    .join("\n")
+    .trim();
+}
+
 async function main(): Promise<void> {
   const agentDir = appEnv.AGENT_PI_DIR;
   fs.mkdirSync(agentDir, { recursive: true });
@@ -116,11 +145,56 @@ async function main(): Promise<void> {
     throw new Error(modelFallbackMessage || "当前环境没有可用 Agent 模型");
   }
 
+  const assistantMessages: string[] = [];
+  let streamBuffer = "";
+  let lastTurnError = "";
+  const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
+    if (event.type === "message_update") {
+      if (
+        (event.message as { role?: unknown }).role === "assistant" &&
+        event.assistantMessageEvent.type === "text_delta"
+      ) {
+        streamBuffer += event.assistantMessageEvent.delta;
+      }
+      return;
+    }
+
+    if (event.type === "message_end" && (event.message as { role?: unknown }).role === "assistant") {
+      const finalText = streamBuffer.trim() || summarizeAssistantMessage(event.message);
+      streamBuffer = "";
+      if (finalText) {
+        assistantMessages.push(finalText);
+      }
+      return;
+    }
+
+    if (event.type === "turn_end") {
+      const assistantMessage = event.message as {
+        role?: unknown;
+        stopReason?: unknown;
+        errorMessage?: unknown;
+      };
+      if (assistantMessage.role === "assistant" && assistantMessage.stopReason === "error") {
+        lastTurnError = String(assistantMessage.errorMessage || "agent smoke 执行失败");
+      }
+    }
+  });
+
   try {
     await session.prompt("测试连通性，只回答 ok");
+    if (lastTurnError) {
+      throw new Error(lastTurnError);
+    }
+
+    const finalText = (assistantMessages.at(-1) || streamBuffer).trim().toLowerCase();
+    if (!finalText) {
+      throw new Error("Agent 未返回可用响应");
+    }
+
     console.log("AGENT_OK");
     console.log(`model=${session.model.provider}/${session.model.id}`);
   } finally {
+    unsubscribe();
     session.dispose();
   }
 }

@@ -7,6 +7,10 @@ import { createAgentModule } from "./modules/agent/agent.module.js";
 import { createCareerPathModule } from "./modules/career-path/career-path.module.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createPgJobsRepository } from "./modules/jobs/jobs.repository.pg.js";
+import { createJobsIntelligenceModule } from "./modules/jobs-intelligence/jobs-intelligence.module.js";
+import { createNeo4jJobsIntelligenceGraphRepository } from "./modules/jobs-intelligence/jobs-intelligence.repository.neo4j.js";
+import { createPgJobsIntelligenceRepository } from "./modules/jobs-intelligence/jobs-intelligence.repository.pg.js";
+import { createJobsIntelligenceService } from "./modules/jobs-intelligence/jobs-intelligence.service.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
 import { createMatchingRouter } from "./modules/matching/matching.route.js";
 import { createPgMatchingRepository } from "./modules/matching/matching.repository.pg.js";
@@ -56,11 +60,27 @@ export function createApp(): express.Express {
     defaultTopK: appEnv.KNOWLEDGE_TOP_K,
     reindexBatchSize: appEnv.KNOWLEDGE_REINDEX_BATCH_SIZE,
   });
+  const jobsIntelligenceService = createJobsIntelligenceService(
+    createPgJobsIntelligenceRepository(appDataPool),
+    createNeo4jJobsIntelligenceGraphRepository({
+      uri: appEnv.NEO4J_URI,
+      username: appEnv.NEO4J_USERNAME,
+      password: appEnv.NEO4J_PASSWORD,
+    }),
+    appEnv,
+  );
   const matchingService = createMatchingServiceFromDependencies(
     {
       matchingRepository,
       profileRepository,
       jobsRepository,
+      careerPathResolver: async ({ job_id, depth }) => {
+        const graph = await jobsIntelligenceService.getCareerPathGraph(job_id, depth);
+        return {
+          promotion_routes: graph.promotion_routes,
+          transition_routes: graph.transition_routes,
+        };
+      },
     },
     {
       scoringVersion: appEnv.MATCH_SCORING_VERSION,
@@ -128,6 +148,21 @@ export function createApp(): express.Express {
   app.use("/api/v1/matches", createMatchingRouter(matchingService));
   app.use("/api/v1/reports", createReportRouter(reportService));
   app.use("/api/v1/report-exports", createReportExportDownloadRouter(reportService));
+  app.use(
+    "/api/v2",
+    createJobsIntelligenceModule({
+      pool: appDataPool,
+      neo4j: {
+        uri: appEnv.NEO4J_URI,
+        username: appEnv.NEO4J_USERNAME,
+        password: appEnv.NEO4J_PASSWORD,
+      },
+      env: appEnv,
+    }),
+  );
+  app.use("/api/v2/matches", createMatchingRouter(matchingService));
+  app.use("/api/v2/reports", createReportRouter(reportService));
+  app.use("/api/v2/report-exports", createReportExportDownloadRouter(reportService));
   app.use(
     "/api/v1/agent",
     createAgentModule(

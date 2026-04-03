@@ -254,6 +254,7 @@ function buildResponseNodes(params: {
 }): CareerPathNode[] {
   return params.snapshot.nodes.map((node) => ({
     id: node.key,
+    job_id: null,
     role_key: node.key,
     title: node.title,
     description: node.description,
@@ -274,8 +275,10 @@ function buildResponseEdges(snapshot: CareerPathGraphSnapshot): CareerPathEdge[]
     relation_type: edge.relation_type,
     reason: edge.reason,
     required_skills: edge.required_skills,
+    gap_skills: [],
     transition_cost: edge.transition_cost,
     direction_label: edge.direction_label,
+    score: edge.transition_cost === "low" ? 82 : edge.transition_cost === "medium" ? 68 : 55,
   }));
 }
 

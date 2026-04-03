@@ -80,6 +80,7 @@ npm run knowledge:init
 npm run knowledge:index:jobs
 npm run knowledge:index:project-docs
 npm run knowledge:eval
+npm run jobs:pipeline:run
 ```
 
 6. 访问地址
@@ -118,6 +119,16 @@ npm run knowledge:eval
 21. `POST /api/v1/agent/tasks`：创建一次 Agent 任务（任务规划 -> 工具执行 -> 结果汇总）
 22. `GET /api/v1/agent/tasks/{task_id}`：查询单个 Agent 任务结果
 23. `GET /healthz`：服务健康检查（含数据库连接摘要）
+
+## V2 新增接口（岗位智能处理闭环）
+
+1. `POST /api/v2/jobs/pipeline/run`：手动触发岗位智能流水线（全量/增量）。
+2. `GET /api/v2/jobs/pipeline/tasks/{task_id}`：查询流水线任务进度与统计。
+3. `GET /api/v2/job-profiles`：查询最新岗位画像（支持关键字/岗位族筛选）。
+4. `GET /api/v2/job-profiles/{job_id}`：查询指定岗位最新画像详情。
+5. `GET /api/v2/career-paths/jobs/{job_id}`：查询 V2 自动图谱（晋升 + 换岗）。
+6. `POST /api/v2/matches`、`GET /api/v2/matches*`：V2 匹配接口（含路径建议和证据引用）。
+7. `POST /api/v2/reports`、`GET /api/v2/reports*`：V2 报告接口（含 `generator_mode` 与结构化行动计划）。
 
 ## 知识库说明
 

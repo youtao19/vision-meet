@@ -15,7 +15,8 @@ import { createReportExportDownloadRouter, createReportRouter } from "./report.r
 import { createPgReportRepository } from "./report.repository.pg.js";
 import type { ReportRepository } from "./report.repository.js";
 import { createReportService } from "./report.service.js";
-import { createTemplateReportGenerator } from "./template-report.generator.js";
+import { createLlmReportGenerator } from "./llm-report.generator.js";
+import { appEnv } from "../../shared/config/env.js";
 
 export type ReportModuleOptions = {
   pool: Pool;
@@ -39,7 +40,7 @@ export function createReportServiceFromDependencies(
   dependencies: ReportServiceDependencies,
   options: ReportServiceFactoryOptions = {},
 ) {
-  const generator = createTemplateReportGenerator();
+  const generator = createLlmReportGenerator(appEnv);
   const exporter = createPlaywrightReportExporter();
 
   return createReportService(

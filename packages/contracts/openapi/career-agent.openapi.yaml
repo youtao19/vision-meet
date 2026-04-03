@@ -351,6 +351,302 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v2/jobs/pipeline/run:
+    post:
+      summary: Run Jobs Intelligence Pipeline
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [full, incremental]
+                  default: incremental
+      responses:
+        "202":
+          description: Pipeline task accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobPipelineTaskRecord"
+
+  /api/v2/jobs/pipeline/tasks/{task_id}:
+    get:
+      summary: Get Jobs Pipeline Task
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Pipeline task detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobPipelineTaskRecord"
+
+  /api/v2/job-profiles:
+    get:
+      summary: List Job Profiles V2
+      parameters:
+        - in: query
+          name: keyword
+          schema:
+            type: string
+        - in: query
+          name: job_family
+          schema:
+            type: string
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Job profile list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobProfilesV2ListResponse"
+
+  /api/v2/job-profiles/{job_id}:
+    get:
+      summary: Get Job Profile V2 Detail
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Job profile detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobProfileV2Record"
+
+  /api/v2/career-paths/jobs/{job_id}:
+    get:
+      summary: Get Career Path Graph V2
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: depth
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 3
+            default: 2
+      responses:
+        "200":
+          description: Career path graph result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerPathGraphResponse"
+
+  /api/v2/matches:
+    post:
+      summary: Create Match Result V2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMatchRequest"
+      responses:
+        "201":
+          description: Match result created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResultDetail"
+    get:
+      summary: List Match Results V2
+      parameters:
+        - in: query
+          name: student_profile_id
+          schema:
+            type: integer
+        - in: query
+          name: job_id
+          schema:
+            type: integer
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Match result list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResultListResponse"
+
+  /api/v2/matches/{match_id}:
+    get:
+      summary: Get Match Result Detail V2
+      parameters:
+        - in: path
+          name: match_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Match result detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResultDetail"
+
+  /api/v2/reports:
+    post:
+      summary: Create Career Report V2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReportRequest"
+      responses:
+        "201":
+          description: Career report created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerReportRecord"
+    get:
+      summary: List Career Reports V2
+      parameters:
+        - in: query
+          name: match_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Career report list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportListResponse"
+
+  /api/v2/reports/{report_id}:
+    get:
+      summary: Get Career Report Detail V2
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Career report detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerReportRecord"
+    patch:
+      summary: Update Career Report V2
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReportRequest"
+      responses:
+        "200":
+          description: Career report updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerReportRecord"
+
+  /api/v2/reports/{report_id}/exports:
+    post:
+      summary: Create Career Report Export V2
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReportExportRequest"
+      responses:
+        "201":
+          description: Export created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerReportExportRecord"
+    get:
+      summary: List Career Report Exports V2
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Export list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportExportListResponse"
+
+  /api/v2/report-exports/{export_id}/download:
+    get:
+      summary: Download Report Export V2
+      parameters:
+        - in: path
+          name: export_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PDF binary stream
+
   /api/v1/knowledge/index:
     post:
       summary: Index Knowledge Sources
@@ -927,6 +1223,148 @@ components:
         cached:
           type: boolean
 
+    JobProfileV2Record:
+      type: object
+      required:
+        [
+          id,
+          job_id,
+          profile_version,
+          normalized_title,
+          job_family,
+          job_level,
+          professional_skills,
+          certificate_requirements,
+          innovation_score,
+          learning_score,
+          stress_tolerance_score,
+          communication_score,
+          internship_score,
+          summary,
+          confidence,
+          generation_mode,
+          extracted_features,
+          created_at,
+        ]
+      properties:
+        id:
+          type: integer
+        job_id:
+          type: integer
+        profile_version:
+          type: integer
+        normalized_title:
+          type: string
+        job_family:
+          type: string
+        job_level:
+          type: integer
+        professional_skills:
+          type: array
+          items:
+            type: string
+        certificate_requirements:
+          type: array
+          items:
+            type: string
+        innovation_score:
+          type: integer
+        learning_score:
+          type: integer
+        stress_tolerance_score:
+          type: integer
+        communication_score:
+          type: integer
+        internship_score:
+          type: integer
+        summary:
+          type: string
+        confidence:
+          type: number
+        generation_model:
+          type: string
+          nullable: true
+        generation_mode:
+          type: string
+          enum: [agent, heuristic]
+        extracted_features:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    JobProfilesV2ListResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobProfileV2Record"
+
+    JobPipelineTaskRecord:
+      type: object
+      required:
+        [
+          id,
+          mode,
+          status,
+          total_jobs,
+          processed_jobs,
+          success_profiles,
+          failed_profiles,
+          graph_nodes,
+          graph_edges,
+          family_count,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        id:
+          type: integer
+        mode:
+          type: string
+          enum: [full, incremental]
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed]
+        total_jobs:
+          type: integer
+        processed_jobs:
+          type: integer
+        success_profiles:
+          type: integer
+        failed_profiles:
+          type: integer
+        graph_nodes:
+          type: integer
+        graph_edges:
+          type: integer
+        family_count:
+          type: integer
+        message:
+          type: string
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+        started_at:
+          type: string
+          nullable: true
+          format: date-time
+        finished_at:
+          type: string
+          nullable: true
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
     CreateStudentProfileRequest:
       type: object
       required: [name, target_role, skills]
@@ -1119,7 +1557,7 @@ components:
 
     MatchExplanationItem:
       type: object
-      required: [dimension, reasoning, improvement_actions]
+      required: [dimension, reasoning, improvement_actions, evidence_refs]
       properties:
         dimension:
           type: string
@@ -1128,6 +1566,10 @@ components:
         reasoning:
           type: string
         improvement_actions:
+          type: array
+          items:
+            type: string
+        evidence_refs:
           type: array
           items:
             type: string
@@ -1176,7 +1618,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/MatchResultSummary"
         - type: object
-          required: [gaps, suggestions, explanations]
+          required: [gaps, suggestions, explanations, path_recommendations, evidence_refs]
           properties:
             gaps:
               type: array
@@ -1190,6 +1632,14 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/MatchExplanationItem"
+            path_recommendations:
+              type: array
+              items:
+                $ref: "#/components/schemas/CareerRouteRecommendation"
+            evidence_refs:
+              type: array
+              items:
+                type: string
 
     MatchResultListResponse:
       type: object
@@ -1656,12 +2106,31 @@ components:
       allOf:
         - $ref: "#/components/schemas/CareerReportSummary"
         - type: object
-          required: [sections]
+          required: [sections, generator_mode, evidence_refs, action_plan]
           properties:
             sections:
               type: array
               items:
                 $ref: "#/components/schemas/CareerReportSection"
+            generator_mode:
+              type: string
+              enum: [template, llm]
+            evidence_refs:
+              type: array
+              items:
+                type: string
+            action_plan:
+              type: object
+              required: [short_term, mid_term]
+              properties:
+                short_term:
+                  type: array
+                  items:
+                    type: string
+                mid_term:
+                  type: array
+                  items:
+                    type: string
 
     CreateReportRequest:
       type: object
@@ -1735,10 +2204,13 @@ components:
 
     CareerPathNode:
       type: object
-      required: [id, role_key, title, description, family, level, aliases, typical_skills, category, is_target]
+      required: [id, job_id, role_key, title, description, family, level, aliases, typical_skills, category, is_target]
       properties:
         id:
           type: string
+        job_id:
+          type: integer
+          nullable: true
         role_key:
           type: string
         title:
@@ -1766,7 +2238,7 @@ components:
     CareerPathEdge:
       type: object
       required:
-        [id, source, target, relation_type, reason, required_skills, transition_cost, direction_label]
+        [id, source, target, relation_type, reason, required_skills, gap_skills, transition_cost, direction_label, score]
       properties:
         id:
           type: string
@@ -1783,11 +2255,17 @@ components:
           type: array
           items:
             type: string
+        gap_skills:
+          type: array
+          items:
+            type: string
         transition_cost:
           type: string
           enum: [low, medium, high]
         direction_label:
           type: string
+        score:
+          type: integer
 
     CareerRouteStep:
       type: object
@@ -1850,10 +2328,7 @@ components:
         [
           job_id,
           job_title,
-          student_profile_id,
           depth,
-          canonical_role_key,
-          canonical_role_title,
           target_node_id,
           nodes,
           edges,
@@ -1865,15 +2340,8 @@ components:
           type: integer
         job_title:
           type: string
-        student_profile_id:
-          type: integer
-          nullable: true
         depth:
           type: integer
-        canonical_role_key:
-          type: string
-        canonical_role_title:
-          type: string
         target_node_id:
           type: string
         nodes:

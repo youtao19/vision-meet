@@ -87,6 +87,8 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
         gaps JSONB NOT NULL DEFAULT '[]'::jsonb,
         suggestions JSONB NOT NULL DEFAULT '[]'::jsonb,
         explanations JSONB NOT NULL DEFAULT '[]'::jsonb,
+        path_recommendations JSONB NOT NULL DEFAULT '[]'::jsonb,
+        evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
@@ -100,6 +102,9 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
         job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
         total_score DOUBLE PRECISION NOT NULL,
         sections JSONB NOT NULL DEFAULT '[]'::jsonb,
+        generator_mode TEXT NOT NULL DEFAULT 'template',
+        evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+        action_plan JSONB NOT NULL DEFAULT '{}'::jsonb,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE(match_id, version)

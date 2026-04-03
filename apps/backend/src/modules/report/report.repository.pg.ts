@@ -24,6 +24,12 @@ function mapCareerReportRecord(row: Record<string, unknown>): CareerReportRecord
     job_id: Number(row.job_id),
     total_score: Number(row.total_score),
     sections: (row.sections as CareerReportSection[]) ?? [],
+    generator_mode: (row.generator_mode as CareerReportRecord["generator_mode"]) ?? "template",
+    evidence_refs: Array.isArray(row.evidence_refs) ? (row.evidence_refs as string[]) : [],
+    action_plan: (row.action_plan as CareerReportRecord["action_plan"]) ?? {
+      short_term: [],
+      mid_term: [],
+    },
     created_at: new Date(String(row.created_at)).toISOString(),
     updated_at: new Date(String(row.updated_at)).toISOString(),
   };
@@ -45,10 +51,25 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
             job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
             total_score DOUBLE PRECISION NOT NULL,
             sections JSONB NOT NULL DEFAULT '[]'::jsonb,
+            generator_mode TEXT NOT NULL DEFAULT 'template',
+            evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+            action_plan JSONB NOT NULL DEFAULT '{}'::jsonb,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE(match_id, version)
           )
+        `);
+        await pool.query(`
+          ALTER TABLE career_reports
+          ADD COLUMN IF NOT EXISTS generator_mode TEXT NOT NULL DEFAULT 'template'
+        `);
+        await pool.query(`
+          ALTER TABLE career_reports
+          ADD COLUMN IF NOT EXISTS evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]
+        `);
+        await pool.query(`
+          ALTER TABLE career_reports
+          ADD COLUMN IF NOT EXISTS action_plan JSONB NOT NULL DEFAULT '{}'::jsonb
         `);
         await pool.query(`
           CREATE INDEX IF NOT EXISTS career_reports_match_idx
@@ -70,9 +91,12 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
           student_profile_id,
           job_id,
           total_score,
-          sections
+          sections,
+          generator_mode,
+          evidence_refs,
+          action_plan
         )
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::text[], $9::jsonb)
         RETURNING *
       `,
       [
@@ -82,6 +106,9 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
         input.job_id,
         input.total_score,
         JSON.stringify(input.sections),
+        input.generator_mode,
+        input.evidence_refs ?? [],
+        JSON.stringify(input.action_plan ?? { short_term: [], mid_term: [] }),
       ],
     );
     return mapCareerReportRecord(result.rows[0]);

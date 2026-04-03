@@ -4,7 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 
 import {
   type CareerPathEdge,
-  type CareerPathGraphResponse,
+  type CareerPathV2GraphResponse,
   type CareerPathNode,
   type CareerRouteRecommendation,
   type JobRecord,
@@ -27,7 +27,7 @@ const router = useRouter();
 
 const jobs = ref<JobRecord[]>([]);
 const profiles = ref<StudentProfileRecord[]>([]);
-const graphResult = ref<CareerPathGraphResponse | null>(null);
+const graphResult = ref<CareerPathV2GraphResponse | null>(null);
 const chartRef = ref<HTMLDivElement | null>(null);
 const selectedNodeId = ref("");
 const selectedEdgeId = ref("");
@@ -80,7 +80,7 @@ function getEdgeColor(edge: CareerPathEdge): string {
   return edge.relation_type === "promotion" ? "#1d4ed8" : "#ea580c";
 }
 
-function buildGraphOption(result: CareerPathGraphResponse) {
+function buildGraphOption(result: CareerPathV2GraphResponse) {
   return {
     backgroundColor: "transparent",
     tooltip: {
@@ -365,8 +365,7 @@ onUnmounted(() => {
           <div>
             <h3>{{ graphResult.job_title }}</h3>
             <p class="muted">
-              规范岗位：{{ graphResult.canonical_role_title }} · 节点 {{ graphResult.nodes.length }} · 边
-              {{ graphResult.edges.length }}
+              节点 {{ graphResult.nodes.length }} · 边 {{ graphResult.edges.length }}
             </p>
           </div>
         </div>
@@ -390,7 +389,9 @@ onUnmounted(() => {
             <h4>{{ selectedEdge.source }} -> {{ selectedEdge.target }}</h4>
             <p>{{ selectedEdge.reason }}</p>
             <p>关键迁移技能：{{ selectedEdge.required_skills.join("、") || "暂无" }}</p>
+            <p>待补齐技能：{{ selectedEdge.gap_skills.join("、") || "暂无" }}</p>
             <p>迁移成本：{{ selectedEdge.transition_cost }}</p>
+            <p>关系分值：{{ selectedEdge.score }}</p>
           </div>
 
           <p v-if="!selectedNode && !selectedEdge" class="empty-text">点击图谱节点或连线后查看详情。</p>
