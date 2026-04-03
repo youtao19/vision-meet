@@ -2230,7 +2230,7 @@ components:
                 $ref: "#/components/schemas/CareerReportSection"
             generator_mode:
               type: string
-              enum: [template, llm]
+              enum: [template]
             evidence_refs:
               type: array
               items:

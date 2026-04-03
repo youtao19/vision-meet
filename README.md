@@ -72,6 +72,7 @@ npm run dev
 ```bash
 npm run dev:backend
 npm run dev:frontend
+npm run agent:auth:kimi
 npm run type-check
 npm run build
 npm run agent:smoke
@@ -141,12 +142,15 @@ npm run jobs:pipeline:run
 ## Agent 说明
 
 1. 当前 `/api/v1/agent/tasks` 已切换为真实的 Pi SDK 运行时：后端不再手写固定 workflow，而是把 `load_task_context`、`search_knowledge`、`create_match`、`create_report` 封装成 Pi 可调用工具，由 Pi 决定调用顺序并返回最终总结。
-2. Agent 默认使用独立配置目录 `~/.career-agent/pi-agent`，不会把其他项目目录当成自己的运行目录；但如果独立目录缺少 `auth.json` 或 `models.json`，会自动从 `~/.openclaw/agents/main/agent` 复制缺失文件做一次兼容导入。如需自定义，可通过 `AGENT_PI_DIR`、`AGENT_SESSION_STORE_DIR`、`AGENT_MODEL`、`AGENT_THINKING_LEVEL` 覆盖。
+2. Agent 默认使用独立配置目录 `~/.career-agent/pi-agent`，不会把其他项目目录当成自己的运行目录；如果独立目录缺少 `auth.json` 或 `models.json`，会优先从标准 Pi 目录 `~/.pi/agent` 复制缺失文件做一次兼容导入。若检测到 OpenClaw 主智能体目录 `~/.openclaw/agents/main/agent`，还会把其中的 `auth-profiles.json` 按 Pi `auth.json` 结构转换导入。后续运行仍以独立目录为准。如需自定义，可通过 `AGENT_PI_DIR`、`AGENT_SESSION_STORE_DIR`、`AGENT_MODEL`、`AGENT_THINKING_LEVEL` 覆盖。
 3. 当前职业报告生成已回到稳定可复现的模板链路，不再依赖独立聊天补全客户端。
-4. 若未显式设置 `AGENT_MODEL`，后端会优先沿用 `MOONSHOT_MODEL` / `KIMI_MODEL`。
-5. 若只想让 Pi Agent 跑起来，需先在独立 Agent 目录准备好 `auth.json` / `models.json`，或确保对应 provider 的标准环境变量已存在；若显式设置 `AGENT_MODEL`，格式必须为 `provider/model`。
-6. 旧入口 `/api/v1/agent/chat` 现已直接复用任务型 Agent，便于历史前端和脚本平滑迁移；`/api/v1/agent/analyze` 仍继续兼容。
-7. 当前代码已通过 `npm run type-check`、`npm run build:backend` 和 `createApp()` 级别验证；如需单独做 Agent 联通性检查，可运行 `npm run agent:smoke`。
+4. 若未显式设置 `AGENT_MODEL`，后端会优先沿用 `KIMI_MODEL`，其次才回退到 `MOONSHOT_MODEL`。
+5. 若只想让 Pi Agent 跑起来，可以先使用官方 `pi` 完成 `/login`，项目会自动复用 `~/.pi/agent/auth.json` / `models.json`；如果你已经在 OpenClaw 中配置过 Kimi/Moonshot，项目也会自动尝试导入 `~/.openclaw/agents/main/agent/auth-profiles.json`。若显式设置 `AGENT_MODEL`，格式必须为 `provider/model`。
+6. 当前项目默认使用 `kimi-coding/k2p5`。也就是说，Agent 主链路优先按 Kimi Code 接入，对应 `KIMI_API_KEY` 或 `KIMICODE_API_KEY`。
+7. 若你确实需要兼容 Moonshot 开放平台 Kimi，仍可显式设置 `AGENT_MODEL=moonshot/kimi-k2.5`，此时使用 `MOONSHOT_API_KEY`。
+8. 若希望把当前 provider 的 API key 固化到项目独立 Agent 目录，可执行 `npm run agent:auth:kimi`。该脚本会按当前 `AGENT_MODEL` 选择正确的 provider 写入 `~/.career-agent/pi-agent/auth.json`；默认会写 `kimi-coding`，若显式切到 `moonshot` 才会补齐 Moonshot `models.json` 片段。
+9. 旧入口 `/api/v1/agent/chat` 现已直接复用任务型 Agent，便于历史前端和脚本平滑迁移；`/api/v1/agent/analyze` 仍继续兼容。
+10. 当前代码已通过 `npm run type-check`、`npm run build:backend` 和 `createApp()` 级别验证；如需单独做 Agent 联通性检查，可运行 `npm run agent:smoke`。
 
 ## 协作规范
 

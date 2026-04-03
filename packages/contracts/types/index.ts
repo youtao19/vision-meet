@@ -286,7 +286,7 @@ export type CareerReportSummary = {
 
 export type CareerReportRecord = CareerReportSummary & {
   sections: CareerReportSection[];
-  generator_mode: "template" | "llm";
+  generator_mode: "template";
   evidence_refs: string[];
   action_plan: {
     short_term: string[];

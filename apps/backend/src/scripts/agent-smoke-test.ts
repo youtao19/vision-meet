@@ -4,8 +4,6 @@
  * 不覆盖业务工具调用、数据库读写或完整任务编排链路。
  */
 
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import {
@@ -17,37 +15,11 @@ import {
   type AgentSessionEvent,
 } from "@mariozechner/pi-coding-agent";
 
+import {
+  ensureCompatibleAgentBootstrap,
+  resolveDefaultPiAgentDir,
+} from "../shared/agent/agent-bootstrap.js";
 import { appEnv } from "../shared/config/env.js";
-
-/**
- * 作用：在项目独立 Agent 目录缺少兼容文件时，从旧目录复制一次。
- * 参数：targetAgentDir 为当前项目使用的 Agent 主目录。
- * 返回：无。
- * 注意：这里只做缺失补齐，不覆盖当前目录已有文件。
- */
-function ensureCompatibleAgentBootstrap(targetAgentDir: string): void {
-  const legacyAgentDir = path.join(os.homedir(), ".openclaw", "agents", "main", "agent");
-  const compatibleFiles = ["auth.json", "models.json"] as const;
-
-  if (!fs.existsSync(legacyAgentDir)) {
-    return;
-  }
-
-  for (const fileName of compatibleFiles) {
-    const targetPath = path.join(targetAgentDir, fileName);
-    if (fs.existsSync(targetPath)) {
-      continue;
-    }
-
-    const legacyPath = path.join(legacyAgentDir, fileName);
-    if (!fs.existsSync(legacyPath)) {
-      continue;
-    }
-
-    fs.copyFileSync(legacyPath, targetPath);
-    fs.chmodSync(targetPath, 0o600);
-  }
-}
 
 /**
  * 作用：把 provider/model 形式的配置解析为模型注册表可查询的引用。
@@ -62,7 +34,7 @@ function parseModelRef(modelRef?: string): { provider: string; modelId: string }
 
   const slashIndex = modelRef.indexOf("/");
   if (slashIndex <= 0 || slashIndex === modelRef.length - 1) {
-    throw new Error("AGENT_MODEL 必须采用 provider/model 格式，例如 moonshot/kimi-k2.5");
+    throw new Error("AGENT_MODEL 必须采用 provider/model 格式，例如 kimi-coding/k2p5");
   }
 
   return {
@@ -100,17 +72,20 @@ function summarizeAssistantMessage(message: unknown): string {
 }
 
 async function main(): Promise<void> {
-  const agentDir = appEnv.AGENT_PI_DIR;
-  fs.mkdirSync(agentDir, { recursive: true });
+  const agentDir = appEnv.AGENT_PI_DIR || resolveDefaultPiAgentDir();
   ensureCompatibleAgentBootstrap(agentDir);
 
   const authStorage = AuthStorage.create(path.join(agentDir, "auth.json"));
   const modelRegistry = ModelRegistry.create(authStorage, path.join(agentDir, "models.json"));
   const modelRef = parseModelRef(appEnv.AGENT_MODEL);
-  const selectedModel = modelRef ? modelRegistry.find(modelRef.provider, modelRef.modelId) : undefined;
+  const selectedModel = modelRef
+    ? modelRegistry.find(modelRef.provider, modelRef.modelId)
+    : undefined;
 
   if (modelRef && !selectedModel) {
-    throw new Error(`未找到模型 ${modelRef.provider}/${modelRef.modelId}，请检查 AGENT_MODEL 与 models.json`);
+    throw new Error(
+      `未找到模型 ${modelRef.provider}/${modelRef.modelId}，请检查 AGENT_MODEL 与 models.json`,
+    );
   }
 
   const resourceLoader = new DefaultResourceLoader({
@@ -159,7 +134,10 @@ async function main(): Promise<void> {
       return;
     }
 
-    if (event.type === "message_end" && (event.message as { role?: unknown }).role === "assistant") {
+    if (
+      event.type === "message_end" &&
+      (event.message as { role?: unknown }).role === "assistant"
+    ) {
       const finalText = streamBuffer.trim() || summarizeAssistantMessage(event.message);
       streamBuffer = "";
       if (finalText) {

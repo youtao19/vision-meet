@@ -31,7 +31,7 @@ function isAuthenticationFailure(message: string): boolean {
   const normalized = message.toLowerCase();
   return (
     normalized.includes("401 invalid authentication") ||
-    normalized.includes("401") && normalized.includes("authentication") ||
+    (normalized.includes("401") && normalized.includes("authentication")) ||
     normalized.includes("invalid api key") ||
     normalized.includes("unauthorized")
   );
@@ -41,10 +41,7 @@ function uniqueSkills(items: string[]): string[] {
   return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
 }
 
-function findTargetNode(
-  nodes: CareerGraphSnapshot["nodes"],
-  jobId: number,
-): CareerPathNode | null {
+function findTargetNode(nodes: CareerGraphSnapshot["nodes"], jobId: number): CareerPathNode | null {
   const target = nodes.find((node) => node.job_id === jobId);
   if (!target) {
     return null;
@@ -71,7 +68,9 @@ function buildRouteRecommendations(params: {
   edges: CareerPathV2GraphResponse["edges"];
 }): CareerRouteRecommendation[] {
   const outgoing = params.edges
-    .filter((edge) => edge.source === params.targetNodeId && edge.relation_type === params.relationType)
+    .filter(
+      (edge) => edge.source === params.targetNodeId && edge.relation_type === params.relationType,
+    )
     .sort((left, right) => right.score - left.score)
     .slice(0, 3);
 
@@ -153,7 +152,10 @@ export function createJobsIntelligenceService(
 ): JobsIntelligenceService {
   const runningTaskIds = new Set<number>();
 
-  async function runPipelineTask(taskId: number, mode: JobPipelineMode): Promise<JobPipelineTaskRecord> {
+  async function runPipelineTask(
+    taskId: number,
+    mode: JobPipelineMode,
+  ): Promise<JobPipelineTaskRecord> {
     if (runningTaskIds.has(taskId)) {
       const existing = await repository.getPipelineTask(taskId);
       if (!existing) {
@@ -241,12 +243,12 @@ export function createJobsIntelligenceService(
           ? `流水线失败：agent 鉴权失败，已在第 ${processed} 条处中止`
           : `流水线失败：agent_success=${agentProfiles}, failed=${failedProfiles}, family_count=${familyCount}`;
       const errorMessage = authFailed
-        ? "Agent 模型鉴权失败，请检查 MOONSHOT_API_KEY / provider 配置"
+        ? "Agent 模型鉴权失败，请检查 KIMI_API_KEY / KIMICODE_API_KEY 或 provider 配置"
         : hasAgentFailure
           ? `存在 ${failedProfiles} 条岗位画像 Agent 生成失败`
-        : hasEnoughFamilies
-          ? null
-          : "有效岗位族数量不足 10";
+          : hasEnoughFamilies
+            ? null
+            : "有效岗位族数量不足 10";
 
       console.info(
         `[jobs:pipeline] finish task_id=${taskId} status=${isSucceeded ? "succeeded" : "failed"} family_count=${familyCount} graph_nodes=${graphSyncResult.nodes_upserted} graph_edges=${graphSyncResult.edges_upserted}`,
@@ -295,7 +297,9 @@ export function createJobsIntelligenceService(
     return task;
   }
 
-  async function listJobProfiles(params: JobProfilesV2ListParams): Promise<JobProfilesV2ListResponse> {
+  async function listJobProfiles(
+    params: JobProfilesV2ListParams,
+  ): Promise<JobProfilesV2ListResponse> {
     return repository.listLatestProfiles(params);
   }
 
@@ -307,7 +311,10 @@ export function createJobsIntelligenceService(
     return profile;
   }
 
-  async function getCareerPathGraph(jobId: number, depth: number): Promise<CareerPathV2GraphResponse> {
+  async function getCareerPathGraph(
+    jobId: number,
+    depth: number,
+  ): Promise<CareerPathV2GraphResponse> {
     const snapshot = await graphRepository.getSubgraphByJobId(jobId, depth);
     if (snapshot.nodes.length === 0) {
       throw new HttpError(404, "CAREER_PATH_NOT_FOUND", "目标岗位尚未生成图谱数据");
@@ -342,8 +349,12 @@ export function createJobsIntelligenceService(
       edges,
     });
 
-    const promotedNodeIds = new Set(promotionRoutes.flatMap((route) => route.steps.map((step) => step.node_id)));
-    const transitionNodeIds = new Set(transitionRoutes.flatMap((route) => route.steps.map((step) => step.node_id)));
+    const promotedNodeIds = new Set(
+      promotionRoutes.flatMap((route) => route.steps.map((step) => step.node_id)),
+    );
+    const transitionNodeIds = new Set(
+      transitionRoutes.flatMap((route) => route.steps.map((step) => step.node_id)),
+    );
 
     const nodes: CareerPathV2GraphResponse["nodes"] = snapshot.nodes.map((node) => ({
       id: node.id,

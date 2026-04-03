@@ -13,6 +13,7 @@
     "dev": "run-p dev:backend dev:frontend",
     "dev:backend": "npm run dev -w career-backend",
     "dev:frontend": "npm run dev -w career-front",
+    "agent:auth:kimi": "npm run agent:auth:kimi -w career-backend",
     "agent:smoke": "npm run agent:smoke -w career-backend",
     "evaluation:manual": "npm run evaluation:manual -w career-backend --",
     "career-path:sync": "npm run career-path:sync -w career-backend",

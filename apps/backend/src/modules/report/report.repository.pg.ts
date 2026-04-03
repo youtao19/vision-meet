@@ -24,7 +24,8 @@ function mapCareerReportRecord(row: Record<string, unknown>): CareerReportRecord
     job_id: Number(row.job_id),
     total_score: Number(row.total_score),
     sections: (row.sections as CareerReportSection[]) ?? [],
-    generator_mode: (row.generator_mode as CareerReportRecord["generator_mode"]) ?? "template",
+    // 历史数据里可能残留 llm 标记；当前系统已删除独立 LLM 链路，读取时统一归并为 template。
+    generator_mode: "template",
     evidence_refs: Array.isArray(row.evidence_refs) ? (row.evidence_refs as string[]) : [],
     action_plan: (row.action_plan as CareerReportRecord["action_plan"]) ?? {
       short_term: [],

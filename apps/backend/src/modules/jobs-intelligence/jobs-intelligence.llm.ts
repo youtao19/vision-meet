@@ -4,7 +4,6 @@
  */
 
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import type { JobRecord } from "@career/contracts/types";
@@ -18,6 +17,11 @@ import {
 } from "@mariozechner/pi-coding-agent";
 
 import type { AppEnv } from "../../shared/config/env.js";
+import {
+  ensureCompatibleAgentBootstrap,
+  ensureDirectory,
+  resolveDefaultPiAgentDir,
+} from "../../shared/agent/agent-bootstrap.js";
 import type { JobProfileDraft } from "./jobs-intelligence.profile.js";
 import { generateHeuristicJobProfile } from "./jobs-intelligence.profile.js";
 
@@ -35,43 +39,6 @@ type AgentProfilePayload = {
   summary?: string;
   confidence?: number;
 };
-
-function ensureDirectory(dirPath: string): void {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-}
-
-function resolveDefaultPiAgentDir(): string {
-  return path.join(os.homedir(), ".career-agent", "pi-agent");
-}
-
-function resolveLegacyCompatibleAgentDir(): string {
-  return path.join(os.homedir(), ".openclaw", "agents", "main", "agent");
-}
-
-/**
- * 作用：在项目独立 Agent 目录缺少认证文件时，自动兼容拷贝历史目录文件。
- * 参数：targetAgentDir 为当前项目 Agent 主目录。
- * 返回：无。
- * 注意：仅补齐缺失文件，不覆盖已有配置。
- */
-function ensureCompatibleAgentBootstrap(targetAgentDir: string): void {
-  const legacyAgentDir = resolveLegacyCompatibleAgentDir();
-  if (!fs.existsSync(legacyAgentDir)) {
-    return;
-  }
-
-  for (const fileName of ["auth.json", "models.json"] as const) {
-    const targetPath = path.join(targetAgentDir, fileName);
-    const sourcePath = path.join(legacyAgentDir, fileName);
-    if (fs.existsSync(targetPath) || !fs.existsSync(sourcePath)) {
-      continue;
-    }
-    fs.copyFileSync(sourcePath, targetPath);
-    fs.chmodSync(targetPath, 0o600);
-  }
-}
 
 function safeParseJson(text: string): unknown {
   try {
@@ -228,8 +195,7 @@ export async function generateAgentJobProfile(
     noPromptTemplates: true,
     noThemes: true,
     agentsFilesOverride: () => ({ agentsFiles: [] }),
-    systemPromptOverride: () =>
-      "你是岗位画像分析代理。必须输出 JSON，不得输出解释性文本。",
+    systemPromptOverride: () => "你是岗位画像分析代理。必须输出 JSON，不得输出解释性文本。",
   });
   await resourceLoader.reload();
 
@@ -269,7 +235,10 @@ export async function generateAgentJobProfile(
       return;
     }
 
-    if (event.type === "message_end" && (event.message as { role?: unknown }).role === "assistant") {
+    if (
+      event.type === "message_end" &&
+      (event.message as { role?: unknown }).role === "assistant"
+    ) {
       const finalText = streamBuffer.trim() || summarizeAssistantMessage(event.message);
       streamBuffer = "";
       if (finalText) {
@@ -322,7 +291,10 @@ export async function generateAgentJobProfile(
         heuristic.normalized_title,
       job_family: String(payload.job_family || heuristic.job_family).trim() || heuristic.job_family,
       job_level: Math.max(1, Math.min(4, Number(payload.job_level || heuristic.job_level))),
-      professional_skills: normalizeStringArray(payload.professional_skills, heuristic.professional_skills),
+      professional_skills: normalizeStringArray(
+        payload.professional_skills,
+        heuristic.professional_skills,
+      ),
       certificate_requirements: normalizeStringArray(
         payload.certificate_requirements,
         heuristic.certificate_requirements,
@@ -333,7 +305,10 @@ export async function generateAgentJobProfile(
         payload.stress_tolerance_score,
         heuristic.stress_tolerance_score,
       ),
-      communication_score: normalizeScore(payload.communication_score, heuristic.communication_score),
+      communication_score: normalizeScore(
+        payload.communication_score,
+        heuristic.communication_score,
+      ),
       internship_score: normalizeScore(payload.internship_score, heuristic.internship_score),
       summary: String(payload.summary || heuristic.summary).trim() || heuristic.summary,
       confidence: Math.max(0, Math.min(1, Number(payload.confidence || heuristic.confidence))),

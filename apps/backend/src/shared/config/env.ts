@@ -35,6 +35,7 @@ const rawEnvSchema = z.object({
   MOONSHOT_MODEL: z.string().trim().min(1).optional(),
   KIMI_BASE_URL: z.string().trim().url().optional(),
   KIMI_API_KEY: z.string().trim().min(1).optional(),
+  KIMICODE_API_KEY: z.string().trim().min(1).optional(),
   KIMI_MODEL: z.string().trim().min(1).optional(),
   AGENT_PI_DIR: z.string().optional(),
   AGENT_SESSION_STORE_DIR: z.string().optional(),
@@ -50,8 +51,11 @@ const envSchema = rawEnvSchema.transform((env) => {
     AGENT_PI_DIR: env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"),
     AGENT_SESSION_STORE_DIR:
       env.AGENT_SESSION_STORE_DIR ||
-      path.join(env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"), "sessions"),
-    AGENT_MODEL: env.AGENT_MODEL || env.MOONSHOT_MODEL || env.KIMI_MODEL,
+      path.join(
+        env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"),
+        "sessions",
+      ),
+    AGENT_MODEL: env.AGENT_MODEL || env.KIMI_MODEL || env.MOONSHOT_MODEL,
   };
 });
 
