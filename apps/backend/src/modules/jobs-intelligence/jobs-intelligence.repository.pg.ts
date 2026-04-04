@@ -19,6 +19,7 @@ import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 import type {
   JobProfileV2CreateInput,
   JobsIntelligenceRepository,
+  PipelineJobRecord,
   PipelineTaskUpdateInput,
 } from "./jobs-intelligence.repository.js";
 
@@ -38,6 +39,19 @@ function mapJob(row: Record<string, unknown>): JobRecord {
     company_intro: (row.company_intro as string | null) ?? null,
     raw_payload: (row.raw_payload as Record<string, unknown>) ?? {},
     created_at: new Date(String(row.created_at)).toISOString(),
+  };
+}
+
+function mapPipelineJob(row: Record<string, unknown>): PipelineJobRecord {
+  const base = mapJob(row);
+  return {
+    ...base,
+    normalized_title_hint: (row.normalized_title_hint as string | null) ?? null,
+    normalized_job_family_hint: (row.normalized_job_family_hint as string | null) ?? null,
+    normalization_confidence_hint:
+      row.normalization_confidence_hint == null
+        ? null
+        : Number(row.normalization_confidence_hint),
   };
 }
 
@@ -234,14 +248,38 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     return mapPipelineTask(result.rows[0]);
   }
 
-  async function listPipelineJobs(mode: JobPipelineMode): Promise<JobRecord[]> {
+  async function listPipelineJobs(mode: JobPipelineMode): Promise<PipelineJobRecord[]> {
     await ensureSchema();
+
+    const baseSelect = `
+      SELECT
+        j.*,
+        norm.normalized_title AS normalized_title_hint,
+        norm.normalized_job_family AS normalized_job_family_hint,
+        norm.confidence AS normalization_confidence_hint
+      FROM jobs j
+      LEFT JOIN LATERAL (
+        SELECT
+          n.normalized_title,
+          n.normalized_job_family,
+          n.confidence
+        FROM job_normalized n
+        WHERE
+          n.normalized_title = j.title
+          OR (
+            j.source_row_id IS NOT NULL
+            AND n.normalized_payload ->> 'source_row_id' = j.source_row_id
+          )
+        ORDER BY n.confidence DESC, n.updated_at DESC
+        LIMIT 1
+      ) norm ON true
+    `;
+
     const result =
       mode === "incremental"
         ? await pool.query(
             `
-              SELECT j.*
-              FROM jobs j
+              ${baseSelect}
               LEFT JOIN LATERAL (
                 SELECT profile_version
                 FROM v2_job_profiles p
@@ -255,13 +293,12 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
           )
         : await pool.query(
             `
-              SELECT *
-              FROM jobs
+              ${baseSelect}
               ORDER BY id ASC
             `,
           );
 
-    return result.rows.map((row) => mapJob(row));
+    return result.rows.map((row) => mapPipelineJob(row));
   }
 
   async function getLatestProfileByJobId(jobId: number): Promise<JobProfileV2Record | null> {

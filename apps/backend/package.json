@@ -14,13 +14,15 @@
     "agent:auth:kimi": "tsx src/scripts/agent-auth-kimi.ts",
     "agent:smoke": "tsx src/scripts/agent-smoke-test.ts",
     "evaluation:manual": "tsx src/scripts/evaluation-manual.ts",
+    "evaluation:normalized:e2e": "tsx src/scripts/evaluation-normalized-e2e.ts",
     "career-path:sync": "tsx src/scripts/career-path-sync.ts",
     "knowledge:init": "tsx src/scripts/knowledge-init.ts",
     "knowledge:index:jobs": "tsx src/scripts/knowledge-index-jobs.ts",
     "knowledge:index:project-docs": "tsx src/scripts/knowledge-index-project-docs.ts",
     "knowledge:eval": "tsx src/scripts/knowledge-evaluate.ts",
     "knowledge:baseline": "tsx src/scripts/knowledge-baseline.ts",
-    "jobs:pipeline:run": "tsx src/scripts/jobs-pipeline-run.ts"
+    "jobs:pipeline:run": "tsx src/scripts/jobs-pipeline-run.ts",
+    "job-normalized:import": "tsx src/scripts/job-normalized-import.ts"
   },
   "dependencies": {
     "@career/contracts": "*",

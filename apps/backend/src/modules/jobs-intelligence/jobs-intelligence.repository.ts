@@ -14,6 +14,12 @@ import type {
 
 export type JobProfileV2CreateInput = Omit<JobProfileV2Record, "id" | "created_at">;
 
+export type PipelineJobRecord = JobRecord & {
+  normalized_title_hint: string | null;
+  normalized_job_family_hint: string | null;
+  normalization_confidence_hint: number | null;
+};
+
 export type PipelineTaskUpdateInput = Partial<
   Pick<
     JobPipelineTaskRecord,
@@ -36,7 +42,7 @@ export interface JobsIntelligenceRepository {
   createPipelineTask(mode: JobPipelineMode): Promise<JobPipelineTaskRecord>;
   getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord | null>;
   updatePipelineTask(taskId: number, input: PipelineTaskUpdateInput): Promise<JobPipelineTaskRecord>;
-  listPipelineJobs(mode: JobPipelineMode): Promise<JobRecord[]>;
+  listPipelineJobs(mode: JobPipelineMode): Promise<PipelineJobRecord[]>;
   getLatestProfileByJobId(jobId: number): Promise<JobProfileV2Record | null>;
   createJobProfile(input: JobProfileV2CreateInput): Promise<JobProfileV2Record>;
   listLatestProfiles(params: JobProfilesV2ListParams): Promise<JobProfilesV2ListResponse>;

@@ -116,10 +116,20 @@ function buildCareerPath(input: ReportGeneratorInput): string {
   }
 
   const promotionLines = input.career_path.promotion_routes.slice(0, 2).map((route, index) => {
-    return `${index + 1}. ${route.title}；适配度 ${route.suitability_score} 分；${route.summary}`;
+    const required = route.steps
+      .flatMap((step) => step.required_skills || [])
+      .filter(Boolean)
+      .slice(0, 4)
+      .join("、");
+    return `${index + 1}. ${route.title}；适配度 ${route.suitability_score} 分；${route.summary}${required ? `；关键技能：${required}` : ""}`;
   });
   const transitionLines = input.career_path.transition_routes.slice(0, 2).map((route, index) => {
-    return `${index + 1}. ${route.title}；适配度 ${route.suitability_score} 分；${route.summary}`;
+    const required = route.steps
+      .flatMap((step) => step.required_skills || [])
+      .filter(Boolean)
+      .slice(0, 4)
+      .join("、");
+    return `${index + 1}. ${route.title}；适配度 ${route.suitability_score} 分；${route.summary}${required ? `；关键技能：${required}` : ""}`;
   });
 
   return [
@@ -127,6 +137,22 @@ function buildCareerPath(input: ReportGeneratorInput): string {
     `优先晋升路径：${promotionLines.length > 0 ? promotionLines.join("\n") : "当前暂无更高阶晋升路径，建议先巩固岗位核心能力。"}。`,
     `可选换岗路径：${transitionLines.length > 0 ? transitionLines.join("\n") : "当前暂无推荐换岗路径。"}。`,
   ].join("\n");
+}
+
+/**
+ * 作用：统一收敛报告证据来源，确保匹配证据与路径证据都可被报告直接引用。
+ */
+function buildReportEvidenceRefs(input: ReportGeneratorInput): string[] {
+  const baseEvidence = input.match.evidence_refs || [];
+  const gapEvidence = input.match.gaps.flatMap((item) => item.evidence);
+  const routeEvidence = input.career_path
+    ? [
+        ...input.career_path.promotion_routes.flatMap((route) => route.missing_skills || []),
+        ...input.career_path.transition_routes.flatMap((route) => route.missing_skills || []),
+      ].map((item) => `路径技能差距：${item}`)
+    : [];
+
+  return Array.from(new Set([...baseEvidence, ...gapEvidence, ...routeEvidence])).slice(0, 16);
 }
 
 function buildMidTermPlan(input: ReportGeneratorInput): string {
@@ -170,7 +196,7 @@ export function createTemplateReportGenerator(): ReportGenerator {
           createSection("short_term_plan", buildShortTermPlan(input)),
           createSection("mid_term_plan", buildMidTermPlan(input)),
         ],
-        evidence_refs: input.match.gaps.flatMap((item) => item.evidence).slice(0, 12),
+        evidence_refs: buildReportEvidenceRefs(input),
         action_plan: {
           short_term: shortTermPlan,
           mid_term: midTermPlan,

@@ -16,6 +16,7 @@ import type {
   MatchResultCreateInput,
   MatchResultUniqueKey,
   MatchingRepository,
+  NormalizedJobHint,
 } from "./matching.repository.js";
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 
@@ -230,10 +231,50 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
     return result.rowCount ? mapMatchResultDetail(result.rows[0]) : null;
   }
 
+  async function getNormalizedJobHint(jobId: number): Promise<NormalizedJobHint | null> {
+    await ensureSchema();
+    const result = await pool.query(
+      `
+        SELECT
+          n.normalized_title,
+          n.normalized_job_family,
+          n.confidence
+        FROM jobs j
+        LEFT JOIN LATERAL (
+          SELECT normalized_title, normalized_job_family, confidence
+          FROM job_normalized
+          WHERE
+            normalized_title = j.title
+            OR (
+              j.source_row_id IS NOT NULL
+              AND normalized_payload ->> 'source_row_id' = j.source_row_id
+            )
+          ORDER BY confidence DESC, updated_at DESC
+          LIMIT 1
+        ) n ON true
+        WHERE j.id = $1
+        LIMIT 1
+      `,
+      [jobId],
+    );
+
+    if (!result.rowCount) {
+      return null;
+    }
+
+    const row = result.rows[0] as Record<string, unknown>;
+    return {
+      normalized_title: (row.normalized_title as string | null) ?? null,
+      normalized_job_family: (row.normalized_job_family as string | null) ?? null,
+      confidence: row.confidence == null ? null : Number(row.confidence),
+    };
+  }
+
   return {
     createMatchResult,
     getMatchResultById,
     listMatchResults,
     findReusableResult,
+    getNormalizedJobHint,
   };
 }

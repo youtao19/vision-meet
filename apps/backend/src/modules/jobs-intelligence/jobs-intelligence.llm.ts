@@ -22,7 +22,7 @@ import {
   ensureDirectory,
   resolveDefaultPiAgentDir,
 } from "../../shared/agent/agent-bootstrap.js";
-import type { JobProfileDraft } from "./jobs-intelligence.profile.js";
+import type { JobProfileDraft, JobProfileNormalizationHint } from "./jobs-intelligence.profile.js";
 import { generateHeuristicJobProfile } from "./jobs-intelligence.profile.js";
 
 type AgentProfilePayload = {
@@ -132,7 +132,11 @@ function normalizeStringArray(value: unknown, fallback: string[]): string[] {
   return result.length > 0 ? result : fallback;
 }
 
-function buildPrompt(job: JobRecord, heuristic: JobProfileDraft): string {
+function buildPrompt(
+  job: JobRecord,
+  heuristic: JobProfileDraft,
+  hint: JobProfileNormalizationHint,
+): string {
   return [
     "请根据岗位信息生成结构化岗位画像 JSON。",
     "输出字段必须包含：normalized_title、job_family、job_level、professional_skills、certificate_requirements、innovation_score、learning_score、stress_tolerance_score、communication_score、internship_score、summary、confidence。",
@@ -144,6 +148,11 @@ function buildPrompt(job: JobRecord, heuristic: JobProfileDraft): string {
         description: job.job_description,
         company_intro: job.company_intro,
         industry: job.industry,
+        normalization_hint: {
+          normalized_title_hint: hint.normalized_title_hint ?? null,
+          normalized_job_family_hint: hint.normalized_job_family_hint ?? null,
+          normalization_confidence_hint: hint.normalization_confidence_hint ?? null,
+        },
       },
       null,
       2,
@@ -162,9 +171,10 @@ function buildPrompt(job: JobRecord, heuristic: JobProfileDraft): string {
 export async function generateAgentJobProfile(
   job: JobRecord,
   env: AppEnv,
+  hint: JobProfileNormalizationHint = {},
 ): Promise<JobProfileDraft> {
   const startedAt = Date.now();
-  const heuristic = generateHeuristicJobProfile(job);
+  const heuristic = generateHeuristicJobProfile(job, hint);
 
   const piAgentDir = env.AGENT_PI_DIR || resolveDefaultPiAgentDir();
   const sessionStoreRoot = env.AGENT_SESSION_STORE_DIR || path.join(piAgentDir, "sessions");
@@ -276,7 +286,7 @@ export async function generateAgentJobProfile(
   });
 
   try {
-    await session.prompt(buildPrompt(job, heuristic));
+    await session.prompt(buildPrompt(job, heuristic, hint));
 
     const finalText = assistantMessages.at(-1) || streamBuffer.trim();
     const payload = extractJsonFromText(finalText) as AgentProfilePayload | undefined;

@@ -50,6 +50,12 @@ const CERTIFICATE_KEYWORDS = [
 
 export type JobProfileDraft = Omit<JobProfileV2Record, "id" | "created_at" | "profile_version">;
 
+export type JobProfileNormalizationHint = {
+  normalized_title_hint?: string | null;
+  normalized_job_family_hint?: string | null;
+  normalization_confidence_hint?: number | null;
+};
+
 function uniqueItems(items: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -81,16 +87,22 @@ function buildCapabilityScore(source: string, keywords: string[], baseline: numb
 /**
  * 基于规则快速提取岗位画像草稿，作为 LLM 不可用时的稳定降级输出。
  */
-export function generateHeuristicJobProfile(job: JobRecord): JobProfileDraft {
+export function generateHeuristicJobProfile(
+  job: JobRecord,
+  hint: JobProfileNormalizationHint = {},
+): JobProfileDraft {
   const source = [job.title, job.job_description, job.company_intro, job.industry]
     .filter(Boolean)
     .join("\n");
-  const family = resolveJobFamilyByTitle(job.title);
+  const taxonomyFamily = resolveJobFamilyByTitle(job.title);
+  const familyKey = hint.normalized_job_family_hint?.trim() || taxonomyFamily.key;
+  const normalizedTitle = hint.normalized_title_hint?.trim() || job.title.trim();
   const jobLevel = inferJobLevel(job.title);
 
   const professionalSkills = extractByKeywords(source, SKILL_KEYWORDS);
   const certificateRequirements = extractByKeywords(source, CERTIFICATE_KEYWORDS);
-  const normalizedSkills = professionalSkills.length > 0 ? professionalSkills : family.baselineSkills;
+  const normalizedSkills =
+    professionalSkills.length > 0 ? professionalSkills : taxonomyFamily.baselineSkills;
 
   const innovationScore = buildCapabilityScore(source, ["创新", "探索", "优化", "方案"], 55);
   const learningScore = buildCapabilityScore(source, ["学习", "成长", "自驱", "快速适应"], 58);
@@ -100,8 +112,8 @@ export function generateHeuristicJobProfile(job: JobRecord): JobProfileDraft {
 
   return {
     job_id: job.id,
-    normalized_title: job.title.trim(),
-    job_family: family.key,
+    normalized_title: normalizedTitle,
+    job_family: familyKey,
     job_level: jobLevel,
     professional_skills: normalizedSkills,
     certificate_requirements: certificateRequirements,
@@ -116,7 +128,7 @@ export function generateHeuristicJobProfile(job: JobRecord): JobProfileDraft {
     generation_mode: "heuristic",
     extracted_features: {
       source_signals: normalizedSkills.length + certificateRequirements.length,
-      family_label: family.label,
+      normalization_confidence_hint: hint.normalization_confidence_hint ?? null,
     },
   };
 }

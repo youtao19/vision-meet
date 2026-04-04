@@ -181,6 +181,7 @@ export function createJobsIntelligenceService(
       let successProfiles = 0;
       let failedProfiles = 0;
       let agentProfiles = 0;
+      let normalizedHintHits = 0;
       let authFailed = false;
 
       for (const job of jobs) {
@@ -191,7 +192,15 @@ export function createJobsIntelligenceService(
         try {
           const latest = await repository.getLatestProfileByJobId(job.id);
           const version = latest ? latest.profile_version + 1 : 1;
-          const draft = await generateAgentJobProfile(job, env);
+          const normalizationHint = {
+            normalized_title_hint: job.normalized_title_hint,
+            normalized_job_family_hint: job.normalized_job_family_hint,
+            normalization_confidence_hint: job.normalization_confidence_hint,
+          };
+          if (normalizationHint.normalized_job_family_hint) {
+            normalizedHintHits += 1;
+          }
+          const draft = await generateAgentJobProfile(job, env, normalizationHint);
 
           await repository.createJobProfile({
             ...draft,
@@ -219,10 +228,10 @@ export function createJobsIntelligenceService(
               processed_jobs: processed,
               success_profiles: successProfiles,
               failed_profiles: failedProfiles,
-              message: `已处理 ${processed}/${jobs.length}（agent_success=${agentProfiles}, failed=${failedProfiles}）`,
+              message: `已处理 ${processed}/${jobs.length}（agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}）`,
             });
             console.info(
-              `[jobs:pipeline] progress task_id=${taskId} processed=${processed}/${jobs.length} agent_success=${agentProfiles} failed=${failedProfiles}`,
+              `[jobs:pipeline] progress task_id=${taskId} processed=${processed}/${jobs.length} agent_success=${agentProfiles} normalized_hint=${normalizedHintHits} failed=${failedProfiles}`,
             );
           }
         }
@@ -238,10 +247,10 @@ export function createJobsIntelligenceService(
       const hasEnoughFamilies = familyCount >= 10;
       const isSucceeded = hasEnoughFamilies && !hasAgentFailure;
       const message = isSucceeded
-        ? `流水线完成：画像 ${successProfiles} 条（agent_success=${agentProfiles}, failed=${failedProfiles}），图谱节点 ${graphSyncResult.nodes_upserted} 个`
+        ? `流水线完成：画像 ${successProfiles} 条（agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}），图谱节点 ${graphSyncResult.nodes_upserted} 个`
         : authFailed
           ? `流水线失败：agent 鉴权失败，已在第 ${processed} 条处中止`
-          : `流水线失败：agent_success=${agentProfiles}, failed=${failedProfiles}, family_count=${familyCount}`;
+          : `流水线失败：agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}, family_count=${familyCount}`;
       const errorMessage = authFailed
         ? "Agent 模型鉴权失败，请检查 KIMI_API_KEY / KIMICODE_API_KEY 或 provider 配置"
         : hasAgentFailure

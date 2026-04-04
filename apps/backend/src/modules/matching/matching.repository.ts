@@ -18,9 +18,16 @@ export type MatchResultUniqueKey = Pick<
   "student_profile_id" | "job_id" | "job_profile_version" | "scoring_version" | "input_fingerprint"
 >;
 
+export type NormalizedJobHint = {
+  normalized_title: string | null;
+  normalized_job_family: string | null;
+  confidence: number | null;
+};
+
 export interface MatchingRepository {
   createMatchResult(input: MatchResultCreateInput): Promise<MatchResultDetail>;
   getMatchResultById(matchId: number): Promise<MatchResultDetail | null>;
   listMatchResults(params: MatchListParams): Promise<MatchResultListResponse>;
   findReusableResult(uniqueKey: MatchResultUniqueKey): Promise<MatchResultDetail | null>;
+  getNormalizedJobHint(jobId: number): Promise<NormalizedJobHint | null>;
 }

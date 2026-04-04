@@ -183,6 +183,35 @@ function buildActionsByDimension(dimension: DimensionKey): string[] {
   }
 }
 
+/**
+ * 作用：把标准岗位提示写入匹配证据，确保报告端能引用“岗位族”这一结构化依据。
+ * 参数：hint 为岗位标准化结果，jobTitle 为岗位原始标题。
+ * 返回：可直接写入 evidence_refs 的证据片段。
+ */
+function buildNormalizedHintEvidence(
+  hint: {
+    normalized_title: string | null;
+    normalized_job_family: string | null;
+    confidence: number | null;
+  } | null,
+  jobTitle: string,
+): string[] {
+  if (!hint || !hint.normalized_job_family) {
+    return [];
+  }
+
+  const refs = [`岗位族归一：${hint.normalized_job_family}`];
+  if (hint.normalized_title) {
+    refs.push(`标准岗位标题：${hint.normalized_title}`);
+  } else {
+    refs.push(`标准岗位标题：${jobTitle}`);
+  }
+  if (hint.confidence != null) {
+    refs.push(`岗位归一置信度：${Math.round(hint.confidence * 100)}%`);
+  }
+  return refs;
+}
+
 function buildGapAndExplanation(params: {
   profile: StudentProfileRecord;
   hardSkills: string[];
@@ -340,6 +369,7 @@ export function createMatchingService(
     }
 
     const latestJobProfile = await ensureJobProfileSnapshot(job.id, jobsRepository);
+    const normalizedHint = await matchingRepository.getNormalizedJobHint(job.id);
 
     const inputFingerprint = createMatchFingerprint({
       student_profile_id: profile.id,
@@ -389,6 +419,8 @@ export function createMatchingService(
       targetScores,
       matchScores,
     });
+    const normalizedEvidenceRefs = buildNormalizedHintEvidence(normalizedHint, job.title);
+    const mergedEvidenceRefs = Array.from(new Set([...evidenceRefs, ...normalizedEvidenceRefs]));
 
     let pathRecommendations: CareerRouteRecommendation[] = [];
     if (options.careerPathResolver) {
@@ -418,7 +450,7 @@ export function createMatchingService(
         explanations,
         suggestions,
         pathRecommendations,
-        evidenceRefs,
+        evidenceRefs: mergedEvidenceRefs,
         jobId: job.id,
       }),
     );
