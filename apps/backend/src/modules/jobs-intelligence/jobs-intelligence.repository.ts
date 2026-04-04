@@ -39,6 +39,8 @@ export type PipelineTaskUpdateInput = Partial<
     | "failed_profiles"
     | "graph_nodes"
     | "graph_edges"
+    | "graph_covered_jobs"
+    | "graph_isolated_ratio"
     | "family_count"
     | "message"
     | "error_message"

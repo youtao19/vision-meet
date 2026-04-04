@@ -17,6 +17,7 @@
     "agent:smoke": "npm run agent:smoke -w career-backend",
     "evaluation:manual": "npm run evaluation:manual -w career-backend --",
     "evaluation:normalized:e2e": "npm run evaluation:normalized:e2e -w career-backend --",
+    "evaluation:graph:e2e": "npm run evaluation:graph:e2e -w career-backend --",
     "career-path:sync": "npm run career-path:sync -w career-backend",
     "knowledge:init": "npm run knowledge:init -w career-backend",
     "knowledge:index:jobs": "npm run knowledge:index:jobs -w career-backend",

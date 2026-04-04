@@ -16,6 +16,7 @@
     "agent:smoke": "tsx src/scripts/agent-smoke-test.ts",
     "evaluation:manual": "tsx src/scripts/evaluation-manual.ts",
     "evaluation:normalized:e2e": "tsx src/scripts/evaluation-normalized-e2e.ts",
+    "evaluation:graph:e2e": "tsx src/scripts/evaluation-graph-e2e.ts",
     "career-path:sync": "tsx src/scripts/career-path-sync.ts",
     "knowledge:init": "tsx src/scripts/knowledge-init.ts",
     "knowledge:index:jobs": "tsx src/scripts/knowledge-index-jobs.ts",

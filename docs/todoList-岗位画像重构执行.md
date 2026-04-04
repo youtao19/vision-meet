@@ -162,9 +162,9 @@
 | P02 | 数据层 | 新增抽取层与标准岗位层数据表 | 已完成首版 | `jobs-intelligence.repository.pg.ts` | 已新增 `v2_job_facts` 与 `v2_job_fact_evidence`，支持落库 |
 | P03 | 抽取层 | 改造岗位画像流水线为“单条事实抽取” | 已完成首版 | `jobs-intelligence` 抽取链路 + 入库 + 查询接口 + 单元测试 | 每条 JD 可稳定输出并查询 job_facts + evidence |
 | P04 | 聚合层 | 新增 canonical role 聚合与总结链路 | 已完成（当前阶段） | 聚合规则 + 质量门禁 + 结构化summary产物 + 版本管理/幂等回放 + canonical 入库/查询接口 | 至少产出 10 个标准岗位画像并可复算 |
-| P05 | 图谱层 | 独立构建 role graph 规则链路 | 待开始 | `career-path` / graph 构图任务 | 至少 5 个岗位各 2 条换岗路径，垂直链路可解释 |
-| P06 | 评测层 | 新增证据一致性与准确率抽样评测 | 待开始 | 评测脚本 + 报告 | 画像关键信息准确率 > 90%，技能匹配准确率 >= 80% |
-| P07 | 工程化 | 接入失败队列、阈值重跑、并发优化 | 待开始 | retry + pipeline orchestration | 失败可追踪可重跑，批处理性能可控 |
+| P05 | 图谱层 | 独立构建 role graph 规则链路 | 已完成（当前阶段） | `career-path` / graph 构图任务 + `docs/process-图谱层与评测工程化-TDD.md` | 至少 5 个岗位各 2 条换岗路径，垂直链路可解释 |
+| P06 | 评测层 | 新增证据一致性与准确率抽样评测 | 已完成（当前阶段） | 图谱评测脚本 + JSON/Markdown 报告输出 | 可一键执行并复算图谱覆盖率/断链率核心指标 |
+| P07 | 工程化 | 接入失败队列、阈值重跑、并发优化 | 已完成（当前阶段） | 图谱质量门禁 + 失败重跑接口 + 任务审计信息 | 图谱门禁失败可明确报错，支持按 task_id 重跑 |
 
 ## 5. 实施顺序（优先级）
 
@@ -210,6 +210,12 @@
 30. 已固化幂等回放策略：`v2_canonical_role_versions` 版本表 + `role_key/content_hash` 唯一约束；同内容重跑仅更新时间，不新增版本；内容变化才升版并落版本历史。
 31. 已完成 P01 最终收口：contracts 新增图谱层共享类型 `CareerGraphNodeRecord/CareerGraphEdgeRecord/CareerGraphSnapshot`，Neo4j 仓储已切换依赖共享类型。
 32. 当前 backend 测试 14/14 通过，`npm run type-check` 通过。
+33. 已创建图谱层执行流程文件 `docs/process-图谱层与评测工程化-TDD.md`，将 P05/P06/P07 拆分为 G01-G12 小任务并固化 TDD（Red/Green/Refactor）与文档同步强约束；后续图谱相关改动严格按该 process 执行并同步状态。
+34. 已按 process 完成 G01-G12：图谱契约升级（`graph_version/generated_at` + 图谱统计元信息）、构图规则收口（晋升/换岗阈值与解释字段）、Neo4j 仓储可注入 driver 并补齐幂等测试、流水线新增图谱质量门禁（覆盖岗位数/孤立节点比例）。
+35. 已补齐图谱查询增强：`/api/v2/career-paths/jobs/:job_id` 支持 `relation_type` 与 `min_score` 过滤，并返回图谱版本与统计字段。
+36. 已补齐图谱评测脚本与命令：新增 `apps/backend/src/scripts/evaluation-graph-e2e.ts`、`npm run evaluation:graph:e2e`，本机已验证样本执行成功并输出 `docs/评测结果-图谱端到端质量.md`。
+37. 已补齐工程化重跑能力：新增 `POST /api/v2/jobs/pipeline/tasks/:task_id/retry`，支持按历史任务模式发起重跑并记录来源任务信息。
+38. 当前 backend 测试 23/23 通过，`npm run type-check` 通过，图谱评测脚本命令可执行通过。
 
 ## 7. 下一步（立即执行）
 

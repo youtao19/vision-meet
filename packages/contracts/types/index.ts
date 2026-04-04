@@ -204,6 +204,8 @@ export type CareerGraphEdgeRecord = {
 };
 
 export type CareerGraphSnapshot = {
+  graph_version: string;
+  generated_at: string;
   nodes: CareerGraphNodeRecord[];
   edges: CareerGraphEdgeRecord[];
 };
@@ -234,6 +236,8 @@ export type JobPipelineTaskRecord = {
   failed_profiles: number;
   graph_nodes: number;
   graph_edges: number;
+  graph_covered_jobs: number;
+  graph_isolated_ratio: number;
   family_count: number;
   message: string | null;
   error_message: string | null;
@@ -532,6 +536,16 @@ export type CareerPathV2GraphResponse = {
   job_title: string;
   depth: number;
   target_node_id: string;
+  graph_version: string;
+  graph_generated_at: string;
+  graph_stats: {
+    node_count: number;
+    edge_count: number;
+    promotion_edge_count: number;
+    transition_edge_count: number;
+    isolated_node_count: number;
+    isolated_node_ratio: number;
+  };
   nodes: CareerPathNode[];
   edges: CareerPathEdge[];
   promotion_routes: CareerRouteRecommendation[];

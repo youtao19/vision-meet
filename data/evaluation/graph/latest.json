@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-04-04T09:40:52.910Z",
+  "sample_size": 1,
+  "depth": 2,
+  "sampled_total": 1,
+  "covered_jobs": 0,
+  "coverage_rate": 0,
+  "avg_edges": 0,
+  "avg_promotion_edges": 0,
+  "avg_transition_edges": 0,
+  "avg_isolated_ratio": 0,
+  "items": [
+    {
+      "job_id": "2",
+      "title": "实施工程师",
+      "node_count": 0,
+      "edge_count": 0,
+      "promotion_edge_count": 0,
+      "transition_edge_count": 0,
+      "isolated_node_ratio": 0
+    }
+  ]
+}

@@ -76,6 +76,8 @@ function mapPipelineTask(row: Record<string, unknown>): JobPipelineTaskRecord {
     failed_profiles: Number(row.failed_profiles),
     graph_nodes: Number(row.graph_nodes),
     graph_edges: Number(row.graph_edges),
+    graph_covered_jobs: Number(row.graph_covered_jobs ?? 0),
+    graph_isolated_ratio: Number(row.graph_isolated_ratio ?? 0),
     family_count: Number(row.family_count),
     message: (row.message as string | null) ?? null,
     error_message: (row.error_message as string | null) ?? null,
@@ -241,6 +243,8 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
             failed_profiles INTEGER NOT NULL DEFAULT 0,
             graph_nodes INTEGER NOT NULL DEFAULT 0,
             graph_edges INTEGER NOT NULL DEFAULT 0,
+            graph_covered_jobs INTEGER NOT NULL DEFAULT 0,
+            graph_isolated_ratio DOUBLE PRECISION NOT NULL DEFAULT 0,
             family_count INTEGER NOT NULL DEFAULT 0,
             message TEXT,
             error_message TEXT,
@@ -274,6 +278,15 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE (job_id, profile_version)
           )
+        `);
+
+        await pool.query(`
+          ALTER TABLE v2_pipeline_tasks
+          ADD COLUMN IF NOT EXISTS graph_covered_jobs INTEGER NOT NULL DEFAULT 0
+        `);
+        await pool.query(`
+          ALTER TABLE v2_pipeline_tasks
+          ADD COLUMN IF NOT EXISTS graph_isolated_ratio DOUBLE PRECISION NOT NULL DEFAULT 0
         `);
 
         await pool.query(`
@@ -431,11 +444,13 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
           failed_profiles = COALESCE($6, failed_profiles),
           graph_nodes = COALESCE($7, graph_nodes),
           graph_edges = COALESCE($8, graph_edges),
-          family_count = COALESCE($9, family_count),
-          message = COALESCE($10, message),
-          error_message = COALESCE($11, error_message),
-          started_at = COALESCE($12::timestamptz, started_at),
-          finished_at = COALESCE($13::timestamptz, finished_at),
+          graph_covered_jobs = COALESCE($9, graph_covered_jobs),
+          graph_isolated_ratio = COALESCE($10, graph_isolated_ratio),
+          family_count = COALESCE($11, family_count),
+          message = COALESCE($12, message),
+          error_message = COALESCE($13, error_message),
+          started_at = COALESCE($14::timestamptz, started_at),
+          finished_at = COALESCE($15::timestamptz, finished_at),
           updated_at = NOW()
         WHERE id = $1
         RETURNING *
@@ -449,6 +464,8 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
         input.failed_profiles ?? null,
         input.graph_nodes ?? null,
         input.graph_edges ?? null,
+        input.graph_covered_jobs ?? null,
+        input.graph_isolated_ratio ?? null,
         input.family_count ?? null,
         input.message ?? null,
         input.error_message ?? null,

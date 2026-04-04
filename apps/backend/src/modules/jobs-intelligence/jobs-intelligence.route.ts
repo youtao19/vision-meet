@@ -46,6 +46,19 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
     }
   });
 
+  router.post("/jobs/pipeline/tasks/:task_id/retry", async (req, res, next) => {
+    const parsed = pipelineTaskParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return next(new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", parsed.error.flatten()));
+    }
+
+    try {
+      return res.status(202).json(await service.retryPipelineTask(parsed.data.task_id));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   router.get("/job-profiles", async (req, res, next) => {
     const parsed = listJobProfilesSchema.safeParse(req.query);
     if (!parsed.success) {
@@ -136,7 +149,13 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
     }
 
     try {
-      return res.json(await service.getCareerPathGraph(paramsParsed.data.job_id, queryParsed.data.depth));
+      return res.json(
+        await service.getCareerPathGraph(paramsParsed.data.job_id, {
+          depth: queryParsed.data.depth,
+          relation_type: queryParsed.data.relation_type,
+          min_score: queryParsed.data.min_score,
+        }),
+      );
     } catch (error) {
       return next(error);
     }

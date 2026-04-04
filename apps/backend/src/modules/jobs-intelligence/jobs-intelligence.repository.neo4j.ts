@@ -4,6 +4,7 @@
  */
 
 import neo4j from "neo4j-driver";
+import type { Driver } from "neo4j-driver";
 import type {
   CareerGraphEdgeRecord,
   CareerGraphNodeRecord,
@@ -15,6 +16,8 @@ import {
   toNeo4jNumber,
   type Neo4jConnectionOptions,
 } from "../../shared/db/neo4j.js";
+
+const DEFAULT_GRAPH_VERSION = "v2.1";
 
 export interface JobsIntelligenceGraphRepository {
   syncGraph(snapshot: CareerGraphSnapshot): Promise<{ nodes_upserted: number; edges_upserted: number }>;
@@ -55,7 +58,12 @@ function mapEdge(record: { get(key: string): unknown }): CareerGraphEdgeRecord {
 export function createNeo4jJobsIntelligenceGraphRepository(
   options: Neo4jConnectionOptions,
 ): JobsIntelligenceGraphRepository {
-  const driver = createNeo4jDriver(options);
+  return createNeo4jJobsIntelligenceGraphRepositoryWithDriver(createNeo4jDriver(options));
+}
+
+export function createNeo4jJobsIntelligenceGraphRepositoryWithDriver(
+  driver: Driver,
+): JobsIntelligenceGraphRepository {
   let schemaReady: Promise<void> | null = null;
 
   async function ensureSchema(): Promise<void> {
@@ -151,7 +159,12 @@ export function createNeo4jJobsIntelligenceGraphRepository(
 
     const nodes = nodeResult.records.map((record) => mapNode(record.get("node")));
     if (nodes.length === 0) {
-      return { nodes: [], edges: [] };
+      return {
+        graph_version: DEFAULT_GRAPH_VERSION,
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     }
 
     const nodeIds = nodes.map((node) => node.id);
@@ -166,6 +179,8 @@ export function createNeo4jJobsIntelligenceGraphRepository(
     );
 
     return {
+      graph_version: DEFAULT_GRAPH_VERSION,
+      generated_at: new Date().toISOString(),
       nodes,
       edges: edgeResult.records.map((record) => mapEdge(record)),
     };

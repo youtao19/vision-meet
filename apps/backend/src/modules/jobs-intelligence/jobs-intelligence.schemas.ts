@@ -43,4 +43,6 @@ export const canonicalRoleParamsSchema = z.object({
 
 export const careerPathQuerySchema = z.object({
   depth: z.coerce.number().int().min(1).max(3).default(2),
+  relation_type: z.enum(["promotion", "transition", "all"]).default("all"),
+  min_score: z.coerce.number().int().min(0).max(100).default(0),
 });

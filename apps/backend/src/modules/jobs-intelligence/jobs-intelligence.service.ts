@@ -35,6 +35,14 @@ import type { JobsIntelligenceGraphRepository } from "./jobs-intelligence.reposi
 import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
 
 const PIPELINE_PROGRESS_FLUSH_INTERVAL = 50;
+const MIN_GRAPH_COVERED_JOBS = 5;
+const MAX_GRAPH_ISOLATED_RATIO = 0.7;
+
+type CareerPathQueryOptions = {
+  depth: number;
+  relation_type: "promotion" | "transition" | "all";
+  min_score: number;
+};
 
 function isAuthenticationFailure(message: string): boolean {
   const normalized = message.toLowerCase();
@@ -145,9 +153,49 @@ function buildRouteRecommendations(params: {
   });
 }
 
+function computeGraphQuality(snapshot: CareerGraphSnapshot): {
+  coveredJobs: number;
+  isolatedNodeRatio: number;
+} {
+  if (snapshot.nodes.length === 0) {
+    return { coveredJobs: 0, isolatedNodeRatio: 1 };
+  }
+
+  const nodeIds = new Set(snapshot.nodes.map((item) => item.id));
+  const activeNodeIds = new Set<string>();
+  for (const edge of snapshot.edges) {
+    if (nodeIds.has(edge.source)) {
+      activeNodeIds.add(edge.source);
+    }
+    if (nodeIds.has(edge.target)) {
+      activeNodeIds.add(edge.target);
+    }
+  }
+
+  const isolatedNodeCount = snapshot.nodes.length - activeNodeIds.size;
+  return {
+    coveredJobs: activeNodeIds.size,
+    isolatedNodeRatio: Number((isolatedNodeCount / snapshot.nodes.length).toFixed(2)),
+  };
+}
+
+function normalizeCareerPathQuery(
+  optionsOrDepth: CareerPathQueryOptions | number,
+): CareerPathQueryOptions {
+  if (typeof optionsOrDepth === "number") {
+    return {
+      depth: optionsOrDepth,
+      relation_type: "all",
+      min_score: 0,
+    };
+  }
+  return optionsOrDepth;
+}
+
 export interface JobsIntelligenceService {
   runPipeline(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord>;
   runPipelineNow(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord>;
+  retryPipelineTask(taskId: number): Promise<JobPipelineTaskRecord>;
   getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord>;
   listJobProfiles(params: JobProfilesV2ListParams): Promise<JobProfilesV2ListResponse>;
   listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse>;
@@ -155,7 +203,7 @@ export interface JobsIntelligenceService {
   listCanonicalRoles(params: CanonicalRolesListParams): Promise<CanonicalRolesListResponse>;
   getCanonicalRole(roleKey: string): Promise<CanonicalRoleRecord>;
   getJobProfile(jobId: number): Promise<JobProfileV2Record>;
-  getCareerPathGraph(jobId: number, depth: number): Promise<CareerPathV2GraphResponse>;
+  getCareerPathGraph(jobId: number, options: CareerPathQueryOptions | number): Promise<CareerPathV2GraphResponse>;
 }
 
 export function createJobsIntelligenceService(
@@ -272,23 +320,35 @@ export function createJobsIntelligenceService(
       const jobTitleById = new Map(jobRecords.map((item) => [item.id, item.title]));
       const graphDraft = buildAutoCareerGraph(latestProfiles, jobTitleById);
       const graphSyncResult = await graphRepository.syncGraph(graphDraft);
+      const graphQuality = computeGraphQuality(graphDraft);
       const familyCount = new Set(latestProfiles.map((item) => item.job_family)).size;
       const hasAgentFailure = failedProfiles > 0;
       const hasEnoughFamilies = familyCount >= 10;
       const hasEnoughCanonicalRoles = canonicalRoleCount >= 10;
-      const isSucceeded = hasEnoughFamilies && hasEnoughCanonicalRoles && !hasAgentFailure;
+      const hasEnoughGraphCoverage = graphQuality.coveredJobs >= MIN_GRAPH_COVERED_JOBS;
+      const hasHealthyIsolationRatio = graphQuality.isolatedNodeRatio <= MAX_GRAPH_ISOLATED_RATIO;
+      const isSucceeded =
+        hasEnoughFamilies &&
+        hasEnoughCanonicalRoles &&
+        !hasAgentFailure &&
+        hasEnoughGraphCoverage &&
+        hasHealthyIsolationRatio;
       const message = isSucceeded
         ? `流水线完成：画像 ${successProfiles} 条（agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}），标准岗位 ${canonicalRoleCount} 个，图谱节点 ${graphSyncResult.nodes_upserted} 个`
         : authFailed
           ? `流水线失败：agent 鉴权失败，已在第 ${processed} 条处中止`
-          : `流水线失败：agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}, family_count=${familyCount}, canonical_roles=${canonicalRoleCount}`;
+          : `流水线失败：agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}, family_count=${familyCount}, canonical_roles=${canonicalRoleCount}, graph_covered_jobs=${graphQuality.coveredJobs}, graph_isolated_ratio=${graphQuality.isolatedNodeRatio}`;
       const errorMessage = authFailed
         ? "Agent 模型鉴权失败，请检查 KIMI_API_KEY / KIMICODE_API_KEY 或 provider 配置"
         : hasAgentFailure
           ? `存在 ${failedProfiles} 条岗位画像 Agent 生成失败`
           : hasEnoughFamilies
             ? hasEnoughCanonicalRoles
-              ? null
+              ? hasEnoughGraphCoverage
+                ? hasHealthyIsolationRatio
+                  ? null
+                  : `图谱孤立节点比例过高(${graphQuality.isolatedNodeRatio})`
+                : `图谱覆盖岗位数量不足 ${MIN_GRAPH_COVERED_JOBS}`
               : "标准岗位数量不足 10"
             : "有效岗位族数量不足 10";
 
@@ -303,6 +363,8 @@ export function createJobsIntelligenceService(
         failed_profiles: failedProfiles,
         graph_nodes: graphSyncResult.nodes_upserted,
         graph_edges: graphSyncResult.edges_upserted,
+        graph_covered_jobs: graphQuality.coveredJobs,
+        graph_isolated_ratio: graphQuality.isolatedNodeRatio,
         family_count: familyCount,
         message,
         error_message: isSucceeded ? null : errorMessage,
@@ -329,6 +391,26 @@ export function createJobsIntelligenceService(
   async function runPipelineNow(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord> {
     const task = await repository.createPipelineTask(input.mode);
     return runPipelineTask(task.id, input.mode);
+  }
+
+  /**
+   * 作用：基于历史任务模式发起一次受控重跑。
+   * 参数：taskId 为历史流水线任务 ID。
+   * 返回：新的流水线任务记录（重跑任务）。
+   * 注意：重跑不会复用旧任务 ID，避免覆盖历史审计信息。
+   */
+  async function retryPipelineTask(taskId: number): Promise<JobPipelineTaskRecord> {
+    const existing = await repository.getPipelineTask(taskId);
+    if (!existing) {
+      throw new HttpError(404, "PIPELINE_TASK_NOT_FOUND", "流水线任务不存在");
+    }
+
+    const retryTask = await runPipelineNow({ mode: existing.mode });
+    await repository.updatePipelineTask(retryTask.id, {
+      message: `重跑来源任务：${taskId}`,
+    });
+    const latest = await repository.getPipelineTask(retryTask.id);
+    return latest ?? retryTask;
   }
 
   async function getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord> {
@@ -381,8 +463,10 @@ export function createJobsIntelligenceService(
 
   async function getCareerPathGraph(
     jobId: number,
-    depth: number,
+    optionsOrDepth: CareerPathQueryOptions | number,
   ): Promise<CareerPathV2GraphResponse> {
+    const query = normalizeCareerPathQuery(optionsOrDepth);
+    const depth = query.depth;
     const snapshot = await graphRepository.getSubgraphByJobId(jobId, depth);
     if (snapshot.nodes.length === 0) {
       throw new HttpError(404, "CAREER_PATH_NOT_FOUND", "目标岗位尚未生成图谱数据");
@@ -393,7 +477,14 @@ export function createJobsIntelligenceService(
       throw new HttpError(404, "CAREER_PATH_NOT_FOUND", "目标岗位不在当前图谱节点中");
     }
 
-    const edges: CareerPathV2GraphResponse["edges"] = snapshot.edges.map((edge) => ({
+    const edges: CareerPathV2GraphResponse["edges"] = snapshot.edges
+      .filter((edge) => {
+        if (query.relation_type !== "all" && edge.relation_type !== query.relation_type) {
+          return false;
+        }
+        return edge.score >= query.min_score;
+      })
+      .map((edge) => ({
       id: edge.id,
       source: edge.source,
       target: edge.target,
@@ -446,11 +537,24 @@ export function createJobsIntelligenceService(
     }));
 
     const targetJob = (await repository.listJobsByIds([jobId]))[0];
+    const promotionEdgeCount = edges.filter((item) => item.relation_type === "promotion").length;
+    const transitionEdgeCount = edges.filter((item) => item.relation_type === "transition").length;
+    const graphQuality = computeGraphQuality({ ...snapshot, edges });
     return {
       job_id: jobId,
       job_title: targetJob?.title || targetNode.title,
       depth,
       target_node_id: targetNode.id,
+      graph_version: snapshot.graph_version,
+      graph_generated_at: snapshot.generated_at,
+      graph_stats: {
+        node_count: snapshot.nodes.length,
+        edge_count: edges.length,
+        promotion_edge_count: promotionEdgeCount,
+        transition_edge_count: transitionEdgeCount,
+        isolated_node_count: Math.max(0, snapshot.nodes.length - graphQuality.coveredJobs),
+        isolated_node_ratio: graphQuality.isolatedNodeRatio,
+      },
       nodes,
       edges,
       promotion_routes: promotionRoutes,
@@ -461,6 +565,7 @@ export function createJobsIntelligenceService(
   return {
     runPipeline,
     runPipelineNow,
+    retryPipelineTask,
     getPipelineTask,
     listJobProfiles,
     listJobFacts,

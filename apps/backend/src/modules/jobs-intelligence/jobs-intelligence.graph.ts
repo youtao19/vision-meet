@@ -3,35 +3,19 @@
  * 设计边界：这里只做图结构推断，不负责数据库写入。
  */
 
-import type { JobProfileV2Record } from "@career/contracts/types";
+import type {
+  CareerGraphEdgeRecord,
+  CareerGraphNodeRecord,
+  CareerGraphSnapshot,
+  JobProfileV2Record,
+} from "@career/contracts/types";
 
-type GraphNodeDraft = {
-  id: string;
-  job_id: number;
-  title: string;
-  family: string;
-  level: number;
-  skills: string[];
-  summary: string;
-};
+export type AutoCareerGraphDraft = CareerGraphSnapshot;
 
-type GraphEdgeDraft = {
-  id: string;
-  source: string;
-  target: string;
-  relation_type: "promotion" | "transition";
-  reason: string;
-  required_skills: string[];
-  gap_skills: string[];
-  transition_cost: "low" | "medium" | "high";
-  direction_label: string;
-  score: number;
-};
-
-export type AutoCareerGraphDraft = {
-  nodes: GraphNodeDraft[];
-  edges: GraphEdgeDraft[];
-};
+const GRAPH_VERSION = "v2.1";
+const MIN_PROMOTION_JACCARD = 0.2;
+const MIN_TRANSITION_JACCARD = 0.18;
+const MIN_TRANSITION_OVERLAP = 2;
 
 function normalizeSkills(skills: string[]): string[] {
   return Array.from(new Set(skills.map((item) => item.trim().toLowerCase()).filter(Boolean)));
@@ -62,6 +46,16 @@ function topEdgeByScore<T extends { score: number }>(items: T[], limit: number):
   return [...items].sort((left, right) => right.score - left.score).slice(0, limit);
 }
 
+function resolveGapSkills(sourceSkills: string[], targetSkills: string[]): string[] {
+  const sourceSet = new Set(normalizeSkills(sourceSkills));
+  return uniqueLimited(targetSkills.filter((skill) => !sourceSet.has(skill.trim().toLowerCase())), 8);
+}
+
+function uniqueLimited(items: string[], limit: number): string[] {
+  const normalized = Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
+  return normalized.slice(0, limit);
+}
+
 /**
  * 从画像列表推断岗位图谱。
  * 注意：换岗边采用“技能倒排候选”削减复杂度，避免 10K 数据 O(n^2) 全量比对。
@@ -70,7 +64,8 @@ export function buildAutoCareerGraph(
   profiles: JobProfileV2Record[],
   jobTitleById: Map<number, string>,
 ): AutoCareerGraphDraft {
-  const nodes: GraphNodeDraft[] = profiles.map((profile) => ({
+  const generatedAt = new Date().toISOString();
+  const nodes: CareerGraphNodeRecord[] = profiles.map((profile) => ({
     id: `job-${profile.job_id}`,
     job_id: profile.job_id,
     title: jobTitleById.get(profile.job_id) || profile.normalized_title,
@@ -102,23 +97,21 @@ export function buildAutoCareerGraph(
     }
   }
 
-  const edges: GraphEdgeDraft[] = [];
+  const edges: CareerGraphEdgeRecord[] = [];
 
   for (const source of profiles) {
     const sourceNodeId = `job-${source.job_id}`;
 
     // 垂直晋升边：同岗位族 level + 1。
     const promotionCandidates = familyLevelMap.get(source.job_family)?.get(source.job_level + 1) ?? [];
-    const promotionEdges: GraphEdgeDraft[] = [];
+    const promotionEdges: CareerGraphEdgeRecord[] = [];
     for (const target of promotionCandidates) {
       const similarity = skillOverlap(source.professional_skills, target.professional_skills);
-      if (similarity.jaccard < 0.2) {
+      if (similarity.jaccard < MIN_PROMOTION_JACCARD) {
         continue;
       }
 
-      const gapSkills = target.professional_skills.filter(
-        (skill) => !normalizeSkills(source.professional_skills).includes(skill.toLowerCase()),
-      );
+      const gapSkills = resolveGapSkills(source.professional_skills, target.professional_skills);
       const score = Math.round(65 + similarity.jaccard * 35);
       promotionEdges.push({
         id: `promotion-${source.job_id}-${target.job_id}`,
@@ -126,8 +119,8 @@ export function buildAutoCareerGraph(
         target: `job-${target.job_id}`,
         relation_type: "promotion",
         reason: "同岗位族职级递进，且技能重叠满足晋升阈值。",
-        required_skills: target.professional_skills.slice(0, 8),
-        gap_skills: gapSkills.slice(0, 8),
+        required_skills: uniqueLimited(target.professional_skills, 8),
+        gap_skills: gapSkills,
         transition_cost: resolveTransitionCost(gapSkills.length),
         direction_label: "晋升",
         score,
@@ -146,7 +139,7 @@ export function buildAutoCareerGraph(
       }
     }
 
-    const transitionEdges: GraphEdgeDraft[] = [];
+    const transitionEdges: CareerGraphEdgeRecord[] = [];
     for (const candidateId of candidateIds) {
       const target = profileById.get(candidateId);
       if (!target) {
@@ -160,13 +153,11 @@ export function buildAutoCareerGraph(
       }
 
       const similarity = skillOverlap(source.professional_skills, target.professional_skills);
-      if (similarity.overlap.length < 2 || similarity.jaccard < 0.18) {
+      if (similarity.overlap.length < MIN_TRANSITION_OVERLAP || similarity.jaccard < MIN_TRANSITION_JACCARD) {
         continue;
       }
 
-      const gapSkills = target.professional_skills.filter(
-        (skill) => !normalizeSkills(source.professional_skills).includes(skill.toLowerCase()),
-      );
+      const gapSkills = resolveGapSkills(source.professional_skills, target.professional_skills);
       const score = Math.round(50 + similarity.jaccard * 50);
 
       transitionEdges.push({
@@ -175,8 +166,8 @@ export function buildAutoCareerGraph(
         target: `job-${target.job_id}`,
         relation_type: "transition",
         reason: `跨岗位族可迁移，存在 ${similarity.overlap.length} 项可复用技能。`,
-        required_skills: target.professional_skills.slice(0, 8),
-        gap_skills: gapSkills.slice(0, 8),
+        required_skills: uniqueLimited(target.professional_skills, 8),
+        gap_skills: gapSkills,
         transition_cost: resolveTransitionCost(gapSkills.length),
         direction_label: "换岗",
         score,
@@ -186,5 +177,10 @@ export function buildAutoCareerGraph(
     edges.push(...topEdgeByScore(transitionEdges, 3));
   }
 
-  return { nodes, edges };
+  return {
+    graph_version: GRAPH_VERSION,
+    generated_at: generatedAt,
+    nodes,
+    edges,
+  };
 }
