@@ -4,15 +4,24 @@
  */
 
 import type {
+  CanonicalRoleRecord,
+  CanonicalRoleProfileDraft,
+  CanonicalRolesListParams,
+  CanonicalRolesListResponse,
+  JobFactRecord,
+  JobFactsListParams,
+  JobFactsListResponse,
   JobPipelineMode,
   JobPipelineTaskRecord,
   JobProfileV2Record,
   JobProfilesV2ListParams,
   JobProfilesV2ListResponse,
   JobRecord,
+  PostingProfileFacts,
 } from "@career/contracts/types";
 
 export type JobProfileV2CreateInput = Omit<JobProfileV2Record, "id" | "created_at">;
+export type JobFactsCreateInput = PostingProfileFacts;
 
 export type PipelineJobRecord = JobRecord & {
   normalized_title_hint: string | null;
@@ -43,6 +52,13 @@ export interface JobsIntelligenceRepository {
   getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord | null>;
   updatePipelineTask(taskId: number, input: PipelineTaskUpdateInput): Promise<JobPipelineTaskRecord>;
   listPipelineJobs(mode: JobPipelineMode): Promise<PipelineJobRecord[]>;
+  createJobFacts(input: JobFactsCreateInput): Promise<void>;
+  listLatestJobFactsForCanonical(): Promise<PostingProfileFacts[]>;
+  listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse>;
+  getLatestJobFactByJobId(jobId: number): Promise<JobFactRecord | null>;
+  upsertCanonicalRoleProfile(input: CanonicalRoleProfileDraft): Promise<void>;
+  listCanonicalRoles(params: CanonicalRolesListParams): Promise<CanonicalRolesListResponse>;
+  getCanonicalRoleByKey(roleKey: string): Promise<CanonicalRoleRecord | null>;
   getLatestProfileByJobId(jobId: number): Promise<JobProfileV2Record | null>;
   createJobProfile(input: JobProfileV2CreateInput): Promise<JobProfileV2Record>;
   listLatestProfiles(params: JobProfilesV2ListParams): Promise<JobProfilesV2ListResponse>;

@@ -4,12 +4,19 @@
  */
 
 import type {
+  CareerGraphSnapshot,
+  CanonicalRoleRecord,
+  CanonicalRolesListParams,
+  CanonicalRolesListResponse,
   CareerPathNode,
   CareerPathV2GraphResponse,
   CareerRouteRecommendation,
   CareerRouteStep,
   JobPipelineMode,
   JobPipelineTaskRecord,
+  JobFactsListParams,
+  JobFactsListResponse,
+  JobFactRecord,
   JobProfileV2Record,
   JobProfilesV2ListParams,
   JobProfilesV2ListResponse,
@@ -19,10 +26,12 @@ import type { AppEnv } from "../../shared/config/env.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { buildAutoCareerGraph } from "./jobs-intelligence.graph.js";
 import { generateAgentJobProfile } from "./jobs-intelligence.llm.js";
-import type {
-  CareerGraphSnapshot,
-  JobsIntelligenceGraphRepository,
-} from "./jobs-intelligence.repository.neo4j.js";
+import {
+  buildCanonicalRoleProfile,
+  extractPostingProfileFacts,
+  groupPostingFactsByRole,
+} from "./jobs-intelligence.profile.js";
+import type { JobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
 
 const PIPELINE_PROGRESS_FLUSH_INTERVAL = 50;
@@ -141,6 +150,10 @@ export interface JobsIntelligenceService {
   runPipelineNow(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord>;
   getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord>;
   listJobProfiles(params: JobProfilesV2ListParams): Promise<JobProfilesV2ListResponse>;
+  listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse>;
+  getJobFact(jobId: number): Promise<JobFactRecord>;
+  listCanonicalRoles(params: CanonicalRolesListParams): Promise<CanonicalRolesListResponse>;
+  getCanonicalRole(roleKey: string): Promise<CanonicalRoleRecord>;
   getJobProfile(jobId: number): Promise<JobProfileV2Record>;
   getCareerPathGraph(jobId: number, depth: number): Promise<CareerPathV2GraphResponse>;
 }
@@ -200,6 +213,10 @@ export function createJobsIntelligenceService(
           if (normalizationHint.normalized_job_family_hint) {
             normalizedHintHits += 1;
           }
+
+          const postingFacts = extractPostingProfileFacts(job, normalizationHint);
+          await repository.createJobFacts(postingFacts);
+
           const draft = await generateAgentJobProfile(job, env, normalizationHint);
 
           await repository.createJobProfile({
@@ -237,6 +254,19 @@ export function createJobsIntelligenceService(
         }
       }
 
+      const latestFacts = await repository.listLatestJobFactsForCanonical();
+      const groupedFacts = groupPostingFactsByRole(latestFacts);
+      let canonicalRoleCount = 0;
+      for (const factsGroup of groupedFacts.values()) {
+        if (factsGroup.length === 0) {
+          continue;
+        }
+        await repository.upsertCanonicalRoleProfile(buildCanonicalRoleProfile(factsGroup));
+        canonicalRoleCount += 1;
+      }
+
+      console.info(`[jobs:pipeline] canonical_roles_upserted=${canonicalRoleCount}`);
+
       const latestProfiles = await repository.listLatestProfilesForGraph();
       const jobRecords = await repository.listJobsByIds(latestProfiles.map((item) => item.job_id));
       const jobTitleById = new Map(jobRecords.map((item) => [item.id, item.title]));
@@ -245,18 +275,21 @@ export function createJobsIntelligenceService(
       const familyCount = new Set(latestProfiles.map((item) => item.job_family)).size;
       const hasAgentFailure = failedProfiles > 0;
       const hasEnoughFamilies = familyCount >= 10;
-      const isSucceeded = hasEnoughFamilies && !hasAgentFailure;
+      const hasEnoughCanonicalRoles = canonicalRoleCount >= 10;
+      const isSucceeded = hasEnoughFamilies && hasEnoughCanonicalRoles && !hasAgentFailure;
       const message = isSucceeded
-        ? `流水线完成：画像 ${successProfiles} 条（agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}），图谱节点 ${graphSyncResult.nodes_upserted} 个`
+        ? `流水线完成：画像 ${successProfiles} 条（agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}），标准岗位 ${canonicalRoleCount} 个，图谱节点 ${graphSyncResult.nodes_upserted} 个`
         : authFailed
           ? `流水线失败：agent 鉴权失败，已在第 ${processed} 条处中止`
-          : `流水线失败：agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}, family_count=${familyCount}`;
+          : `流水线失败：agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}, family_count=${familyCount}, canonical_roles=${canonicalRoleCount}`;
       const errorMessage = authFailed
         ? "Agent 模型鉴权失败，请检查 KIMI_API_KEY / KIMICODE_API_KEY 或 provider 配置"
         : hasAgentFailure
           ? `存在 ${failedProfiles} 条岗位画像 Agent 生成失败`
           : hasEnoughFamilies
-            ? null
+            ? hasEnoughCanonicalRoles
+              ? null
+              : "标准岗位数量不足 10"
             : "有效岗位族数量不足 10";
 
       console.info(
@@ -310,6 +343,32 @@ export function createJobsIntelligenceService(
     params: JobProfilesV2ListParams,
   ): Promise<JobProfilesV2ListResponse> {
     return repository.listLatestProfiles(params);
+  }
+
+  async function listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse> {
+    return repository.listJobFacts(params);
+  }
+
+  async function getJobFact(jobId: number): Promise<JobFactRecord> {
+    const fact = await repository.getLatestJobFactByJobId(jobId);
+    if (!fact) {
+      throw new HttpError(404, "JOB_FACT_NOT_FOUND", "目标岗位事实不存在");
+    }
+    return fact;
+  }
+
+  async function listCanonicalRoles(
+    params: CanonicalRolesListParams,
+  ): Promise<CanonicalRolesListResponse> {
+    return repository.listCanonicalRoles(params);
+  }
+
+  async function getCanonicalRole(roleKey: string): Promise<CanonicalRoleRecord> {
+    const role = await repository.getCanonicalRoleByKey(roleKey);
+    if (!role) {
+      throw new HttpError(404, "CANONICAL_ROLE_NOT_FOUND", "目标标准岗位不存在");
+    }
+    return role;
   }
 
   async function getJobProfile(jobId: number): Promise<JobProfileV2Record> {
@@ -404,6 +463,10 @@ export function createJobsIntelligenceService(
     runPipelineNow,
     getPipelineTask,
     listJobProfiles,
+    listJobFacts,
+    getJobFact,
+    listCanonicalRoles,
+    getCanonicalRole,
     getJobProfile,
     getCareerPathGraph,
   };

@@ -4,40 +4,17 @@
  */
 
 import neo4j from "neo4j-driver";
+import type {
+  CareerGraphEdgeRecord,
+  CareerGraphNodeRecord,
+  CareerGraphSnapshot,
+} from "@career/contracts/types";
 
 import {
   createNeo4jDriver,
   toNeo4jNumber,
   type Neo4jConnectionOptions,
 } from "../../shared/db/neo4j.js";
-
-export type CareerGraphNodeRecord = {
-  id: string;
-  job_id: number;
-  title: string;
-  family: string;
-  level: number;
-  skills: string[];
-  summary: string;
-};
-
-export type CareerGraphEdgeRecord = {
-  id: string;
-  source: string;
-  target: string;
-  relation_type: "promotion" | "transition";
-  reason: string;
-  required_skills: string[];
-  gap_skills: string[];
-  transition_cost: "low" | "medium" | "high";
-  direction_label: string;
-  score: number;
-};
-
-export type CareerGraphSnapshot = {
-  nodes: CareerGraphNodeRecord[];
-  edges: CareerGraphEdgeRecord[];
-};
 
 export interface JobsIntelligenceGraphRepository {
   syncGraph(snapshot: CareerGraphSnapshot): Promise<{ nodes_upserted: number; edges_upserted: number }>;

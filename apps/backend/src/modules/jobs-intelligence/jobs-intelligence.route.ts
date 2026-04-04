@@ -2,8 +2,11 @@ import { Router } from "express";
 
 import { HttpError } from "../../shared/errors/http-error.js";
 import {
+  canonicalRoleParamsSchema,
   careerPathQuerySchema,
   jobIdParamsSchema,
+  listCanonicalRolesSchema,
+  listJobFactsSchema,
   listJobProfilesSchema,
   pipelineTaskParamsSchema,
   runPipelineSchema,
@@ -51,6 +54,58 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
 
     try {
       return res.json(await service.listJobProfiles(parsed.data));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get("/canonical-roles", async (req, res, next) => {
+    const parsed = listCanonicalRolesSchema.safeParse(req.query);
+    if (!parsed.success) {
+      return next(new HttpError(400, "VALIDATION_ERROR", "标准岗位查询参数不合法", parsed.error.flatten()));
+    }
+
+    try {
+      return res.json(await service.listCanonicalRoles(parsed.data));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get("/canonical-roles/:role_key", async (req, res, next) => {
+    const parsed = canonicalRoleParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return next(new HttpError(400, "VALIDATION_ERROR", "标准岗位参数不合法", parsed.error.flatten()));
+    }
+
+    try {
+      return res.json(await service.getCanonicalRole(parsed.data.role_key));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get("/job-facts", async (req, res, next) => {
+    const parsed = listJobFactsSchema.safeParse(req.query);
+    if (!parsed.success) {
+      return next(new HttpError(400, "VALIDATION_ERROR", "岗位事实查询参数不合法", parsed.error.flatten()));
+    }
+
+    try {
+      return res.json(await service.listJobFacts(parsed.data));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get("/job-facts/:job_id", async (req, res, next) => {
+    const parsed = jobIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return next(new HttpError(400, "VALIDATION_ERROR", "岗位参数不合法", parsed.error.flatten()));
+    }
+
+    try {
+      return res.json(await service.getJobFact(parsed.data.job_id));
     } catch (error) {
       return next(error);
     }
