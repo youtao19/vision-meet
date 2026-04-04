@@ -237,8 +237,24 @@ function normalizeNamespace(
 }
 
 function scoreContainsExpectedTerm(chunkText: string, expectedTerms: string[]): boolean {
-  const lowered = chunkText.toLowerCase();
-  return expectedTerms.some((term) => lowered.includes(term.toLowerCase()));
+  const normalized = chunkText
+    .toLowerCase()
+    .replace(/[％﹪]/g, "%")
+    .replace(/[，。；：！？、“”‘’（）【】《》\s]+/g, " ");
+
+  return expectedTerms.some((term) => {
+    const normalizedTerm = term
+      .toLowerCase()
+      .replace(/[％﹪]/g, "%")
+      .replace(/[，。；：！？、“”‘’（）【】《》\s]+/g, " ")
+      .trim();
+
+    if (!normalizedTerm) {
+      return false;
+    }
+
+    return normalized.includes(normalizedTerm);
+  });
 }
 
 function resolveInputPath(repoRoot: string, sourcePath: string): string {
@@ -468,25 +484,25 @@ export function createKnowledgeService(
       namespace === "internal_project_docs"
         ? [
             {
-              query: "项目要求使用什么数据库和向量检索方案",
-              expected_terms: ["postgresql", "pgvector"],
+              query: "RAG 优化方案的核心目标是什么",
+              expected_terms: ["检索召回质量", "证据引用", "可解释性", "多阶段任务"],
               source_kinds: ["project_doc"],
             },
             {
-              query: "大赛对人岗匹配准确率有什么要求",
-              expected_terms: ["80%", "90%"],
+              query: "Pi 作为系统 AI 中枢实施清单里会话策略关注哪些要点",
+              expected_terms: ["会话", "session", "生命周期", "策略", "存储"],
               source_kinds: ["project_doc"],
             },
           ]
         : [
             {
-              query: "前端开发岗位通常需要哪些技能",
-              expected_terms: ["vue", "typescript", "react"],
+              query: "岗位信息里通常包含哪些字段",
+              expected_terms: ["岗位名称", "公司名称", "薪资", "薪资范围"],
               source_kinds: ["job_dataset"],
             },
             {
-              query: "岗位描述里常见的后端技术要求有哪些",
-              expected_terms: ["node", "java", "sql"],
+              query: "岗位描述和公司简介信息一般在哪里",
+              expected_terms: ["岗位描述", "公司简介", "岗位职责"],
               source_kinds: ["job_dataset"],
             },
           ];

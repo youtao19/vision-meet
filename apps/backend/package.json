@@ -19,6 +19,7 @@
     "knowledge:index:jobs": "tsx src/scripts/knowledge-index-jobs.ts",
     "knowledge:index:project-docs": "tsx src/scripts/knowledge-index-project-docs.ts",
     "knowledge:eval": "tsx src/scripts/knowledge-evaluate.ts",
+    "knowledge:baseline": "tsx src/scripts/knowledge-baseline.ts",
     "jobs:pipeline:run": "tsx src/scripts/jobs-pipeline-run.ts"
   },
   "dependencies": {

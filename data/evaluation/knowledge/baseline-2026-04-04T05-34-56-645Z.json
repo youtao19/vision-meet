@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-04-04T05:34:56.645Z",
+  "top_k": 5,
+  "results": [
+    {
+      "namespace": "career_runtime",
+      "top_k": 5,
+      "recall_at_k": 0.5,
+      "mrr": 0.5,
+      "cases": [
+        {
+          "query": "岗位信息里通常包含哪些字段",
+          "expected_terms": [
+            "岗位名称",
+            "公司名称",
+            "薪资",
+            "薪资范围"
+          ],
+          "hit": true,
+          "reciprocal_rank": 1,
+          "matched_chunk_ids": [
+            8381,
+            370,
+            5663,
+            2452,
+            931
+          ]
+        },
+        {
+          "query": "岗位描述和公司简介信息一般在哪里",
+          "expected_terms": [
+            "岗位描述",
+            "公司简介",
+            "岗位职责"
+          ],
+          "hit": false,
+          "reciprocal_rank": 0,
+          "matched_chunk_ids": []
+        }
+      ]
+    },
+    {
+      "namespace": "internal_project_docs",
+      "top_k": 5,
+      "recall_at_k": 0,
+      "mrr": 0,
+      "cases": [
+        {
+          "query": "项目技术架构中提到的数据库与向量检索方案是什么",
+          "expected_terms": [
+            "postgresql",
+            "pgvector",
+            "postgres",
+            "向量检索"
+          ],
+          "hit": false,
+          "reciprocal_rank": 0,
+          "matched_chunk_ids": []
+        },
+        {
+          "query": "项目评测指标对匹配准确率有什么要求",
+          "expected_terms": [
+            "准确率",
+            "80%",
+            "90%",
+            "评测"
+          ],
+          "hit": false,
+          "reciprocal_rank": 0,
+          "matched_chunk_ids": []
+        }
+      ]
+    }
+  ]
+}
