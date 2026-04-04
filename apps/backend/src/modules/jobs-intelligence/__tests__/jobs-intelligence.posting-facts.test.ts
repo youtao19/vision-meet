@@ -19,6 +19,7 @@ function buildJob(overrides: Partial<JobRecord> = {}): JobRecord {
   return {
     id: 1,
     source_row_id: null,
+    normalized_source_key: null,
     title: "Java后端开发工程师",
     location: "上海",
     salary_range: "15-25k",

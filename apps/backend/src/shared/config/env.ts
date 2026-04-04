@@ -43,6 +43,10 @@ const rawEnvSchema = z.object({
   AGENT_THINKING_LEVEL: z
     .enum(["off", "minimal", "low", "medium", "high", "xhigh"])
     .default("medium"),
+  JOBS_PIPELINE_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(3),
+  JOBS_PIPELINE_RETRY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(8).default(3),
+  JOBS_PIPELINE_RETRY_BASE_MS: z.coerce.number().int().min(100).max(10000).default(500),
+  JOBS_PIPELINE_RETRY_MAX_MS: z.coerce.number().int().min(500).max(60000).default(8000),
 });
 
 const envSchema = rawEnvSchema.transform((env) => {

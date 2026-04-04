@@ -73,37 +73,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/v1/jobs/profile/generate:
-    post:
-      summary: Generate Job Profile
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [job_id]
-              properties:
-                job_id:
-                  type: integer
-                  minimum: 1
-                force_regenerate:
-                  type: boolean
-                  default: false
-      responses:
-        "200":
-          description: Profile result
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobProfileGenerateResponse"
-        "404":
-          description: Job not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /api/v1/profile:
     get:
       summary: List Student Profiles
@@ -363,8 +332,8 @@ paths:
               properties:
                 mode:
                   type: string
-                  enum: [full, incremental]
-                  default: incremental
+                  enum: [facts_canonical_full]
+                  default: facts_canonical_full
       responses:
         "202":
           description: Pipeline task accepted
@@ -391,18 +360,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/JobPipelineTaskRecord"
 
-  /api/v2/job-profiles:
+  /api/v2/jobs/pipeline/tasks/{task_id}/failures:
     get:
-      summary: List Job Profiles V2
+      summary: List Pipeline Task Failures
       parameters:
-        - in: query
-          name: keyword
+        - in: path
+          name: task_id
+          required: true
           schema:
-            type: string
-        - in: query
-          name: job_family
-          schema:
-            type: string
+            type: integer
+            minimum: 1
         - in: query
           name: offset
           schema:
@@ -415,29 +382,43 @@ paths:
             default: 20
       responses:
         "200":
-          description: Job profile list
+          description: Pipeline task failure list
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobProfilesV2ListResponse"
+                $ref: "#/components/schemas/JobPipelineFailureListResponse"
 
-  /api/v2/job-profiles/{job_id}:
+  /api/v2/jobs/pipeline/retry-queue:
     get:
-      summary: Get Job Profile V2 Detail
+      summary: List Pipeline Retry Queue
       parameters:
-        - in: path
-          name: job_id
-          required: true
+        - in: query
+          name: task_id
           schema:
             type: integer
             minimum: 1
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, processing, done, failed]
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
       responses:
         "200":
-          description: Job profile detail
+          description: Pipeline retry queue list
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/JobProfileV2Record"
+                $ref: "#/components/schemas/JobPipelineRetryQueueListResponse"
 
   /api/v2/career-paths/jobs/{job_id}:
     get:
@@ -1211,6 +1192,9 @@ components:
         source_row_id:
           type: string
           nullable: true
+        normalized_source_key:
+          type: string
+          nullable: true
         title:
           type: string
         location:
@@ -1267,55 +1251,6 @@ components:
           type: integer
         message:
           type: string
-
-    JobProfileGenerateResponse:
-      type: object
-      required:
-        [
-          id,
-          job_id,
-          profile_version,
-          hard_skills,
-          certificates,
-          soft_skills,
-          skill_weights,
-          summary,
-          confidence,
-          created_at,
-          cached,
-        ]
-      properties:
-        id:
-          type: integer
-        job_id:
-          type: integer
-        profile_version:
-          type: integer
-        hard_skills:
-          type: array
-          items:
-            type: string
-        certificates:
-          type: array
-          items:
-            type: string
-        soft_skills:
-          type: array
-          items:
-            type: string
-        skill_weights:
-          type: object
-          additionalProperties:
-            type: number
-        summary:
-          type: string
-        confidence:
-          type: number
-        created_at:
-          type: string
-          format: date-time
-        cached:
-          type: boolean
 
     JobProfileV2Record:
       type: object
@@ -1420,10 +1355,10 @@ components:
           type: integer
         mode:
           type: string
-          enum: [full, incremental]
+          enum: [facts_canonical_full]
         status:
           type: string
-          enum: [queued, running, succeeded, failed]
+          enum: [queued, running, success, degraded, failed]
         total_jobs:
           type: integer
         processed_jobs:
@@ -1458,6 +1393,101 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    JobPipelineFailureRecord:
+      type: object
+      required: [id, task_id, job_id, stage, error_code, error_message, attempts, retryable, created_at]
+      properties:
+        id:
+          type: integer
+        task_id:
+          type: integer
+        job_id:
+          type: integer
+        stage:
+          type: string
+        error_code:
+          type: string
+        error_message:
+          type: string
+        attempts:
+          type: integer
+        retryable:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    JobPipelineFailureListResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobPipelineFailureRecord"
+
+    JobPipelineRetryQueueRecord:
+      type: object
+      required: [id, task_id, job_id, stage, status, attempts, next_run_at, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+        task_id:
+          type: integer
+        job_id:
+          type: integer
+        stage:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, done, failed]
+        attempts:
+          type: integer
+        next_run_at:
+          type: string
+          format: date-time
+        last_error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    JobPipelineRetryQueueSummary:
+      type: object
+      required: [pending, processing, done, failed, latest_errors]
+      properties:
+        pending:
+          type: integer
+        processing:
+          type: integer
+        done:
+          type: integer
+        failed:
+          type: integer
+        latest_errors:
+          type: array
+          items:
+            type: string
+
+    JobPipelineRetryQueueListResponse:
+      type: object
+      required: [total, items, summary]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobPipelineRetryQueueRecord"
+        summary:
+          $ref: "#/components/schemas/JobPipelineRetryQueueSummary"
 
     CreateStudentProfileRequest:
       type: object

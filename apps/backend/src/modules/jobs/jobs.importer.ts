@@ -51,20 +51,59 @@ function pickValue(source: Record<string, unknown>, aliases: string[]): string |
   return null;
 }
 
+function normalizeSourceToken(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, "").replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function buildNormalizedSourceKey(params: {
+  sourceRowId: string | null;
+  jobCode: string | null;
+  title: string;
+  location: string | null;
+  index: number;
+}): string {
+  const sourceRowToken = normalizeSourceToken(params.sourceRowId || "");
+  if (sourceRowToken && !/^\d+$/.test(sourceRowToken)) {
+    return sourceRowToken;
+  }
+
+  const jobCodeToken = normalizeSourceToken(params.jobCode || "");
+  if (jobCodeToken) {
+    return jobCodeToken;
+  }
+
+  const titleLocation = [params.title, params.location || "", String(params.index)]
+    .map((item) => normalizeSourceToken(item))
+    .filter(Boolean)
+    .join("|");
+  return titleLocation || `job-${params.index}`;
+}
+
 function standardizeRow(
   raw: Record<string, unknown>,
   index: number,
 ): Omit<JobRecord, "id" | "created_at"> | null {
+  const sourceRowId = pickValue(raw, FIELD_ALIASES.source_row_id) || String(index);
+  const title = pickValue(raw, FIELD_ALIASES.title) || "";
+  const location = pickValue(raw, FIELD_ALIASES.location);
+  const jobCode = pickValue(raw, FIELD_ALIASES.job_code);
   const row: Omit<JobRecord, "id" | "created_at"> = {
-    source_row_id: pickValue(raw, FIELD_ALIASES.source_row_id) || String(index),
-    title: pickValue(raw, FIELD_ALIASES.title) || "",
-    location: pickValue(raw, FIELD_ALIASES.location),
+    source_row_id: sourceRowId,
+    normalized_source_key: buildNormalizedSourceKey({
+      sourceRowId,
+      jobCode,
+      title,
+      location,
+      index,
+    }),
+    title,
+    location,
     salary_range: pickValue(raw, FIELD_ALIASES.salary_range),
     company_name: pickValue(raw, FIELD_ALIASES.company_name),
     industry: pickValue(raw, FIELD_ALIASES.industry),
     company_size: pickValue(raw, FIELD_ALIASES.company_size),
     company_type: pickValue(raw, FIELD_ALIASES.company_type),
-    job_code: pickValue(raw, FIELD_ALIASES.job_code),
+    job_code: jobCode,
     job_description: pickValue(raw, FIELD_ALIASES.job_description),
     company_intro: pickValue(raw, FIELD_ALIASES.company_intro),
     raw_payload: raw,

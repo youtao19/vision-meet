@@ -12,7 +12,7 @@ const loading = reactive({
 });
 
 const form = reactive({
-  mode: "incremental" as "full" | "incremental",
+  mode: "facts_canonical_full" as const,
   taskIdInput: "",
 });
 
@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
   <section class="pipeline-page">
     <header class="page-header">
       <h2>数据处理中心</h2>
-      <p>手动触发岗位智能流水线，跟踪画像生成与图谱构建进度。</p>
+      <p>手动触发岗位智能流水线，跟踪事实抽取与标准岗位聚合进度。</p>
     </header>
 
     <p v-if="uiState.error" class="notice notice-error">{{ uiState.error }}</p>
@@ -123,8 +123,7 @@ onBeforeUnmount(() => {
         <label>
           运行模式
           <select v-model="form.mode" :disabled="loading.run">
-            <option value="incremental">incremental（仅补齐缺失画像）</option>
-            <option value="full">full（全量重建）</option>
+            <option value="facts_canonical_full">facts_canonical_full（仅事实+标准岗位）</option>
           </select>
         </label>
         <button class="primary-btn" :disabled="loading.run" @click="runPipelineNow">

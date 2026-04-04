@@ -1,8 +1,8 @@
 /**
- * 文件作用：手动触发岗位智能处理流水线（全量或增量）。
+ * 文件作用：手动触发岗位智能处理流水线（事实抽取 + 标准岗位聚合）。
  * 使用方式：
- * 1. 增量：npm run jobs:pipeline:run
- * 2. 全量：npm run jobs:pipeline:run -- --mode=full
+ * 1. 默认执行：npm run jobs:pipeline:run
+ * 2. 显式指定：npm run jobs:pipeline:run -- --mode=facts_canonical_full
  */
 
 import { appEnv } from "../shared/config/env.js";
@@ -11,12 +11,12 @@ import { createNeo4jJobsIntelligenceGraphRepository } from "../modules/jobs-inte
 import { createPgJobsIntelligenceRepository } from "../modules/jobs-intelligence/jobs-intelligence.repository.pg.js";
 import { createJobsIntelligenceService } from "../modules/jobs-intelligence/jobs-intelligence.service.js";
 
-function resolveMode(): "full" | "incremental" {
+function resolveMode(): "facts_canonical_full" {
   const value = process.argv.find((arg) => arg.startsWith("--mode="))?.split("=")[1];
-  if (value === "full") {
-    return "full";
+  if (value && value !== "facts_canonical_full") {
+    throw new Error(`不支持的 mode: ${value}，当前仅支持 facts_canonical_full`);
   }
-  return "incremental";
+  return "facts_canonical_full";
 }
 
 async function main(): Promise<void> {

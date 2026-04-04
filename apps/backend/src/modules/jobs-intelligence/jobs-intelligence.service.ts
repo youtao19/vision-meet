@@ -17,26 +17,63 @@ import type {
   JobFactsListParams,
   JobFactsListResponse,
   JobFactRecord,
-  JobProfileV2Record,
-  JobProfilesV2ListParams,
-  JobProfilesV2ListResponse,
+  JobPipelineFailureListResponse,
+  JobPipelineRetryProcessResult,
+  JobPipelineRetryQueueListResponse,
+  ManualJobPortraitRecord,
+  PostingProfileFacts,
 } from "@career/contracts/types";
 
 import type { AppEnv } from "../../shared/config/env.js";
 import { HttpError } from "../../shared/errors/http-error.js";
-import { buildAutoCareerGraph } from "./jobs-intelligence.graph.js";
-import { generateAgentJobProfile } from "./jobs-intelligence.llm.js";
 import {
+  CANONICAL_MIN_CONFIDENCE,
   buildCanonicalRoleProfile,
   extractPostingProfileFacts,
   groupPostingFactsByRole,
+  isPostingFactEligibleForCanonical,
 } from "./jobs-intelligence.profile.js";
 import type { JobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
 
 const PIPELINE_PROGRESS_FLUSH_INTERVAL = 50;
-const MIN_GRAPH_COVERED_JOBS = 5;
-const MAX_GRAPH_ISOLATED_RATIO = 0.7;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isRetryableFailure(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("429") ||
+    normalized.includes("too many requests") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("timeout") ||
+    normalized.includes("timed out") ||
+    normalized.includes("econnreset") ||
+    normalized.includes("etimedout") ||
+    normalized.includes("eai_again") ||
+    normalized.includes("502") ||
+    normalized.includes("503") ||
+    normalized.includes("504")
+  );
+}
+
+function computeBackoffDelay(params: {
+  attempt: number;
+  baseMs: number;
+  maxMs: number;
+}): number {
+  const exp = params.baseMs * 2 ** Math.max(0, params.attempt - 1);
+  const jitter = Math.floor(Math.random() * 300);
+  return Math.min(params.maxMs, exp + jitter);
+}
+
+function scaledMinimum(total: number, ratio: number, floor: number): number {
+  return Math.max(floor, Math.ceil(total * ratio));
+}
 
 type CareerPathQueryOptions = {
   depth: number;
@@ -56,6 +93,96 @@ function isAuthenticationFailure(message: string): boolean {
 
 function uniqueSkills(items: string[]): string[] {
   return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
+}
+
+type CanonicalEligibilityDiagnostics = {
+  totalLatestFacts: number;
+  eligibleFacts: number;
+  rejectedLowConfidence: number;
+  rejectedMissingEvidence: number;
+  rejectedBoth: number;
+};
+
+type CanonicalGroupingDiagnostics = {
+  groupCount: number;
+  singleSampleGroupCount: number;
+  maxGroupSize: number;
+  p50GroupSize: number;
+  p90GroupSize: number;
+  topGroups: Array<{ roleKey: string; sampleSize: number }>;
+};
+
+/**
+ * 作用：统计 canonical 聚合前的事实漏斗，便于快速定位“为什么画像数量偏少”。
+ * 注意：低置信度与无证据是两类可叠加原因，分别统计并额外给出交集数量。
+ */
+function analyzeCanonicalEligibility(
+  factsList: PostingProfileFacts[],
+): CanonicalEligibilityDiagnostics {
+  let eligibleFacts = 0;
+  let rejectedLowConfidence = 0;
+  let rejectedMissingEvidence = 0;
+  let rejectedBoth = 0;
+
+  for (const item of factsList) {
+    const lowConfidence = item.confidence < CANONICAL_MIN_CONFIDENCE;
+    const missingEvidence = item.evidence.length === 0;
+
+    if (isPostingFactEligibleForCanonical(item)) {
+      eligibleFacts += 1;
+      continue;
+    }
+
+    if (lowConfidence) {
+      rejectedLowConfidence += 1;
+    }
+    if (missingEvidence) {
+      rejectedMissingEvidence += 1;
+    }
+    if (lowConfidence && missingEvidence) {
+      rejectedBoth += 1;
+    }
+  }
+
+  return {
+    totalLatestFacts: factsList.length,
+    eligibleFacts,
+    rejectedLowConfidence,
+    rejectedMissingEvidence,
+    rejectedBoth,
+  };
+}
+
+function pickPercentile(sortedValues: number[], percentile: number): number {
+  if (sortedValues.length === 0) {
+    return 0;
+  }
+  const normalized = Math.min(1, Math.max(0, percentile));
+  const index = Math.max(0, Math.ceil(sortedValues.length * normalized) - 1);
+  return sortedValues[index] ?? 0;
+}
+
+/**
+ * 作用：统计 canonical 分组结果分布，用于判断是否被过度归并到少数 role_key。
+ */
+function analyzeCanonicalGrouping(
+  groupedFacts: Map<string, PostingProfileFacts[]>,
+): CanonicalGroupingDiagnostics {
+  const groups = Array.from(groupedFacts.entries()).map(([roleKey, items]) => ({
+    roleKey,
+    sampleSize: items.length,
+  }));
+  const sortedBySample = [...groups].sort((left, right) => right.sampleSize - left.sampleSize);
+  const sortedSampleSizes = sortedBySample.map((item) => item.sampleSize).sort((a, b) => a - b);
+
+  return {
+    groupCount: groups.length,
+    singleSampleGroupCount: groups.filter((item) => item.sampleSize === 1).length,
+    maxGroupSize: sortedBySample[0]?.sampleSize ?? 0,
+    p50GroupSize: pickPercentile(sortedSampleSizes, 0.5),
+    p90GroupSize: pickPercentile(sortedSampleSizes, 0.9),
+    topGroups: sortedBySample.slice(0, 10),
+  };
 }
 
 function findTargetNode(nodes: CareerGraphSnapshot["nodes"], jobId: number): CareerPathNode | null {
@@ -197,12 +324,22 @@ export interface JobsIntelligenceService {
   runPipelineNow(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord>;
   retryPipelineTask(taskId: number): Promise<JobPipelineTaskRecord>;
   getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord>;
-  listJobProfiles(params: JobProfilesV2ListParams): Promise<JobProfilesV2ListResponse>;
+  listPipelineFailures(
+    taskId: number,
+    params: { offset: number; limit: number },
+  ): Promise<JobPipelineFailureListResponse>;
+  listPipelineRetryQueue(params: {
+    task_id?: number;
+    status?: "pending" | "processing" | "done" | "failed";
+    offset: number;
+    limit: number;
+  }): Promise<JobPipelineRetryQueueListResponse>;
+  processPipelineRetryQueue(input: { limit: number }): Promise<JobPipelineRetryProcessResult>;
   listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse>;
   getJobFact(jobId: number): Promise<JobFactRecord>;
   listCanonicalRoles(params: CanonicalRolesListParams): Promise<CanonicalRolesListResponse>;
   getCanonicalRole(roleKey: string): Promise<CanonicalRoleRecord>;
-  getJobProfile(jobId: number): Promise<JobProfileV2Record>;
+  listManualJobPortraits(): Promise<ManualJobPortraitRecord[]>;
   getCareerPathGraph(jobId: number, options: CareerPathQueryOptions | number): Promise<CareerPathV2GraphResponse>;
 }
 
@@ -239,71 +376,171 @@ export function createJobsIntelligenceService(
       });
 
       let processed = 0;
-      let successProfiles = 0;
       let failedProfiles = 0;
-      let agentProfiles = 0;
       let normalizedHintHits = 0;
       let authFailed = false;
+      let retryCount = 0;
 
-      for (const job of jobs) {
-        if (authFailed) {
-          break;
+      const concurrency = Math.max(1, env.JOBS_PIPELINE_CONCURRENCY ?? 3);
+      const maxAttempts = Math.max(1, env.JOBS_PIPELINE_RETRY_MAX_ATTEMPTS ?? 3);
+      const retryBaseMs = Math.max(100, env.JOBS_PIPELINE_RETRY_BASE_MS ?? 500);
+      const retryMaxMs = Math.max(retryBaseMs, env.JOBS_PIPELINE_RETRY_MAX_MS ?? 8000);
+
+      /**
+       * 关键逻辑：单条岗位处理，失败时按可重试错误做指数退避重试。
+       * 注意：鉴权失败属于硬失败，会立刻中断后续任务领取。
+       */
+      async function processSingleJob(job: (typeof jobs)[number]): Promise<void> {
+        const normalizationHint = {
+          normalized_title_hint: job.normalized_title_hint,
+          normalized_job_family_hint: job.normalized_job_family_hint,
+          normalization_confidence_hint: job.normalization_confidence_hint,
+        };
+        if (normalizationHint.normalized_job_family_hint) {
+          normalizedHintHits += 1;
         }
 
-        try {
-          const latest = await repository.getLatestProfileByJobId(job.id);
-          const version = latest ? latest.profile_version + 1 : 1;
-          const normalizationHint = {
-            normalized_title_hint: job.normalized_title_hint,
-            normalized_job_family_hint: job.normalized_job_family_hint,
-            normalization_confidence_hint: job.normalization_confidence_hint,
-          };
-          if (normalizationHint.normalized_job_family_hint) {
-            normalizedHintHits += 1;
-          }
+        let attempt = 1;
+        while (attempt <= maxAttempts) {
+          try {
+            const postingFacts = extractPostingProfileFacts(job, normalizationHint);
+            await repository.createJobFacts(postingFacts);
+            return;
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
 
-          const postingFacts = extractPostingProfileFacts(job, normalizationHint);
-          await repository.createJobFacts(postingFacts);
+            if (isAuthenticationFailure(reason)) {
+              authFailed = true;
+              throw error;
+            }
 
-          const draft = await generateAgentJobProfile(job, env, normalizationHint);
+            const canRetry = isRetryableFailure(reason) && attempt < maxAttempts;
+            if (!canRetry) {
+              throw error;
+            }
 
-          await repository.createJobProfile({
-            ...draft,
-            profile_version: version,
-          });
-
-          agentProfiles += 1;
-          successProfiles += 1;
-        } catch (error) {
-          failedProfiles += 1;
-          const reason = error instanceof Error ? error.message : String(error);
-          console.error(
-            `[jobs:pipeline] job_failed task_id=${taskId} job_id=${job.id} reason=${reason.slice(0, 280)}`,
-          );
-          if (isAuthenticationFailure(reason)) {
-            authFailed = true;
-            console.error(
-              `[jobs:pipeline] abort task_id=${taskId} reason=authentication_failed job_id=${job.id}`,
-            );
-          }
-        } finally {
-          processed += 1;
-          if (processed % PIPELINE_PROGRESS_FLUSH_INTERVAL === 0) {
-            await repository.updatePipelineTask(taskId, {
-              processed_jobs: processed,
-              success_profiles: successProfiles,
-              failed_profiles: failedProfiles,
-              message: `已处理 ${processed}/${jobs.length}（agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}）`,
+            retryCount += 1;
+            const delay = computeBackoffDelay({
+              attempt,
+              baseMs: retryBaseMs,
+              maxMs: retryMaxMs,
             });
-            console.info(
-              `[jobs:pipeline] progress task_id=${taskId} processed=${processed}/${jobs.length} agent_success=${agentProfiles} normalized_hint=${normalizedHintHits} failed=${failedProfiles}`,
+            console.warn(
+              `[jobs:pipeline] retry task_id=${taskId} job_id=${job.id} attempt=${attempt}/${maxAttempts} delay_ms=${delay}`,
             );
+            await sleep(delay);
+            attempt += 1;
           }
         }
       }
 
+      let cursor = 0;
+
+      async function runWorker(): Promise<void> {
+        while (true) {
+          if (authFailed) {
+            return;
+          }
+
+          const index = cursor;
+          cursor += 1;
+          if (index >= jobs.length) {
+            return;
+          }
+
+          const job = jobs[index];
+          try {
+            await processSingleJob(job);
+          } catch (error) {
+            failedProfiles += 1;
+            const reason = error instanceof Error ? error.message : String(error);
+            const retryable = isRetryableFailure(reason) && !isAuthenticationFailure(reason);
+            const attempts = retryable ? maxAttempts : 1;
+
+            if (typeof repository.createPipelineFailure === "function") {
+              await repository.createPipelineFailure({
+                task_id: taskId,
+                job_id: job.id,
+                stage: "extract_posting_facts",
+                error_code: retryable ? "RETRYABLE_FAILURE" : "NON_RETRYABLE_FAILURE",
+                error_message: reason.slice(0, 500),
+                attempts,
+                retryable,
+              });
+            }
+
+            if (retryable && typeof repository.enqueuePipelineRetry === "function") {
+              const nextRunAt = new Date(Date.now() + retryBaseMs).toISOString();
+              await repository.enqueuePipelineRetry({
+                task_id: taskId,
+                job_id: job.id,
+                stage: "extract_posting_facts",
+                attempts,
+                next_run_at: nextRunAt,
+                last_error: reason.slice(0, 500),
+              });
+            }
+
+            console.error(
+              `[jobs:pipeline] job_failed task_id=${taskId} job_id=${job.id} reason=${reason.slice(0, 280)}`,
+            );
+            if (isAuthenticationFailure(reason)) {
+              authFailed = true;
+              console.error(
+                `[jobs:pipeline] abort task_id=${taskId} reason=authentication_failed job_id=${job.id}`,
+              );
+            }
+          } finally {
+            processed += 1;
+            if (processed % PIPELINE_PROGRESS_FLUSH_INTERVAL === 0) {
+              await repository.updatePipelineTask(taskId, {
+                processed_jobs: processed,
+                success_profiles: 0,
+                failed_profiles: failedProfiles,
+                message: `已处理 ${processed}/${jobs.length}（normalized_hint=${normalizedHintHits}, retry=${retryCount}, failed=${failedProfiles}）`,
+              });
+              console.info(
+                `[jobs:pipeline] progress task_id=${taskId} processed=${processed}/${jobs.length} normalized_hint=${normalizedHintHits} retry=${retryCount} failed=${failedProfiles}`,
+              );
+            }
+          }
+        }
+      }
+      const workerCount = Math.min(concurrency, Math.max(1, jobs.length));
+      await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+
       const latestFacts = await repository.listLatestJobFactsForCanonical();
+      const eligibilityDiagnostics = analyzeCanonicalEligibility(latestFacts);
       const groupedFacts = groupPostingFactsByRole(latestFacts);
+      const groupingDiagnostics = analyzeCanonicalGrouping(groupedFacts);
+
+      const funnelSummary =
+        `latest=${eligibilityDiagnostics.totalLatestFacts}, ` +
+        `eligible=${eligibilityDiagnostics.eligibleFacts}, ` +
+        `low_conf=${eligibilityDiagnostics.rejectedLowConfidence}, ` +
+        `missing_evidence=${eligibilityDiagnostics.rejectedMissingEvidence}, ` +
+        `low_conf_and_missing=${eligibilityDiagnostics.rejectedBoth}`;
+      const groupingSummary =
+        `groups=${groupingDiagnostics.groupCount}, ` +
+        `singleton_groups=${groupingDiagnostics.singleSampleGroupCount}, ` +
+        `p50=${groupingDiagnostics.p50GroupSize}, ` +
+        `p90=${groupingDiagnostics.p90GroupSize}, ` +
+        `max=${groupingDiagnostics.maxGroupSize}`;
+
+      console.info(`[jobs:pipeline] canonical_funnel task_id=${taskId} ${funnelSummary}`);
+      console.info(`[jobs:pipeline] canonical_groups task_id=${taskId} ${groupingSummary}`);
+      if (groupingDiagnostics.topGroups.length > 0) {
+        const topGroupsText = groupingDiagnostics.topGroups
+          .map((item) => `${item.roleKey}:${item.sampleSize}`)
+          .join(", ");
+        console.info(`[jobs:pipeline] canonical_top_groups task_id=${taskId} ${topGroupsText}`);
+      }
+
+      // 先清理历史残留分组，确保本次 canonical 结果与列表展示严格一致。
+      if (typeof repository.deleteCanonicalRolesNotInKeys === "function") {
+        await repository.deleteCanonicalRolesNotInKeys(Array.from(groupedFacts.keys()));
+      }
+
       let canonicalRoleCount = 0;
       for (const factsGroup of groupedFacts.values()) {
         if (factsGroup.length === 0) {
@@ -315,59 +552,65 @@ export function createJobsIntelligenceService(
 
       console.info(`[jobs:pipeline] canonical_roles_upserted=${canonicalRoleCount}`);
 
-      const latestProfiles = await repository.listLatestProfilesForGraph();
-      const jobRecords = await repository.listJobsByIds(latestProfiles.map((item) => item.job_id));
-      const jobTitleById = new Map(jobRecords.map((item) => [item.id, item.title]));
-      const graphDraft = buildAutoCareerGraph(latestProfiles, jobTitleById);
-      const graphSyncResult = await graphRepository.syncGraph(graphDraft);
-      const graphQuality = computeGraphQuality(graphDraft);
-      const familyCount = new Set(latestProfiles.map((item) => item.job_family)).size;
-      const hasAgentFailure = failedProfiles > 0;
-      const hasEnoughFamilies = familyCount >= 10;
-      const hasEnoughCanonicalRoles = canonicalRoleCount >= 10;
-      const hasEnoughGraphCoverage = graphQuality.coveredJobs >= MIN_GRAPH_COVERED_JOBS;
-      const hasHealthyIsolationRatio = graphQuality.isolatedNodeRatio <= MAX_GRAPH_ISOLATED_RATIO;
-      const isSucceeded =
-        hasEnoughFamilies &&
-        hasEnoughCanonicalRoles &&
-        !hasAgentFailure &&
-        hasEnoughGraphCoverage &&
-        hasHealthyIsolationRatio;
-      const message = isSucceeded
-        ? `流水线完成：画像 ${successProfiles} 条（agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}），标准岗位 ${canonicalRoleCount} 个，图谱节点 ${graphSyncResult.nodes_upserted} 个`
-        : authFailed
-          ? `流水线失败：agent 鉴权失败，已在第 ${processed} 条处中止`
-          : `流水线失败：agent_success=${agentProfiles}, normalized_hint=${normalizedHintHits}, failed=${failedProfiles}, family_count=${familyCount}, canonical_roles=${canonicalRoleCount}, graph_covered_jobs=${graphQuality.coveredJobs}, graph_isolated_ratio=${graphQuality.isolatedNodeRatio}`;
-      const errorMessage = authFailed
-        ? "Agent 模型鉴权失败，请检查 KIMI_API_KEY / KIMICODE_API_KEY 或 provider 配置"
-        : hasAgentFailure
-          ? `存在 ${failedProfiles} 条岗位画像 Agent 生成失败`
-          : hasEnoughFamilies
-            ? hasEnoughCanonicalRoles
-              ? hasEnoughGraphCoverage
-                ? hasHealthyIsolationRatio
-                  ? null
-                  : `图谱孤立节点比例过高(${graphQuality.isolatedNodeRatio})`
-                : `图谱覆盖岗位数量不足 ${MIN_GRAPH_COVERED_JOBS}`
-              : "标准岗位数量不足 10"
-            : "有效岗位族数量不足 10";
+      const failureRate = processed > 0 ? failedProfiles / processed : 1;
+      const canonicalRoleMin = scaledMinimum(processed, 0.001, 8);
+      const maxFailureRate = 0.15;
+
+      const hasEnoughCanonicalRoles = canonicalRoleCount >= canonicalRoleMin;
+      const hasHealthyFailureRate = failureRate <= maxFailureRate;
+
+      const hardFailure = authFailed || processed === 0 || failureRate > 0.3;
+      const qualityPassed = hasEnoughCanonicalRoles && hasHealthyFailureRate;
+
+      const finalStatus: JobPipelineTaskRecord["status"] = hardFailure
+        ? "failed"
+        : qualityPassed
+          ? "success"
+          : "degraded";
+
+      const message =
+        finalStatus === "success"
+          ? `流水线完成（facts/canonical）：processed=${processed}，eligible=${eligibilityDiagnostics.eligibleFacts}/${eligibilityDiagnostics.totalLatestFacts}，canonical_groups=${canonicalRoleCount}，normalized_hint=${normalizedHintHits}，retry=${retryCount}，failed=${failedProfiles}`
+          : finalStatus === "failed"
+            ? authFailed
+              ? `流水线失败：agent 鉴权失败，已在第 ${processed} 条处中止`
+              : `流水线失败：processed=${processed}, failed=${failedProfiles}, failure_rate=${failureRate.toFixed(3)}, eligible=${eligibilityDiagnostics.eligibleFacts}/${eligibilityDiagnostics.totalLatestFacts}`
+            : `流水线降级完成：processed=${processed}, retry=${retryCount}, failed=${failedProfiles}, eligible=${eligibilityDiagnostics.eligibleFacts}/${eligibilityDiagnostics.totalLatestFacts}, canonical_roles=${canonicalRoleCount}/${canonicalRoleMin}`;
+
+      const errorMessage =
+        finalStatus === "success"
+          ? null
+          : authFailed
+            ? "Agent 模型鉴权失败，请检查 KIMI_API_KEY / KIMICODE_API_KEY 或 provider 配置"
+            : finalStatus === "failed"
+              ? `流水线硬失败：failure_rate=${failureRate.toFixed(3)}（阈值 0.3）`
+              : [
+                  !hasEnoughCanonicalRoles
+                    ? `标准岗位数量不足（${canonicalRoleCount}/${canonicalRoleMin}；eligible=${eligibilityDiagnostics.eligibleFacts}/${eligibilityDiagnostics.totalLatestFacts}；low_conf=${eligibilityDiagnostics.rejectedLowConfidence}；missing_evidence=${eligibilityDiagnostics.rejectedMissingEvidence}）`
+                    : null,
+                  !hasHealthyFailureRate
+                    ? `失败率偏高（${failureRate.toFixed(3)} > ${maxFailureRate}）`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join("；");
 
       console.info(
-        `[jobs:pipeline] finish task_id=${taskId} status=${isSucceeded ? "succeeded" : "failed"} family_count=${familyCount} graph_nodes=${graphSyncResult.nodes_upserted} graph_edges=${graphSyncResult.edges_upserted}`,
+        `[jobs:pipeline] finish task_id=${taskId} status=${finalStatus} canonical_roles=${canonicalRoleCount}`,
       );
 
       return repository.updatePipelineTask(taskId, {
-        status: isSucceeded ? "succeeded" : "failed",
+        status: finalStatus,
         processed_jobs: processed,
-        success_profiles: successProfiles,
+        success_profiles: 0,
         failed_profiles: failedProfiles,
-        graph_nodes: graphSyncResult.nodes_upserted,
-        graph_edges: graphSyncResult.edges_upserted,
-        graph_covered_jobs: graphQuality.coveredJobs,
-        graph_isolated_ratio: graphQuality.isolatedNodeRatio,
-        family_count: familyCount,
+        graph_nodes: 0,
+        graph_edges: 0,
+        graph_covered_jobs: 0,
+        graph_isolated_ratio: 0,
+        family_count: canonicalRoleCount,
         message,
-        error_message: isSucceeded ? null : errorMessage,
+        error_message: errorMessage,
         finished_at: new Date().toISOString(),
       });
     } catch (error) {
@@ -421,10 +664,123 @@ export function createJobsIntelligenceService(
     return task;
   }
 
-  async function listJobProfiles(
-    params: JobProfilesV2ListParams,
-  ): Promise<JobProfilesV2ListResponse> {
-    return repository.listLatestProfiles(params);
+  async function listPipelineFailures(
+    taskId: number,
+    params: { offset: number; limit: number },
+  ): Promise<JobPipelineFailureListResponse> {
+    if (typeof repository.listPipelineFailures !== "function") {
+      return { total: 0, items: [] };
+    }
+    return repository.listPipelineFailures(taskId, params);
+  }
+
+  async function listPipelineRetryQueue(params: {
+    task_id?: number;
+    status?: "pending" | "processing" | "done" | "failed";
+    offset: number;
+    limit: number;
+  }): Promise<JobPipelineRetryQueueListResponse> {
+    if (typeof repository.listPipelineRetryQueue !== "function") {
+      return {
+        total: 0,
+        items: [],
+        summary: { pending: 0, processing: 0, done: 0, failed: 0, latest_errors: [] },
+      };
+    }
+    return repository.listPipelineRetryQueue(params);
+  }
+
+  /**
+   * 作用：消费重试队列，将可重试任务从 pending 领取到 processing 并执行一次重放。
+   * 参数：limit 为本次最多处理数量。
+   * 返回：本次领取、成功、失败、重新排队数量统计。
+   */
+  async function processPipelineRetryQueue(input: { limit: number }): Promise<JobPipelineRetryProcessResult> {
+    if (
+      typeof repository.claimPipelineRetryQueue !== "function" ||
+      typeof repository.updatePipelineRetryQueueStatus !== "function"
+    ) {
+      return { claimed: 0, done: 0, failed: 0, rescheduled: 0 };
+    }
+
+    const maxAttempts = Math.max(1, env.JOBS_PIPELINE_RETRY_MAX_ATTEMPTS ?? 3);
+    const retryBaseMs = Math.max(100, env.JOBS_PIPELINE_RETRY_BASE_MS ?? 500);
+    const retryMaxMs = Math.max(retryBaseMs, env.JOBS_PIPELINE_RETRY_MAX_MS ?? 8000);
+
+    const claimedItems = await repository.claimPipelineRetryQueue(input.limit);
+    let done = 0;
+    let failed = 0;
+    let rescheduled = 0;
+
+    for (const item of claimedItems) {
+      const job =
+        typeof repository.getPipelineJobById === "function"
+          ? await repository.getPipelineJobById(item.job_id)
+          : null;
+
+      if (!job) {
+        await repository.updatePipelineRetryQueueStatus({
+          id: item.id,
+          status: "failed",
+          last_error: `JOB_NOT_FOUND:${item.job_id}`,
+        });
+        failed += 1;
+        continue;
+      }
+
+      const normalizationHint = {
+        normalized_title_hint: job.normalized_title_hint,
+        normalized_job_family_hint: job.normalized_job_family_hint,
+        normalization_confidence_hint: job.normalization_confidence_hint,
+      };
+
+      try {
+        const postingFacts = extractPostingProfileFacts(job, normalizationHint);
+        await repository.createJobFacts(postingFacts);
+        await repository.updatePipelineRetryQueueStatus({
+          id: item.id,
+          status: "done",
+          last_error: null,
+        });
+        done += 1;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        const retryable = isRetryableFailure(reason) && !isAuthenticationFailure(reason);
+        const nextAttempts = item.attempts + 1;
+
+        if (retryable && nextAttempts <= maxAttempts) {
+          const delay = computeBackoffDelay({
+            attempt: nextAttempts,
+            baseMs: retryBaseMs,
+            maxMs: retryMaxMs,
+          });
+          await repository.updatePipelineRetryQueueStatus({
+            id: item.id,
+            status: "pending",
+            attempts: nextAttempts,
+            next_run_at: new Date(Date.now() + delay).toISOString(),
+            last_error: reason.slice(0, 500),
+          });
+          rescheduled += 1;
+          continue;
+        }
+
+        await repository.updatePipelineRetryQueueStatus({
+          id: item.id,
+          status: "failed",
+          attempts: nextAttempts,
+          last_error: reason.slice(0, 500),
+        });
+        failed += 1;
+      }
+    }
+
+    return {
+      claimed: claimedItems.length,
+      done,
+      failed,
+      rescheduled,
+    };
   }
 
   async function listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse> {
@@ -453,12 +809,11 @@ export function createJobsIntelligenceService(
     return role;
   }
 
-  async function getJobProfile(jobId: number): Promise<JobProfileV2Record> {
-    const profile = await repository.getLatestProfileByJobId(jobId);
-    if (!profile) {
-      throw new HttpError(404, "JOB_PROFILE_NOT_FOUND", "目标岗位画像不存在");
+  async function listManualJobPortraits(): Promise<ManualJobPortraitRecord[]> {
+    if (typeof repository.listManualJobPortraits !== "function") {
+      throw new HttpError(501, "MANUAL_JOB_PORTRAITS_UNSUPPORTED", "当前仓储未实现人工岗位画像查询");
     }
-    return profile;
+    return repository.listManualJobPortraits();
   }
 
   async function getCareerPathGraph(
@@ -567,12 +922,14 @@ export function createJobsIntelligenceService(
     runPipelineNow,
     retryPipelineTask,
     getPipelineTask,
-    listJobProfiles,
+    listPipelineFailures,
+    listPipelineRetryQueue,
+    processPipelineRetryQueue,
     listJobFacts,
     getJobFact,
     listCanonicalRoles,
     getCanonicalRole,
-    getJobProfile,
+    listManualJobPortraits,
     getCareerPathGraph,
   };
 }

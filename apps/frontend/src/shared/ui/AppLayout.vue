@@ -31,7 +31,7 @@
             <span class="font-['Inter'] text-sm font-medium">数据处理中心</span>
           </RouterLink>
           <RouterLink to="/job-profiles" class="text-slate-600 dark:text-slate-400 flex items-center gap-3 px-4 py-3 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200">
-            <span class="material-symbols-outlined">explore</span>
+            <span class="material-symbols-outlined">badge</span>
             <span class="font-['Inter'] text-sm font-medium">岗位画像中心</span>
           </RouterLink>
           <RouterLink to="/career-paths" class="text-slate-600 dark:text-slate-400 flex items-center gap-3 px-4 py-3 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200">
@@ -219,7 +219,6 @@ onMounted(() => {
 .dark :is(
     .dashboard-page,
     .pipeline-page,
-    .job-profiles-page,
     .career-path-page,
     .profile-page,
     .matching-page,

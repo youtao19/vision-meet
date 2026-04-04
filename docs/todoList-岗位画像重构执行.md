@@ -164,7 +164,7 @@
 | P04 | 聚合层 | 新增 canonical role 聚合与总结链路 | 已完成（当前阶段） | 聚合规则 + 质量门禁 + 结构化summary产物 + 版本管理/幂等回放 + canonical 入库/查询接口 | 至少产出 10 个标准岗位画像并可复算 |
 | P05 | 图谱层 | 独立构建 role graph 规则链路 | 已完成（当前阶段） | `career-path` / graph 构图任务 + `docs/process-图谱层与评测工程化-TDD.md` | 至少 5 个岗位各 2 条换岗路径，垂直链路可解释 |
 | P06 | 评测层 | 新增证据一致性与准确率抽样评测 | 已完成（当前阶段） | 图谱评测脚本 + JSON/Markdown 报告输出 | 可一键执行并复算图谱覆盖率/断链率核心指标 |
-| P07 | 工程化 | 接入失败队列、阈值重跑、并发优化 | 已完成（当前阶段） | 图谱质量门禁 + 失败重跑接口 + 任务审计信息 | 图谱门禁失败可明确报错，支持按 task_id 重跑 |
+| P07 | 工程化 | 接入失败队列、阈值重跑、并发优化 | 进行中 | 图谱质量门禁 + 失败重跑接口 + 任务审计信息 + 并发控制 | 失败可追踪可重跑，且 full 模式支持受控并发 |
 
 ## 5. 实施顺序（优先级）
 
@@ -216,9 +216,15 @@
 36. 已补齐图谱评测脚本与命令：新增 `apps/backend/src/scripts/evaluation-graph-e2e.ts`、`npm run evaluation:graph:e2e`，本机已验证样本执行成功并输出 `docs/评测结果-图谱端到端质量.md`。
 37. 已补齐工程化重跑能力：新增 `POST /api/v2/jobs/pipeline/tasks/:task_id/retry`，支持按历史任务模式发起重跑并记录来源任务信息。
 38. 当前 backend 测试 23/23 通过，`npm run type-check` 通过，图谱评测脚本命令可执行通过。
+39. 复盘确认：`full` 模式当前仍为串行逐条调用 Agent（`for...of + await`），并发优化尚未落地；已将 P07 状态修正为“进行中”，后续需补齐受控并发（如 `concurrency=3~5`）与限流策略。
+40. 已完成关键修复：`full` 模式不再逐条调用 Agent 生成 1W 画像，改为“标准化提示 + 单条 JD 事实抽取 + canonical 聚合”；同时跳过 full 模式的图谱门禁，避免与“full 做 canonical 收敛”的目标冲突。新增 TDD 用例 `runPipelineNow(full): 不应逐条调用 createJobProfile`，当前 backend 测试 24/24 通过。
+41. 已按需求完成能力下线：删除 `profiles_full` 运行模式与逐条岗位画像生成分支，`/api/v2/job-profiles*` 查询接口同步下线；流水线入口统一为 `facts_canonical_full`，前端“岗位画像中心”导航与模式选项已移除。
+42. 已启动 P07 第一阶段实现：`jobs-intelligence.service` 已从串行改为受控并发 worker 池，并新增指数退避重试（429/timeout/5xx 等可重试错误）；环境配置新增并发与重试参数，TDD 已补充“并发上限约束”“429 重试成功”用例，`npm run type-check` 通过。
+43. 已完成 P07 第二阶段首版：新增失败审计与重试队列能力（`v2_pipeline_failures`、`v2_pipeline_retry_queue`），流水线在单条失败时可落失败记录并将可重试错误入队；新增 `/api/v2/jobs/pipeline/tasks/:task_id/failures` 与 `/api/v2/jobs/pipeline/retry-queue` 查询接口，并补齐 service TDD（13/13 通过）。
+44. 已完成 P07 第三阶段首版：新增 `POST /api/v2/jobs/pipeline/retry-queue/process` 消费接口，支持按 `next_run_at` 领取 pending 任务并执行 `claim -> processing -> done/failed/pending` 状态流转；可重试失败会按退避策略重新排队并递增 attempts，不可重试失败标记为 failed；仓储层新增 pending 去重唯一索引并补齐消费流程 TDD（15/15 通过）。
 
 ## 7. 下一步（立即执行）
 
-1. 在 `packages/contracts/types` 增补 posting facts 与 canonical role 的共享类型定义草案。
-2. 在后端 `jobs-intelligence` 模块落一版 `job_facts` 持久化接口，优先打通 evidence 入库。
-3. 设计 canonical 聚合任务入参与幂等键，确保同批次结果可复算。
+1. 完成并发压测与验收：输出 `concurrency=1/3/5` 的耗时、失败率、429 占比对比报告，并固化默认阈值。
+2. 增加重试队列可观测性：补齐按任务维度的重试成功率、平均重试次数与最终失败率统计视图。
+3. 规划自动调度：为重试消费接口补齐定时触发（cron/任务调度器）与安全限流策略。

@@ -26,6 +26,7 @@ export type StructuredApiError = {
 export type JobRecord = {
   id: number;
   source_row_id: string | null;
+  normalized_source_key: string | null;
   title: string;
   location: string | null;
   salary_range: string | null;
@@ -40,22 +41,14 @@ export type JobRecord = {
   created_at: string;
 };
 
-export type JobProfileRecord = {
-  id: number;
-  job_id: number;
-  profile_version: number;
-  hard_skills: string[];
-  certificates: string[];
-  soft_skills: string[];
-  skill_weights: Record<string, number>;
-  summary: string;
-  confidence: number;
-  created_at: string;
-};
+export type JobPipelineMode = "facts_canonical_full";
 
-export type JobPipelineMode = "full" | "incremental";
-
-export type JobPipelineTaskStatus = "queued" | "running" | "succeeded" | "failed";
+export type JobPipelineTaskStatus =
+  | "queued"
+  | "running"
+  | "success"
+  | "degraded"
+  | "failed";
 
 export type JobProfileGenerationMode = "agent" | "heuristic";
 
@@ -143,6 +136,31 @@ export type CanonicalRolesListParams = {
 export type CanonicalRolesListResponse = {
   total: number;
   items: CanonicalRoleRecord[];
+};
+
+export type ManualJobPortraitDimension = {
+  level: number;
+  weight: number;
+  description: string;
+};
+
+export type ManualJobPortraitRecord = {
+  job_name: string;
+  category: string;
+  skills: ManualJobPortraitDimension;
+  certification: ManualJobPortraitDimension;
+  innovation: ManualJobPortraitDimension;
+  learning: ManualJobPortraitDimension;
+  stress: ManualJobPortraitDimension;
+  communication: ManualJobPortraitDimension;
+  experience: ManualJobPortraitDimension;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ManualJobPortraitListResponse = {
+  total: number;
+  items: ManualJobPortraitRecord[];
 };
 
 export type PostingEvidenceRecord = {
@@ -247,6 +265,57 @@ export type JobPipelineTaskRecord = {
   updated_at: string;
 };
 
+export type JobPipelineFailureRecord = {
+  id: number;
+  task_id: number;
+  job_id: number;
+  stage: string;
+  error_code: string;
+  error_message: string;
+  attempts: number;
+  retryable: boolean;
+  created_at: string;
+};
+
+export type JobPipelineFailureListResponse = {
+  total: number;
+  items: JobPipelineFailureRecord[];
+};
+
+export type JobPipelineRetryQueueRecord = {
+  id: number;
+  task_id: number;
+  job_id: number;
+  stage: string;
+  status: "pending" | "processing" | "done" | "failed";
+  attempts: number;
+  next_run_at: string;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type JobPipelineRetryQueueSummary = {
+  pending: number;
+  processing: number;
+  done: number;
+  failed: number;
+  latest_errors: string[];
+};
+
+export type JobPipelineRetryQueueListResponse = {
+  total: number;
+  items: JobPipelineRetryQueueRecord[];
+  summary: JobPipelineRetryQueueSummary;
+};
+
+export type JobPipelineRetryProcessResult = {
+  claimed: number;
+  done: number;
+  failed: number;
+  rescheduled: number;
+};
+
 export type JobsListParams = {
   keyword?: string;
   industry?: string;
@@ -263,15 +332,6 @@ export type JobImportResponse = {
   imported: number;
   skipped: number;
   message: string;
-};
-
-export type JobProfileGenerateRequest = {
-  job_id: number;
-  force_regenerate: boolean;
-};
-
-export type JobProfileGenerateResponse = JobProfileRecord & {
-  cached: boolean;
 };
 
 export type StudentProfileExperience = {

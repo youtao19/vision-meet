@@ -99,37 +99,34 @@ npm run jobs:pipeline:run
 
 1. `POST /api/v1/jobs/import`：岗位数据导入（csv/tsv/json/xls/xlsx）
 2. `GET /api/v1/jobs`：岗位列表查询
-3. `POST /api/v1/jobs/profile/generate`：岗位画像生成
-4. `GET /api/v1/profile`：学生画像列表
-5. `POST /api/v1/profile`：手动创建学生画像
-6. `POST /api/v1/profile/resume`：简历上传创建学生画像
-7. `POST /api/v1/matches`：创建人岗匹配结果（支持复现/缓存语义）
-8. `GET /api/v1/matches`：匹配结果列表查询（按画像/岗位筛选）
-9. `GET /api/v1/matches/{match_id}`：匹配结果详情查询
-10. `POST /api/v1/knowledge/index`：索引岗位数据 / 简历文本 / 内部项目文档
-11. `POST /api/v1/knowledge/search`：执行知识检索（默认仅查 `career_runtime`）
-12. `POST /api/v1/knowledge/evaluations`：执行知识检索基线评测
-13. `POST /api/v1/reports`：基于匹配结果生成职业报告版本
-14. `GET /api/v1/reports?match_id={match_id}`：查询某个匹配结果下的报告版本列表
-15. `GET /api/v1/reports/{report_id}`：查询职业报告详情
-16. `PATCH /api/v1/reports/{report_id}`：保存职业报告结构化章节编辑结果
-17. `POST /api/v1/reports/{report_id}/exports`：生成并登记 PDF 导出产物
-18. `GET /api/v1/reports/{report_id}/exports`：查询当前报告版本的导出记录
-19. `GET /api/v1/report-exports/{export_id}/download`：下载已生成的 PDF 文件
-20. `POST /api/v1/agent/chat`：兼容旧聊天式入口，内部转到当前任务型 Agent
-21. `POST /api/v1/agent/tasks`：创建一次 Agent 任务（任务规划 -> 工具执行 -> 结果汇总）
-22. `GET /api/v1/agent/tasks/{task_id}`：查询单个 Agent 任务结果
-23. `GET /healthz`：服务健康检查（含数据库连接摘要）
+3. `GET /api/v1/profile`：学生画像列表
+4. `POST /api/v1/profile`：手动创建学生画像
+5. `POST /api/v1/profile/resume`：简历上传创建学生画像
+6. `POST /api/v1/matches`：创建人岗匹配结果（支持复现/缓存语义）
+7. `GET /api/v1/matches`：匹配结果列表查询（按画像/岗位筛选）
+8. `GET /api/v1/matches/{match_id}`：匹配结果详情查询
+9. `POST /api/v1/knowledge/index`：索引岗位数据 / 简历文本 / 内部项目文档
+10. `POST /api/v1/knowledge/search`：执行知识检索（默认仅查 `career_runtime`）
+11. `POST /api/v1/knowledge/evaluations`：执行知识检索基线评测
+12. `POST /api/v1/reports`：基于匹配结果生成职业报告版本
+13. `GET /api/v1/reports?match_id={match_id}`：查询某个匹配结果下的报告版本列表
+14. `GET /api/v1/reports/{report_id}`：查询职业报告详情
+15. `PATCH /api/v1/reports/{report_id}`：保存职业报告结构化章节编辑结果
+16. `POST /api/v1/reports/{report_id}/exports`：生成并登记 PDF 导出产物
+17. `GET /api/v1/reports/{report_id}/exports`：查询当前报告版本的导出记录
+18. `GET /api/v1/report-exports/{export_id}/download`：下载已生成的 PDF 文件
+19. `POST /api/v1/agent/chat`：兼容旧聊天式入口，内部转到当前任务型 Agent
+20. `POST /api/v1/agent/tasks`：创建一次 Agent 任务（任务规划 -> 工具执行 -> 结果汇总）
+21. `GET /api/v1/agent/tasks/{task_id}`：查询单个 Agent 任务结果
+22. `GET /healthz`：服务健康检查（含数据库连接摘要）
 
 ## V2 新增接口（岗位智能处理闭环）
 
 1. `POST /api/v2/jobs/pipeline/run`：手动触发岗位智能流水线（全量/增量）。
 2. `GET /api/v2/jobs/pipeline/tasks/{task_id}`：查询流水线任务进度与统计。
-3. `GET /api/v2/job-profiles`：查询最新岗位画像（支持关键字/岗位族筛选）。
-4. `GET /api/v2/job-profiles/{job_id}`：查询指定岗位最新画像详情。
-5. `GET /api/v2/career-paths/jobs/{job_id}`：查询 V2 自动图谱（晋升 + 换岗）。
-6. `POST /api/v2/matches`、`GET /api/v2/matches*`：V2 匹配接口（含路径建议和证据引用）。
-7. `POST /api/v2/reports`、`GET /api/v2/reports*`：V2 报告接口（含 `generator_mode` 与结构化行动计划）。
+3. `GET /api/v2/career-paths/jobs/{job_id}`：查询 V2 自动图谱（晋升 + 换岗）。
+4. `POST /api/v2/matches`、`GET /api/v2/matches*`：V2 匹配接口（含路径建议和证据引用）。
+5. `POST /api/v2/reports`、`GET /api/v2/reports*`：V2 报告接口（含 `generator_mode` 与结构化行动计划）。
 
 ## 知识库说明
 

@@ -14,9 +14,12 @@ import type {
   CanonicalRolesListResponse,
   JobFactsListParams,
   JobFactsListResponse,
+  JobPipelineFailureListResponse,
   JobPipelineMode,
+  JobPipelineRetryQueueListResponse,
   JobPipelineTaskRecord,
   JobPipelineTaskStatus,
+  ManualJobPortraitRecord,
   JobProfileV2Record,
   JobProfilesV2ListParams,
   JobProfilesV2ListResponse,
@@ -27,8 +30,12 @@ import type {
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 import type {
   JobFactsCreateInput,
+  PipelineFailureCreateInput,
+  PipelineRetryQueueClaimRecord,
+  PipelineRetryQueueCreateInput,
   JobProfileV2CreateInput,
   JobsIntelligenceRepository,
+  ManualJobPortraitUpsertInput,
   PipelineJobRecord,
   PipelineTaskUpdateInput,
 } from "./jobs-intelligence.repository.js";
@@ -37,6 +44,7 @@ function mapJob(row: Record<string, unknown>): JobRecord {
   return {
     id: Number(row.id),
     source_row_id: (row.source_row_id as string | null) ?? null,
+    normalized_source_key: (row.normalized_source_key as string | null) ?? null,
     title: String(row.title),
     location: (row.location as string | null) ?? null,
     salary_range: (row.salary_range as string | null) ?? null,
@@ -160,6 +168,23 @@ function mapCanonicalRole(row: Record<string, unknown>): CanonicalRoleRecord {
         : [],
     },
     confidence: Number(row.confidence),
+    updated_at: new Date(String(row.updated_at)).toISOString(),
+  };
+}
+
+function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRecord {
+  const payload = (row.payload as Record<string, unknown> | null) ?? {};
+  return {
+    job_name: String(row.job_name),
+    category: String(row.category),
+    skills: payload.skills as ManualJobPortraitRecord["skills"],
+    certification: payload.certification as ManualJobPortraitRecord["certification"],
+    innovation: payload.innovation as ManualJobPortraitRecord["innovation"],
+    learning: payload.learning as ManualJobPortraitRecord["learning"],
+    stress: payload.stress as ManualJobPortraitRecord["stress"],
+    communication: payload.communication as ManualJobPortraitRecord["communication"],
+    experience: payload.experience as ManualJobPortraitRecord["experience"],
+    created_at: new Date(String(row.created_at)).toISOString(),
     updated_at: new Date(String(row.updated_at)).toISOString(),
   };
 }
@@ -394,6 +419,66 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
           CREATE INDEX IF NOT EXISTS v2_canonical_roles_family_level_idx
           ON v2_canonical_roles (job_family, level_band, updated_at DESC)
         `);
+
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS v2_manual_job_portraits (
+            job_name TEXT PRIMARY KEY,
+            category TEXT NOT NULL,
+            payload JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          )
+        `);
+
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS v2_manual_job_portraits_category_idx
+          ON v2_manual_job_portraits (category, updated_at DESC)
+        `);
+
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS v2_pipeline_failures (
+            id BIGSERIAL PRIMARY KEY,
+            task_id BIGINT NOT NULL REFERENCES v2_pipeline_tasks(id) ON DELETE CASCADE,
+            job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+            stage TEXT NOT NULL,
+            error_code TEXT NOT NULL,
+            error_message TEXT NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 1,
+            retryable BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          )
+        `);
+
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS v2_pipeline_failures_task_idx
+          ON v2_pipeline_failures (task_id, created_at DESC)
+        `);
+
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS v2_pipeline_retry_queue (
+            id BIGSERIAL PRIMARY KEY,
+            task_id BIGINT NOT NULL REFERENCES v2_pipeline_tasks(id) ON DELETE CASCADE,
+            job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+            stage TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            attempts INTEGER NOT NULL DEFAULT 1,
+            next_run_at TIMESTAMPTZ NOT NULL,
+            last_error TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          )
+        `);
+
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS v2_pipeline_retry_queue_status_idx
+          ON v2_pipeline_retry_queue (status, next_run_at)
+        `);
+
+        await pool.query(`
+          CREATE UNIQUE INDEX IF NOT EXISTS v2_pipeline_retry_queue_pending_unique_idx
+          ON v2_pipeline_retry_queue (task_id, job_id, stage)
+          WHERE status = 'pending'
+        `);
       })();
     }
 
@@ -497,7 +582,15 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
           n.confidence
         FROM job_normalized n
         WHERE
-          n.normalized_title = j.title
+          (
+            j.normalized_source_key IS NOT NULL
+            AND (
+              n.dedup_key = j.normalized_source_key
+              OR n.normalized_payload ->> 'source_row_id' = j.normalized_source_key
+              OR n.normalized_payload ->> 'source_job_code' = j.normalized_source_key
+            )
+          )
+          OR n.normalized_title = j.title
           OR (
             j.source_row_id IS NOT NULL
             AND n.normalized_payload ->> 'source_row_id' = j.source_row_id
@@ -507,30 +600,59 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
       ) norm ON true
     `;
 
-    const result =
-      mode === "incremental"
-        ? await pool.query(
-            `
-              ${baseSelect}
-              LEFT JOIN LATERAL (
-                SELECT profile_version
-                FROM v2_job_profiles p
-                WHERE p.job_id = j.id
-                ORDER BY p.profile_version DESC
-                LIMIT 1
-              ) latest ON true
-              WHERE latest.profile_version IS NULL
-              ORDER BY j.id ASC
-            `,
-          )
-        : await pool.query(
-            `
-              ${baseSelect}
-              ORDER BY id ASC
-            `,
-          );
+    const result = await pool.query(
+      `
+        ${baseSelect}
+        ORDER BY j.id ASC
+      `,
+    );
 
     return result.rows.map((row) => mapPipelineJob(row));
+  }
+
+  async function getPipelineJobById(jobId: number): Promise<PipelineJobRecord | null> {
+    await ensureSchema();
+    const result = await pool.query(
+      `
+        SELECT
+          j.*,
+          norm.normalized_title AS normalized_title_hint,
+          norm.normalized_job_family AS normalized_job_family_hint,
+          norm.confidence AS normalization_confidence_hint
+        FROM jobs j
+        LEFT JOIN LATERAL (
+          SELECT
+            n.normalized_title,
+            n.normalized_job_family,
+            n.confidence
+          FROM job_normalized n
+          WHERE
+            (
+              j.normalized_source_key IS NOT NULL
+              AND (
+                n.dedup_key = j.normalized_source_key
+                OR n.normalized_payload ->> 'source_row_id' = j.normalized_source_key
+                OR n.normalized_payload ->> 'source_job_code' = j.normalized_source_key
+              )
+            )
+            OR n.normalized_title = j.title
+            OR (
+              j.source_row_id IS NOT NULL
+              AND n.normalized_payload ->> 'source_row_id' = j.source_row_id
+            )
+          ORDER BY n.confidence DESC, n.updated_at DESC
+          LIMIT 1
+        ) norm ON true
+        WHERE j.id = $1
+        LIMIT 1
+      `,
+      [jobId],
+    );
+
+    if (!result.rowCount) {
+      return null;
+    }
+    return mapPipelineJob(result.rows[0]);
   }
 
   /**
@@ -650,26 +772,92 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
   }
 
   async function listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse> {
-    const allFacts = await listLatestJobFactsForCanonical();
-    const filtered = allFacts.filter((item) => {
-      if (params.job_family && item.job_family !== params.job_family) {
-        return false;
-      }
-      if (params.keyword) {
-        const keyword = params.keyword.toLowerCase();
-        const haystack = [item.normalized_title, item.job_family, ...item.required_skills]
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(keyword)) {
-          return false;
-        }
-      }
-      return true;
-    });
+    await ensureSchema();
+    const values: unknown[] = [];
+    const filters: string[] = [];
+
+    if (params.job_family) {
+      values.push(params.job_family);
+      filters.push(`f.job_family = $${values.length}`);
+    }
+    if (params.keyword) {
+      values.push(`%${params.keyword.toLowerCase()}%`);
+      filters.push(
+        `(LOWER(f.normalized_title) LIKE $${values.length} OR LOWER(f.job_family) LIKE $${values.length} OR EXISTS (SELECT 1 FROM unnest(f.required_skills) AS skill WHERE LOWER(skill) LIKE $${values.length}))`,
+      );
+    }
+
+    const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+    const latestCte = `
+      WITH latest AS (
+        SELECT DISTINCT ON (job_id) *
+        FROM v2_job_facts
+        ORDER BY job_id, created_at DESC
+      )
+    `;
+    const countSql = `${latestCte}
+      SELECT COUNT(*)::int AS total
+      FROM latest f
+      ${where}
+    `;
+    const listSql = `${latestCte}
+      SELECT *
+      FROM latest f
+      ${where}
+      ORDER BY f.created_at DESC, f.job_id ASC
+      OFFSET $${values.length + 1}
+      LIMIT $${values.length + 2}
+    `;
+
+    const [countResult, listResult] = await Promise.all([
+      pool.query(countSql, values),
+      pool.query(listSql, [...values, params.offset, params.limit]),
+    ]);
+
+    const rows = listResult.rows as Array<Record<string, unknown>>;
+    if (rows.length === 0) {
+      return {
+        total: Number(countResult.rows[0]?.total ?? 0),
+        items: [],
+      };
+    }
+
+    const factIds = rows.map((row) => Number(row.id)).filter((id) => Number.isFinite(id));
+    const evidenceResult = await pool.query(
+      `
+        SELECT fact_id, field, text, source
+        FROM v2_job_fact_evidence
+        WHERE fact_id = ANY($1::bigint[])
+      `,
+      [factIds],
+    );
+
+    const evidenceByFactId = new Map<
+      number,
+      Array<{
+        field: PostingProfileFacts["evidence"][number]["field"];
+        text: string;
+        source: PostingProfileFacts["evidence"][number]["source"];
+      }>
+    >();
+
+    for (const row of evidenceResult.rows) {
+      const factId = Number(row.fact_id);
+      const list = evidenceByFactId.get(factId) ?? [];
+      list.push({
+        field: String(row.field) as PostingProfileFacts["evidence"][number]["field"],
+        text: String(row.text),
+        source: String(row.source) as PostingProfileFacts["evidence"][number]["source"],
+      });
+      evidenceByFactId.set(factId, list);
+    }
 
     return {
-      total: filtered.length,
-      items: filtered.slice(params.offset, params.offset + params.limit),
+      total: Number(countResult.rows[0]?.total ?? 0),
+      items: rows.map((row) => {
+        const factId = Number(row.id);
+        return mapFactRow(row, evidenceByFactId.get(factId) ?? []);
+      }),
     };
   }
 
@@ -715,6 +903,27 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     }));
 
     return mapFactRow(row, evidence);
+  }
+
+  /**
+   * 作用：删除不在本轮 canonical role_key 集合中的历史画像。
+   * 设计意图：避免“旧分组 + 新分组”并存导致列表出现重复标题的历史残留。
+   */
+  async function deleteCanonicalRolesNotInKeys(roleKeys: string[]): Promise<void> {
+    await ensureSchema();
+
+    if (roleKeys.length === 0) {
+      await pool.query(`DELETE FROM v2_canonical_roles`);
+      return;
+    }
+
+    await pool.query(
+      `
+        DELETE FROM v2_canonical_roles
+        WHERE NOT (role_key = ANY($1::text[]))
+      `,
+      [roleKeys],
+    );
   }
 
   async function upsertCanonicalRoleProfile(input: CanonicalRoleProfileDraft): Promise<void> {
@@ -840,7 +1049,7 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
   ): Promise<CanonicalRolesListResponse> {
     await ensureSchema();
     const values: unknown[] = [];
-    const filters: string[] = [];
+    const filters: string[] = [`job_family <> '其他岗位'`];
 
     if (params.keyword) {
       values.push(`%${params.keyword.toLowerCase()}%`);
@@ -892,6 +1101,52 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
       return null;
     }
     return mapCanonicalRole(result.rows[0]);
+  }
+
+  async function listManualJobPortraits(): Promise<ManualJobPortraitRecord[]> {
+    await ensureSchema();
+    const result = await pool.query(`
+      SELECT *
+      FROM v2_manual_job_portraits
+      ORDER BY created_at ASC, job_name ASC
+    `);
+    return result.rows.map((row) => mapManualJobPortrait(row));
+  }
+
+  async function replaceManualJobPortraits(input: ManualJobPortraitUpsertInput[]): Promise<void> {
+    await ensureSchema();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`DELETE FROM v2_manual_job_portraits`);
+
+      for (const item of input) {
+        const payload = {
+          skills: item.skills,
+          certification: item.certification,
+          innovation: item.innovation,
+          learning: item.learning,
+          stress: item.stress,
+          communication: item.communication,
+          experience: item.experience,
+        };
+
+        await client.query(
+          `
+            INSERT INTO v2_manual_job_portraits (job_name, category, payload, created_at, updated_at)
+            VALUES ($1, $2, $3::jsonb, NOW(), NOW())
+          `,
+          [item.job_name, item.category, JSON.stringify(payload)],
+        );
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async function getLatestProfileByJobId(jobId: number): Promise<JobProfileV2Record | null> {
@@ -1034,22 +1289,274 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     return result.rows.map((row) => mapJob(row));
   }
 
+  async function createPipelineFailure(input: PipelineFailureCreateInput): Promise<void> {
+    await ensureSchema();
+    await pool.query(
+      `
+        INSERT INTO v2_pipeline_failures (
+          task_id,
+          job_id,
+          stage,
+          error_code,
+          error_message,
+          attempts,
+          retryable
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `,
+      [
+        input.task_id,
+        input.job_id,
+        input.stage,
+        input.error_code,
+        input.error_message,
+        input.attempts,
+        input.retryable,
+      ],
+    );
+  }
+
+  async function enqueuePipelineRetry(input: PipelineRetryQueueCreateInput): Promise<void> {
+    await ensureSchema();
+    await pool.query(
+      `
+        INSERT INTO v2_pipeline_retry_queue (
+          task_id,
+          job_id,
+          stage,
+          status,
+          attempts,
+          next_run_at,
+          last_error,
+          updated_at
+        )
+        VALUES ($1, $2, $3, 'pending', $4, $5::timestamptz, $6, NOW())
+        ON CONFLICT DO NOTHING
+      `,
+      [
+        input.task_id,
+        input.job_id,
+        input.stage,
+        input.attempts,
+        input.next_run_at,
+        input.last_error,
+      ],
+    );
+  }
+
+  async function claimPipelineRetryQueue(limit: number): Promise<PipelineRetryQueueClaimRecord[]> {
+    await ensureSchema();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query(
+        `
+          WITH claimed AS (
+            SELECT id
+            FROM v2_pipeline_retry_queue
+            WHERE status = 'pending' AND next_run_at <= NOW()
+            ORDER BY next_run_at ASC, id ASC
+            LIMIT $1
+            FOR UPDATE SKIP LOCKED
+          )
+          UPDATE v2_pipeline_retry_queue q
+          SET status = 'processing', updated_at = NOW()
+          FROM claimed
+          WHERE q.id = claimed.id
+          RETURNING q.id, q.task_id, q.job_id, q.stage, q.attempts
+        `,
+        [limit],
+      );
+      await client.query("COMMIT");
+      return result.rows.map((row) => ({
+        id: Number(row.id),
+        task_id: Number(row.task_id),
+        job_id: Number(row.job_id),
+        stage: String(row.stage),
+        attempts: Number(row.attempts),
+      }));
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async function updatePipelineRetryQueueStatus(params: {
+    id: number;
+    status: "pending" | "processing" | "done" | "failed";
+    attempts?: number;
+    next_run_at?: string;
+    last_error?: string | null;
+  }): Promise<void> {
+    await ensureSchema();
+    await pool.query(
+      `
+        UPDATE v2_pipeline_retry_queue
+        SET
+          status = $2,
+          attempts = COALESCE($3, attempts),
+          next_run_at = COALESCE($4::timestamptz, next_run_at),
+          last_error = COALESCE($5, last_error),
+          updated_at = NOW()
+        WHERE id = $1
+      `,
+      [
+        params.id,
+        params.status,
+        params.attempts ?? null,
+        params.next_run_at ?? null,
+        params.last_error ?? null,
+      ],
+    );
+  }
+
+  async function listPipelineFailures(
+    taskId: number,
+    params: { offset: number; limit: number },
+  ): Promise<JobPipelineFailureListResponse> {
+    await ensureSchema();
+    const [countResult, listResult] = await Promise.all([
+      pool.query(
+        `
+          SELECT COUNT(*)::int AS total
+          FROM v2_pipeline_failures
+          WHERE task_id = $1
+        `,
+        [taskId],
+      ),
+      pool.query(
+        `
+          SELECT *
+          FROM v2_pipeline_failures
+          WHERE task_id = $1
+          ORDER BY created_at DESC
+          OFFSET $2
+          LIMIT $3
+        `,
+        [taskId, params.offset, params.limit],
+      ),
+    ]);
+
+    return {
+      total: Number(countResult.rows[0]?.total ?? 0),
+      items: listResult.rows.map((row) => ({
+        id: Number(row.id),
+        task_id: Number(row.task_id),
+        job_id: Number(row.job_id),
+        stage: String(row.stage),
+        error_code: String(row.error_code),
+        error_message: String(row.error_message),
+        attempts: Number(row.attempts),
+        retryable: Boolean(row.retryable),
+        created_at: new Date(String(row.created_at)).toISOString(),
+      })),
+    };
+  }
+
+  async function listPipelineRetryQueue(params: {
+    task_id?: number;
+    status?: "pending" | "processing" | "done" | "failed";
+    offset: number;
+    limit: number;
+  }): Promise<JobPipelineRetryQueueListResponse> {
+    await ensureSchema();
+    const values: unknown[] = [];
+    const filters: string[] = [];
+
+    if (params.task_id) {
+      values.push(params.task_id);
+      filters.push(`task_id = $${values.length}`);
+    }
+    if (params.status) {
+      values.push(params.status);
+      filters.push(`status = $${values.length}`);
+    }
+
+    const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+    const [countResult, listResult, summaryResult, errorResult] = await Promise.all([
+      pool.query(`SELECT COUNT(*)::int AS total FROM v2_pipeline_retry_queue ${where}`, values),
+      pool.query(
+        `
+          SELECT *
+          FROM v2_pipeline_retry_queue
+          ${where}
+          ORDER BY created_at DESC
+          OFFSET $${values.length + 1}
+          LIMIT $${values.length + 2}
+        `,
+        [...values, params.offset, params.limit],
+      ),
+      pool.query(`
+        SELECT status, COUNT(*)::int AS count
+        FROM v2_pipeline_retry_queue
+        GROUP BY status
+      `),
+      pool.query(`
+        SELECT last_error
+        FROM v2_pipeline_retry_queue
+        WHERE last_error IS NOT NULL AND last_error <> ''
+        ORDER BY updated_at DESC
+        LIMIT 5
+      `),
+    ]);
+
+    const statusCount = new Map<string, number>();
+    for (const row of summaryResult.rows) {
+      statusCount.set(String(row.status), Number(row.count));
+    }
+
+    return {
+      total: Number(countResult.rows[0]?.total ?? 0),
+      items: listResult.rows.map((row) => ({
+        id: Number(row.id),
+        task_id: Number(row.task_id),
+        job_id: Number(row.job_id),
+        stage: String(row.stage),
+        status: String(row.status) as "pending" | "processing" | "done" | "failed",
+        attempts: Number(row.attempts),
+        next_run_at: new Date(String(row.next_run_at)).toISOString(),
+        last_error: (row.last_error as string | null) ?? null,
+        created_at: new Date(String(row.created_at)).toISOString(),
+        updated_at: new Date(String(row.updated_at)).toISOString(),
+      })),
+      summary: {
+        pending: statusCount.get("pending") ?? 0,
+        processing: statusCount.get("processing") ?? 0,
+        done: statusCount.get("done") ?? 0,
+        failed: statusCount.get("failed") ?? 0,
+        latest_errors: errorResult.rows.map((row) => String(row.last_error)).filter(Boolean),
+      },
+    };
+  }
+
   return {
     createPipelineTask,
     getPipelineTask,
     updatePipelineTask,
     listPipelineJobs,
+    getPipelineJobById,
     createJobFacts,
     listLatestJobFactsForCanonical,
     listJobFacts,
     getLatestJobFactByJobId,
+    deleteCanonicalRolesNotInKeys,
     upsertCanonicalRoleProfile,
     listCanonicalRoles,
     getCanonicalRoleByKey,
+    listManualJobPortraits,
+    replaceManualJobPortraits,
     getLatestProfileByJobId,
     createJobProfile,
     listLatestProfiles,
     listLatestProfilesForGraph,
     listJobsByIds,
+    createPipelineFailure,
+    enqueuePipelineRetry,
+    claimPipelineRetryQueue,
+    updatePipelineRetryQueueStatus,
+    listPipelineFailures,
+    listPipelineRetryQueue,
   };
 }

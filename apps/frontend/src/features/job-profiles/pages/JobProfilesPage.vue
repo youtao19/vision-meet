@@ -1,25 +1,34 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 
-import type { JobProfileV2Record } from "@career/contracts/types";
+import type { ManualJobPortraitRecord } from "@career/contracts/types";
 
 import { ApiRequestError } from "@/shared/api/http";
-import { fetchJobProfiles } from "@/shared/api/job-profiles";
+import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 
-const profiles = ref<JobProfileV2Record[]>([]);
-const selected = ref<JobProfileV2Record | null>(null);
+const profiles = ref<ManualJobPortraitRecord[]>([]);
+const selected = ref<ManualJobPortraitRecord | null>(null);
 
 const loading = reactive({
   list: false,
 });
 
-const query = reactive({
-  keyword: "",
-  family: "",
-});
+const activeCategory = ref("all");
 
 const uiState = reactive({
   error: "",
+});
+
+const categoryOptions = computed(() => {
+  const categories = Array.from(new Set(profiles.value.map((item) => item.category))).sort();
+  return ["all", ...categories];
+});
+
+const visibleProfiles = computed(() => {
+  if (activeCategory.value === "all") {
+    return profiles.value;
+  }
+  return profiles.value.filter((item) => item.category === activeCategory.value);
 });
 
 function formatApiError(error: unknown): string {
@@ -37,11 +46,7 @@ async function loadProfiles(): Promise<void> {
   uiState.error = "";
 
   try {
-    const response = await fetchJobProfiles({
-      keyword: query.keyword.trim() || undefined,
-      job_family: query.family.trim() || undefined,
-      limit: 100,
-    });
+    const response = await fetchManualJobPortraits();
     profiles.value = response.items;
     selected.value = response.items[0] ?? null;
   } catch (error) {
@@ -58,7 +63,7 @@ onMounted(loadProfiles);
   <section class="job-profiles-page">
     <header class="page-header">
       <h2>岗位画像中心</h2>
-      <p>查看岗位族、核心技能和七大能力维度画像。</p>
+      <p>当前页面直连数据库中的人工岗位画像，共展示 10 条标准样本。</p>
     </header>
 
     <p v-if="uiState.error" class="notice notice-error">{{ uiState.error }}</p>
@@ -66,15 +71,15 @@ onMounted(loadProfiles);
     <section class="panel">
       <div class="toolbar">
         <label>
-          关键字
-          <input v-model="query.keyword" type="text" placeholder="岗位名称关键字" />
-        </label>
-        <label>
-          岗位族
-          <input v-model="query.family" type="text" placeholder="如 backend / frontend" />
+          岗位分类
+          <select v-model="activeCategory">
+            <option v-for="item in categoryOptions" :key="item" :value="item">
+              {{ item }}
+            </option>
+          </select>
         </label>
         <button class="ghost-btn" :disabled="loading.list" @click="loadProfiles">
-          {{ loading.list ? "查询中..." : "查询画像" }}
+          {{ loading.list ? "刷新中..." : "刷新数据" }}
         </button>
       </div>
     </section>
@@ -84,32 +89,61 @@ onMounted(loadProfiles);
         <h3>画像列表</h3>
         <ul class="profile-list">
           <li
-            v-for="item in profiles"
-            :key="item.id"
-            :class="{ active: selected?.id === item.id }"
+            v-for="item in visibleProfiles"
+            :key="item.job_name"
+            :class="{ active: selected?.job_name === item.job_name }"
             @click="selected = item"
           >
-            <p>#{{ item.job_id }} {{ item.normalized_title }}</p>
-            <p class="meta">{{ item.job_family }} · L{{ item.job_level }} · {{ item.generation_mode }}</p>
+            <p>{{ item.job_name }}</p>
+            <p class="meta">{{ item.category }}</p>
           </li>
-          <li v-if="profiles.length === 0" class="empty">暂无岗位画像数据</li>
+          <li v-if="visibleProfiles.length === 0" class="empty">暂无岗位画像数据</li>
         </ul>
       </article>
 
       <article class="panel detail-panel">
         <h3>画像详情</h3>
         <div v-if="selected">
-          <p><strong>{{ selected.normalized_title }}</strong></p>
-          <p>岗位族：{{ selected.job_family }} · 层级：{{ selected.job_level }}</p>
-          <p>生成方式：{{ selected.generation_mode }} · 置信度：{{ selected.confidence }}</p>
-          <p>核心技能：{{ selected.professional_skills.join("、") || "暂无" }}</p>
-          <p>证书要求：{{ selected.certificate_requirements.join("、") || "暂无" }}</p>
-          <p>创新能力：{{ selected.innovation_score }}</p>
-          <p>学习能力：{{ selected.learning_score }}</p>
-          <p>抗压能力：{{ selected.stress_tolerance_score }}</p>
-          <p>沟通能力：{{ selected.communication_score }}</p>
-          <p>实习能力：{{ selected.internship_score }}</p>
-          <p>摘要：{{ selected.summary }}</p>
+          <p><strong>{{ selected.job_name }}</strong></p>
+          <p>岗位分类：{{ selected.category }}</p>
+
+          <ul class="dimension-list">
+            <li>
+              <p class="dimension-title">技能能力</p>
+              <p>等级：{{ selected.skills.level }} · 权重：{{ selected.skills.weight }}</p>
+              <p>{{ selected.skills.description }}</p>
+            </li>
+            <li>
+              <p class="dimension-title">资质要求</p>
+              <p>等级：{{ selected.certification.level }} · 权重：{{ selected.certification.weight }}</p>
+              <p>{{ selected.certification.description }}</p>
+            </li>
+            <li>
+              <p class="dimension-title">创新能力</p>
+              <p>等级：{{ selected.innovation.level }} · 权重：{{ selected.innovation.weight }}</p>
+              <p>{{ selected.innovation.description }}</p>
+            </li>
+            <li>
+              <p class="dimension-title">学习能力</p>
+              <p>等级：{{ selected.learning.level }} · 权重：{{ selected.learning.weight }}</p>
+              <p>{{ selected.learning.description }}</p>
+            </li>
+            <li>
+              <p class="dimension-title">抗压能力</p>
+              <p>等级：{{ selected.stress.level }} · 权重：{{ selected.stress.weight }}</p>
+              <p>{{ selected.stress.description }}</p>
+            </li>
+            <li>
+              <p class="dimension-title">沟通能力</p>
+              <p>等级：{{ selected.communication.level }} · 权重：{{ selected.communication.weight }}</p>
+              <p>{{ selected.communication.description }}</p>
+            </li>
+            <li>
+              <p class="dimension-title">经验要求</p>
+              <p>等级：{{ selected.experience.level }} · 权重：{{ selected.experience.weight }}</p>
+              <p>{{ selected.experience.description }}</p>
+            </li>
+          </ul>
         </div>
         <p v-else class="empty">请从左侧选择岗位画像。</p>
       </article>
@@ -156,7 +190,7 @@ onMounted(loadProfiles);
 .toolbar {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr auto;
 }
 
 label {
@@ -165,10 +199,11 @@ label {
   color: #334155;
 }
 
-input {
+select {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 8px 10px;
+  background: #ffffff;
 }
 
 .ghost-btn {
@@ -221,6 +256,27 @@ input {
 
 .detail-panel p {
   margin: 8px 0;
+}
+
+.dimension-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.dimension-list li {
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.dimension-title {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
 }
 
 .empty {

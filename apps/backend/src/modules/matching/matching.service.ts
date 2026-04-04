@@ -3,6 +3,7 @@ import type {
   CreateMatchRequest,
   DimensionKey,
   DimensionScores,
+  JobProfileV2Record,
   MatchExplanationItem,
   MatchGapItem,
   MatchListParams,
@@ -11,7 +12,6 @@ import type {
   StudentProfileRecord,
 } from "@career/contracts/types";
 
-import { generateJobProfile } from "../jobs/jobs.profile.js";
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import { HttpError } from "../../shared/errors/http-error.js";
@@ -284,28 +284,66 @@ function buildGapAndExplanation(params: {
   };
 }
 
-async function ensureJobProfileSnapshot(jobId: number, jobsRepository: JobsRepository) {
-  const latest = await jobsRepository.getLatestProfileByJobId(jobId);
-  if (latest) {
-    return latest;
+type MatchingJobProfileSnapshot = {
+  profile_version: number;
+  hard_skills: string[];
+  certificates: string[];
+  soft_skills: string[];
+  skill_weights: Record<string, number>;
+  confidence: number;
+};
+
+function buildV2SoftSkills(profile: JobProfileV2Record): string[] {
+  const candidates: Array<{ label: string; score: number }> = [
+    { label: "沟通", score: profile.communication_score },
+    { label: "学习能力", score: profile.learning_score },
+    { label: "抗压", score: profile.stress_tolerance_score },
+    { label: "创新", score: profile.innovation_score },
+    { label: "实践", score: profile.internship_score },
+  ];
+
+  const selected = candidates
+    .filter((item) => item.score >= 55)
+    .sort((left, right) => right.score - left.score)
+    .map((item) => item.label);
+
+  if (selected.length > 0) {
+    return selected;
+  }
+  // 保底输出，避免后续目标分计算失真。
+  return ["沟通", "学习能力", "抗压"];
+}
+
+function mapV2ProfileToMatchingSnapshot(profile: JobProfileV2Record): MatchingJobProfileSnapshot {
+  return {
+    profile_version: profile.profile_version,
+    hard_skills: profile.professional_skills,
+    certificates: profile.certificate_requirements,
+    soft_skills: buildV2SoftSkills(profile),
+    skill_weights: {
+      基础要求: 0.2,
+      职业技能: 0.45,
+      职业素养: 0.2,
+      发展潜力: 0.15,
+    },
+    confidence: profile.confidence,
+  };
+}
+
+async function ensureJobProfileSnapshot(
+  jobId: number,
+  jobsRepository: JobsRepository,
+): Promise<MatchingJobProfileSnapshot> {
+  const latestV2 = await jobsRepository.getLatestProfileV2ByJobId(jobId);
+  if (latestV2) {
+    return mapV2ProfileToMatchingSnapshot(latestV2);
   }
 
-  const job = await jobsRepository.getJobById(jobId);
-  if (!job) {
-    throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
-  }
-
-  const generated = generateJobProfile(job);
-  return jobsRepository.createJobProfile({
-    job_id: job.id,
-    profile_version: 1,
-    hard_skills: generated.hard_skills,
-    certificates: generated.certificates,
-    soft_skills: generated.soft_skills,
-    skill_weights: generated.skill_weights,
-    summary: generated.summary,
-    confidence: generated.confidence,
-  });
+  throw new HttpError(
+    409,
+    "JOB_PROFILE_V2_NOT_FOUND",
+    "目标岗位缺少 v2 画像，请先执行岗位画像流水线（/api/v2/jobs/pipeline/run）",
+  );
 }
 
 function buildMatchCreateInput(params: {

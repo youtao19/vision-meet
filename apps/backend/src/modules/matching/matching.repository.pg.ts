@@ -244,7 +244,15 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
           SELECT normalized_title, normalized_job_family, confidence
           FROM job_normalized
           WHERE
-            normalized_title = j.title
+            (
+              j.normalized_source_key IS NOT NULL
+              AND (
+                dedup_key = j.normalized_source_key
+                OR normalized_payload ->> 'source_row_id' = j.normalized_source_key
+                OR normalized_payload ->> 'source_job_code' = j.normalized_source_key
+              )
+            )
+            OR normalized_title = j.title
             OR (
               j.source_row_id IS NOT NULL
               AND normalized_payload ->> 'source_row_id' = j.source_row_id

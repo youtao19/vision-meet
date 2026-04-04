@@ -6,19 +6,20 @@
 import type { Pool } from "pg";
 
 import type {
-  JobProfileRecord,
+  JobProfileV2Record,
   JobRecord,
   JobsListParams,
   JobsListResponse,
 } from "@career/contracts/types";
 
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
-import type { JobCreateInput, JobProfileCreateInput, JobsRepository } from "./jobs.repository.js";
+import type { JobCreateInput, JobsRepository } from "./jobs.repository.js";
 
 function mapJobRecord(row: Record<string, unknown>): JobRecord {
   return {
     id: Number(row.id),
     source_row_id: (row.source_row_id as string | null) ?? null,
+    normalized_source_key: (row.normalized_source_key as string | null) ?? null,
     title: String(row.title),
     location: (row.location as string | null) ?? null,
     salary_range: (row.salary_range as string | null) ?? null,
@@ -34,17 +35,31 @@ function mapJobRecord(row: Record<string, unknown>): JobRecord {
   };
 }
 
-function mapJobProfileRecord(row: Record<string, unknown>): JobProfileRecord {
+function mapJobProfileV2Record(row: Record<string, unknown>): JobProfileV2Record {
+  const generationMode = String(row.generation_mode || "heuristic");
   return {
     id: Number(row.id),
     job_id: Number(row.job_id),
     profile_version: Number(row.profile_version),
-    hard_skills: Array.isArray(row.hard_skills) ? (row.hard_skills as string[]) : [],
-    certificates: Array.isArray(row.certificates) ? (row.certificates as string[]) : [],
-    soft_skills: Array.isArray(row.soft_skills) ? (row.soft_skills as string[]) : [],
-    skill_weights: (row.skill_weights as Record<string, number>) ?? {},
-    summary: String(row.summary),
+    normalized_title: String(row.normalized_title || ""),
+    job_family: String(row.job_family || ""),
+    job_level: Number(row.job_level),
+    professional_skills: Array.isArray(row.professional_skills)
+      ? (row.professional_skills as string[])
+      : [],
+    certificate_requirements: Array.isArray(row.certificate_requirements)
+      ? (row.certificate_requirements as string[])
+      : [],
+    innovation_score: Number(row.innovation_score),
+    learning_score: Number(row.learning_score),
+    stress_tolerance_score: Number(row.stress_tolerance_score),
+    communication_score: Number(row.communication_score),
+    internship_score: Number(row.internship_score),
+    summary: String(row.summary || ""),
     confidence: Number(row.confidence),
+    generation_model: (row.generation_model as string | null) ?? null,
+    generation_mode: generationMode === "agent" ? "agent" : "heuristic",
+    extracted_features: (row.extracted_features as Record<string, unknown>) ?? {},
     created_at: new Date(String(row.created_at)).toISOString(),
   };
 }
@@ -60,6 +75,7 @@ export function createPgJobsRepository(pool: Pool): JobsRepository {
           CREATE TABLE IF NOT EXISTS jobs (
             id BIGSERIAL PRIMARY KEY,
             source_row_id TEXT,
+            normalized_source_key TEXT,
             title TEXT NOT NULL,
             location TEXT,
             salary_range TEXT,
@@ -75,27 +91,16 @@ export function createPgJobsRepository(pool: Pool): JobsRepository {
           )
         `);
         await pool.query(`
-          CREATE TABLE IF NOT EXISTS job_profiles (
-            id BIGSERIAL PRIMARY KEY,
-            job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-            profile_version INTEGER NOT NULL,
-            hard_skills TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-            certificates TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-            soft_skills TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-            skill_weights JSONB NOT NULL DEFAULT '{}'::jsonb,
-            summary TEXT NOT NULL,
-            confidence DOUBLE PRECISION NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            UNIQUE(job_id, profile_version)
-          )
+          ALTER TABLE jobs
+          ADD COLUMN IF NOT EXISTS normalized_source_key TEXT
         `);
         await pool.query(`
           CREATE INDEX IF NOT EXISTS jobs_list_idx
           ON jobs (industry, id DESC)
         `);
         await pool.query(`
-          CREATE INDEX IF NOT EXISTS job_profiles_latest_idx
-          ON job_profiles (job_id, profile_version DESC)
+          CREATE INDEX IF NOT EXISTS jobs_normalized_source_key_idx
+          ON jobs (normalized_source_key)
         `);
       })();
     }
@@ -114,6 +119,7 @@ export function createPgJobsRepository(pool: Pool): JobsRepository {
           `
             INSERT INTO jobs (
               source_row_id,
+              normalized_source_key,
               title,
               location,
               salary_range,
@@ -126,11 +132,12 @@ export function createPgJobsRepository(pool: Pool): JobsRepository {
               company_intro,
               raw_payload
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)
             RETURNING *
           `,
           [
             row.source_row_id,
+            row.normalized_source_key,
             row.title,
             row.location,
             row.salary_range,
@@ -207,57 +214,37 @@ export function createPgJobsRepository(pool: Pool): JobsRepository {
     return result.rowCount ? mapJobRecord(result.rows[0]) : null;
   }
 
-  async function getLatestProfileByJobId(jobId: number): Promise<JobProfileRecord | null> {
+  /**
+   * 作用：读取 v2 岗位画像最新版本。
+   * 注意：若尚未初始化 v2 表（例如尚未运行 jobs-intelligence 模块），返回 null 而不是抛错。
+   */
+  async function getLatestProfileV2ByJobId(jobId: number): Promise<JobProfileV2Record | null> {
     await ensureSchema();
-    const result = await pool.query(
-      `
-        SELECT *
-        FROM job_profiles
-        WHERE job_id = $1
-        ORDER BY profile_version DESC
-        LIMIT 1
-      `,
-      [jobId],
-    );
-    return result.rowCount ? mapJobProfileRecord(result.rows[0]) : null;
-  }
-
-  async function createJobProfile(profile: JobProfileCreateInput): Promise<JobProfileRecord> {
-    await ensureSchema();
-    const result = await pool.query(
-      `
-        INSERT INTO job_profiles (
-          job_id,
-          profile_version,
-          hard_skills,
-          certificates,
-          soft_skills,
-          skill_weights,
-          summary,
-          confidence
-        )
-        VALUES ($1, $2, $3::text[], $4::text[], $5::text[], $6::jsonb, $7, $8)
-        RETURNING *
-      `,
-      [
-        profile.job_id,
-        profile.profile_version,
-        profile.hard_skills,
-        profile.certificates,
-        profile.soft_skills,
-        JSON.stringify(profile.skill_weights ?? {}),
-        profile.summary,
-        profile.confidence,
-      ],
-    );
-    return mapJobProfileRecord(result.rows[0]);
+    try {
+      const result = await pool.query(
+        `
+          SELECT *
+          FROM v2_job_profiles
+          WHERE job_id = $1
+          ORDER BY profile_version DESC
+          LIMIT 1
+        `,
+        [jobId],
+      );
+      return result.rowCount ? mapJobProfileV2Record(result.rows[0]) : null;
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code;
+      if (code === "42P01") {
+        return null;
+      }
+      throw error;
+    }
   }
 
   return {
     addJobs,
     listJobs,
     getJobById,
-    getLatestProfileByJobId,
-    createJobProfile,
+    getLatestProfileV2ByJobId,
   };
 }

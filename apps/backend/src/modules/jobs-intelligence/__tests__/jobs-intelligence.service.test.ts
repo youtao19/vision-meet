@@ -54,6 +54,10 @@ function buildEnv(): AppEnv {
     AGENT_SESSION_STORE_DIR: ".tmp/pi-agent/sessions",
     AGENT_MODEL: "kimi-coding/k2p5",
     AGENT_THINKING_LEVEL: "off",
+    JOBS_PIPELINE_CONCURRENCY: 3,
+    JOBS_PIPELINE_RETRY_MAX_ATTEMPTS: 3,
+    JOBS_PIPELINE_RETRY_BASE_MS: 100,
+    JOBS_PIPELINE_RETRY_MAX_MS: 500,
   };
 }
 
@@ -150,7 +154,26 @@ test("runPipelineNow: 标准岗位数不足10时应判定失败", async () => {
       return next;
     },
     async listPipelineJobs() {
-      return [];
+      return Array.from({ length: 10 }).map((_, index) => ({
+        id: index + 1,
+        source_row_id: null,
+        normalized_source_key: null,
+        title: `岗位-${index + 1}`,
+        location: null,
+        salary_range: null,
+        company_name: null,
+        industry: "互联网",
+        company_size: null,
+        company_type: null,
+        job_code: null,
+        job_description: "熟悉 TypeScript",
+        company_intro: null,
+        raw_payload: {},
+        created_at: new Date().toISOString(),
+        normalized_title_hint: `岗位-${index + 1}`,
+        normalized_job_family_hint: `family_${index + 1}`,
+        normalization_confidence_hint: 0.9,
+      }));
     },
     async createJobFacts() {},
     async listLatestJobFactsForCanonical() {
@@ -203,6 +226,7 @@ test("runPipelineNow: 标准岗位数不足10时应判定失败", async () => {
       const jobs: JobRecord[] = jobIds.map((id) => ({
         id,
         source_row_id: null,
+        normalized_source_key: null,
         title: `岗位-${id}`,
         location: null,
         salary_range: null,
@@ -231,11 +255,11 @@ test("runPipelineNow: 标准岗位数不足10时应判定失败", async () => {
   };
 
   const service = createJobsIntelligenceService(repository, graphRepository, buildEnv());
-  const result = await service.runPipelineNow({ mode: "incremental" });
+  const result = await service.runPipelineNow({ mode: "facts_canonical_full" });
 
   assert.equal(upsertedCanonical.length, 2);
-  assert.equal(result.status, "failed");
-  assert.match(result.error_message || "", /标准岗位数量不足 10/);
+  assert.equal(result.status, "degraded");
+  assert.match(result.error_message || "", /标准岗位数量不足/);
 });
 
 test("listCanonicalRoles: 应返回标准岗位分页结果", async () => {
@@ -580,7 +604,7 @@ test("getCanonicalRole: 应返回标准岗位详情", async () => {
   assert.equal(result.role_key, expectedRoleKey);
 });
 
-test("runPipelineNow: 图谱覆盖岗位不足时应判定失败", async () => {
+test("runPipelineNow: 无可处理岗位时应判定硬失败", async () => {
   let taskId = 1;
   const tasks = new Map<number, JobPipelineTaskRecord>();
 
@@ -667,6 +691,7 @@ test("runPipelineNow: 图谱覆盖岗位不足时应判定失败", async () => {
       return jobIds.map((id) => ({
         id,
         source_row_id: null,
+        normalized_source_key: null,
         title: `岗位-${id}`,
         location: null,
         salary_range: null,
@@ -694,11 +719,11 @@ test("runPipelineNow: 图谱覆盖岗位不足时应判定失败", async () => {
   };
 
   const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).runPipelineNow({
-    mode: "incremental",
+    mode: "facts_canonical_full",
   });
 
   assert.equal(result.status, "failed");
-  assert.match(result.error_message || "", /图谱覆盖岗位数量不足/);
+  assert.match(result.error_message || "", /流水线硬失败/);
 });
 
 test("getCareerPathGraph: 应支持边过滤并返回图谱元信息", async () => {
@@ -749,6 +774,7 @@ test("getCareerPathGraph: 应支持边过滤并返回图谱元信息", async () 
         {
           id: 1,
           source_row_id: null,
+        normalized_source_key: null,
           title: "前端工程师",
           location: null,
           salary_range: null,
@@ -843,7 +869,7 @@ test("retryPipelineTask: 应按原任务模式创建并执行重跑任务", asyn
 
   const baseTask: JobPipelineTaskRecord = {
     id: 1,
-    mode: "incremental",
+    mode: "facts_canonical_full",
     status: "failed",
     total_jobs: 10,
     processed_jobs: 10,
@@ -951,6 +977,840 @@ test("retryPipelineTask: 应按原任务模式创建并执行重跑任务", asyn
   const retried = await service.retryPipelineTask(1);
 
   assert.equal(retried.id, 100);
-  assert.equal(retried.mode, "incremental");
+  assert.equal(retried.mode, "facts_canonical_full");
   assert.match(retried.message || "", /重跑来源任务：1/);
+});
+
+test("runPipelineNow(full): 不应逐条调用 createJobProfile，但应完成 canonical 聚合", async () => {
+  let taskId = 1;
+  let createJobProfileCalls = 0;
+  const tasks = new Map<number, JobPipelineTaskRecord>();
+
+  const pipelineJob: JobRecord = {
+    id: 1,
+    source_row_id: null,
+        normalized_source_key: null,
+    title: "前端开发工程师",
+    location: "上海",
+    salary_range: "15-25k",
+    company_name: "测试公司",
+    industry: "互联网",
+    company_size: "100-499",
+    company_type: "民营",
+    job_code: null,
+    job_description: "熟悉 JavaScript、TypeScript、Vue，具备沟通协作能力。",
+    company_intro: "技术驱动业务增长",
+    raw_payload: {},
+    created_at: new Date().toISOString(),
+  };
+
+  const repository: JobsIntelligenceRepository = {
+    async createPipelineTask(mode) {
+      const task: JobPipelineTaskRecord = {
+        id: taskId++,
+        mode,
+        status: "queued",
+        total_jobs: 0,
+        processed_jobs: 0,
+        success_profiles: 0,
+        failed_profiles: 0,
+        graph_nodes: 0,
+        graph_edges: 0,
+        graph_covered_jobs: 0,
+        graph_isolated_ratio: 0,
+        family_count: 0,
+        message: null,
+        error_message: null,
+        started_at: null,
+        finished_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      tasks.set(task.id, task);
+      return task;
+    },
+    async getPipelineTask(taskIdValue) {
+      return tasks.get(taskIdValue) ?? null;
+    },
+    async updatePipelineTask(taskIdValue, input) {
+      const current = tasks.get(taskIdValue);
+      if (!current) {
+        throw new Error("task not found");
+      }
+      const next = { ...current, ...input, updated_at: new Date().toISOString() };
+      tasks.set(taskIdValue, next);
+      return next;
+    },
+    async listPipelineJobs() {
+      return [
+        {
+          ...pipelineJob,
+          normalized_title_hint: "前端开发工程师",
+          normalized_job_family_hint: "frontend_engineering",
+          normalization_confidence_hint: 0.92,
+        },
+      ];
+    },
+    async createJobFacts() {},
+    async listLatestJobFactsForCanonical() {
+      return Array.from({ length: 10 }).map((_, index) =>
+        buildFacts(index + 1, `family_${index + 1}`, `岗位-${index + 1}`),
+      );
+    },
+    async listJobFacts() {
+      return { total: 0, items: [] };
+    },
+    async getLatestJobFactByJobId() {
+      return null;
+    },
+    async upsertCanonicalRoleProfile() {},
+    async listCanonicalRoles() {
+      return { total: 0, items: [] };
+    },
+    async getCanonicalRoleByKey() {
+      return null;
+    },
+    async getLatestProfileByJobId() {
+      return null;
+    },
+    async createJobProfile() {
+      createJobProfileCalls += 1;
+      throw new Error("full 模式不应调用 createJobProfile");
+    },
+    async listLatestProfiles() {
+      return { total: 0, items: [] };
+    },
+    async listLatestProfilesForGraph() {
+      return [];
+    },
+    async listJobsByIds() {
+      return [];
+    },
+  };
+
+  const graphRepository: JobsIntelligenceGraphRepository = {
+    async syncGraph() {
+      throw new Error("full 模式不应触发图谱同步");
+    },
+    async getSubgraphByJobId() {
+      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+    },
+    async close() {},
+  };
+
+  const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).runPipelineNow({
+    mode: "facts_canonical_full",
+  });
+
+  assert.equal(createJobProfileCalls, 0);
+  assert.equal(result.status, "success");
+});
+
+test("runPipelineNow: 应受并发度上限约束", async () => {
+  let taskId = 1;
+  const tasks = new Map<number, JobPipelineTaskRecord>();
+  let inFlight = 0;
+  let maxInFlight = 0;
+
+  const repository: JobsIntelligenceRepository = {
+    async createPipelineTask(mode) {
+      const task: JobPipelineTaskRecord = {
+        id: taskId++,
+        mode,
+        status: "queued",
+        total_jobs: 0,
+        processed_jobs: 0,
+        success_profiles: 0,
+        failed_profiles: 0,
+        graph_nodes: 0,
+        graph_edges: 0,
+        graph_covered_jobs: 0,
+        graph_isolated_ratio: 0,
+        family_count: 0,
+        message: null,
+        error_message: null,
+        started_at: null,
+        finished_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      tasks.set(task.id, task);
+      return task;
+    },
+    async getPipelineTask(taskIdValue) {
+      return tasks.get(taskIdValue) ?? null;
+    },
+    async updatePipelineTask(taskIdValue, input) {
+      const current = tasks.get(taskIdValue);
+      if (!current) {
+        throw new Error("task not found");
+      }
+      const next = { ...current, ...input, updated_at: new Date().toISOString() };
+      tasks.set(taskIdValue, next);
+      return next;
+    },
+    async listPipelineJobs() {
+      return Array.from({ length: 12 }).map((_, index) => ({
+        id: index + 1,
+        source_row_id: null,
+        normalized_source_key: null,
+        title: `岗位-${index + 1}`,
+        location: null,
+        salary_range: null,
+        company_name: null,
+        industry: "互联网",
+        company_size: null,
+        company_type: null,
+        job_code: null,
+        job_description: "熟悉 TypeScript 与协作能力",
+        company_intro: null,
+        raw_payload: {},
+        created_at: new Date().toISOString(),
+        normalized_title_hint: `岗位-${index + 1}`,
+        normalized_job_family_hint: `family_${(index % 10) + 1}`,
+        normalization_confidence_hint: 0.9,
+      }));
+    },
+    async createJobFacts() {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      inFlight -= 1;
+    },
+    async listLatestJobFactsForCanonical() {
+      return Array.from({ length: 10 }).map((_, index) =>
+        buildFacts(index + 1, `family_${index + 1}`, `岗位-${index + 1}`),
+      );
+    },
+    async listJobFacts() {
+      return { total: 0, items: [] };
+    },
+    async getLatestJobFactByJobId() {
+      return null;
+    },
+    async upsertCanonicalRoleProfile() {},
+    async listCanonicalRoles() {
+      return { total: 0, items: [] };
+    },
+    async getCanonicalRoleByKey() {
+      return null;
+    },
+    async getLatestProfileByJobId() {
+      return null;
+    },
+    async createJobProfile() {
+      throw new Error("not used");
+    },
+    async listLatestProfiles() {
+      return { total: 0, items: [] };
+    },
+    async listLatestProfilesForGraph() {
+      return [];
+    },
+    async listJobsByIds() {
+      return [];
+    },
+  };
+
+  const graphRepository: JobsIntelligenceGraphRepository = {
+    async syncGraph() {
+      return { nodes_upserted: 0, edges_upserted: 0 };
+    },
+    async getSubgraphByJobId() {
+      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+    },
+    async close() {},
+  };
+
+  const env = {
+    ...buildEnv(),
+    JOBS_PIPELINE_CONCURRENCY: 3,
+  };
+
+  const result = await createJobsIntelligenceService(repository, graphRepository, env).runPipelineNow({
+    mode: "facts_canonical_full",
+  });
+
+  assert.equal(result.status, "success");
+  assert.ok(maxInFlight <= 3);
+  assert.ok(maxInFlight >= 2);
+});
+
+test("runPipelineNow: 遇到 429 应重试后成功", async () => {
+  let taskId = 1;
+  const tasks = new Map<number, JobPipelineTaskRecord>();
+  let attempts = 0;
+
+  const repository: JobsIntelligenceRepository = {
+    async createPipelineTask(mode) {
+      const task: JobPipelineTaskRecord = {
+        id: taskId++,
+        mode,
+        status: "queued",
+        total_jobs: 0,
+        processed_jobs: 0,
+        success_profiles: 0,
+        failed_profiles: 0,
+        graph_nodes: 0,
+        graph_edges: 0,
+        graph_covered_jobs: 0,
+        graph_isolated_ratio: 0,
+        family_count: 0,
+        message: null,
+        error_message: null,
+        started_at: null,
+        finished_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      tasks.set(task.id, task);
+      return task;
+    },
+    async getPipelineTask(taskIdValue) {
+      return tasks.get(taskIdValue) ?? null;
+    },
+    async updatePipelineTask(taskIdValue, input) {
+      const current = tasks.get(taskIdValue);
+      if (!current) {
+        throw new Error("task not found");
+      }
+      const next = { ...current, ...input, updated_at: new Date().toISOString() };
+      tasks.set(taskIdValue, next);
+      return next;
+    },
+    async listPipelineJobs() {
+      return [
+        {
+          id: 1,
+          source_row_id: null,
+          normalized_source_key: null,
+          title: "前端开发工程师",
+          location: null,
+          salary_range: null,
+          company_name: null,
+          industry: "互联网",
+          company_size: null,
+          company_type: null,
+          job_code: null,
+          job_description: "熟悉 TypeScript 与协作能力",
+          company_intro: null,
+          raw_payload: {},
+          created_at: new Date().toISOString(),
+          normalized_title_hint: "前端开发工程师",
+          normalized_job_family_hint: "frontend_engineering",
+          normalization_confidence_hint: 0.9,
+        },
+      ];
+    },
+    async createJobFacts() {
+      attempts += 1;
+      if (attempts < 3) {
+        throw new Error("429 too many requests");
+      }
+    },
+    async listLatestJobFactsForCanonical() {
+      return Array.from({ length: 10 }).map((_, index) =>
+        buildFacts(index + 1, `family_${index + 1}`, `岗位-${index + 1}`),
+      );
+    },
+    async listJobFacts() {
+      return { total: 0, items: [] };
+    },
+    async getLatestJobFactByJobId() {
+      return null;
+    },
+    async upsertCanonicalRoleProfile() {},
+    async listCanonicalRoles() {
+      return { total: 0, items: [] };
+    },
+    async getCanonicalRoleByKey() {
+      return null;
+    },
+    async getLatestProfileByJobId() {
+      return null;
+    },
+    async createJobProfile() {
+      throw new Error("not used");
+    },
+    async listLatestProfiles() {
+      return { total: 0, items: [] };
+    },
+    async listLatestProfilesForGraph() {
+      return [];
+    },
+    async listJobsByIds() {
+      return [];
+    },
+  };
+
+  const graphRepository: JobsIntelligenceGraphRepository = {
+    async syncGraph() {
+      return { nodes_upserted: 0, edges_upserted: 0 };
+    },
+    async getSubgraphByJobId() {
+      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+    },
+    async close() {},
+  };
+
+  const env = {
+    ...buildEnv(),
+    JOBS_PIPELINE_RETRY_BASE_MS: 100,
+    JOBS_PIPELINE_RETRY_MAX_MS: 200,
+    JOBS_PIPELINE_RETRY_MAX_ATTEMPTS: 3,
+  };
+
+  const result = await createJobsIntelligenceService(repository, graphRepository, env).runPipelineNow({
+    mode: "facts_canonical_full",
+  });
+
+  assert.equal(attempts, 3);
+  assert.equal(result.status, "success");
+});
+
+test("runPipelineNow: 不可重试失败应写入失败审计且不入重试队列", async () => {
+  let taskId = 1;
+  const tasks = new Map<number, JobPipelineTaskRecord>();
+  const failureRecords: Array<{ retryable: boolean; error_code: string }> = [];
+  let retryQueueEnqueueCount = 0;
+
+  const repository: JobsIntelligenceRepository = {
+    async createPipelineTask(mode) {
+      const task: JobPipelineTaskRecord = {
+        id: taskId++,
+        mode,
+        status: "queued",
+        total_jobs: 0,
+        processed_jobs: 0,
+        success_profiles: 0,
+        failed_profiles: 0,
+        graph_nodes: 0,
+        graph_edges: 0,
+        graph_covered_jobs: 0,
+        graph_isolated_ratio: 0,
+        family_count: 0,
+        message: null,
+        error_message: null,
+        started_at: null,
+        finished_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      tasks.set(task.id, task);
+      return task;
+    },
+    async getPipelineTask(taskIdValue) {
+      return tasks.get(taskIdValue) ?? null;
+    },
+    async updatePipelineTask(taskIdValue, input) {
+      const current = tasks.get(taskIdValue);
+      if (!current) {
+        throw new Error("task not found");
+      }
+      const next = { ...current, ...input, updated_at: new Date().toISOString() };
+      tasks.set(taskIdValue, next);
+      return next;
+    },
+    async listPipelineJobs() {
+      return [
+        {
+          id: 1,
+          source_row_id: null,
+          normalized_source_key: null,
+          title: "前端开发工程师",
+          location: null,
+          salary_range: null,
+          company_name: null,
+          industry: "互联网",
+          company_size: null,
+          company_type: null,
+          job_code: null,
+          job_description: "熟悉 TypeScript 与协作能力",
+          company_intro: null,
+          raw_payload: {},
+          created_at: new Date().toISOString(),
+          normalized_title_hint: "前端开发工程师",
+          normalized_job_family_hint: "frontend_engineering",
+          normalization_confidence_hint: 0.9,
+        },
+      ];
+    },
+    async createJobFacts() {
+      throw new Error("schema validation failed");
+    },
+    async listLatestJobFactsForCanonical() {
+      return Array.from({ length: 10 }).map((_, index) =>
+        buildFacts(index + 1, `family_${index + 1}`, `岗位-${index + 1}`),
+      );
+    },
+    async listJobFacts() {
+      return { total: 0, items: [] };
+    },
+    async getLatestJobFactByJobId() {
+      return null;
+    },
+    async upsertCanonicalRoleProfile() {},
+    async listCanonicalRoles() {
+      return { total: 0, items: [] };
+    },
+    async getCanonicalRoleByKey() {
+      return null;
+    },
+    async getLatestProfileByJobId() {
+      return null;
+    },
+    async createJobProfile() {
+      throw new Error("not used");
+    },
+    async listLatestProfiles() {
+      return { total: 0, items: [] };
+    },
+    async listLatestProfilesForGraph() {
+      return [];
+    },
+    async listJobsByIds() {
+      return [];
+    },
+    async createPipelineFailure(input) {
+      failureRecords.push({ retryable: input.retryable, error_code: input.error_code });
+    },
+    async enqueuePipelineRetry() {
+      retryQueueEnqueueCount += 1;
+    },
+  };
+
+  const graphRepository: JobsIntelligenceGraphRepository = {
+    async syncGraph() {
+      return { nodes_upserted: 0, edges_upserted: 0 };
+    },
+    async getSubgraphByJobId() {
+      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+    },
+    async close() {},
+  };
+
+  const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).runPipelineNow({
+    mode: "facts_canonical_full",
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(failureRecords.length, 1);
+  assert.equal(failureRecords[0]?.retryable, false);
+  assert.equal(failureRecords[0]?.error_code, "NON_RETRYABLE_FAILURE");
+  assert.equal(retryQueueEnqueueCount, 0);
+});
+
+test("pipeline failures/retry queue 查询应返回仓储结果", async () => {
+  const expectedFailures = {
+    total: 1,
+    items: [
+      {
+        id: 1,
+        task_id: 99,
+        job_id: 1001,
+        stage: "extract_posting_facts",
+        error_code: "RETRYABLE_FAILURE",
+        error_message: "429 too many requests",
+        attempts: 3,
+        retryable: true,
+        created_at: new Date().toISOString(),
+      },
+    ],
+  };
+  const expectedRetryQueue = {
+    total: 1,
+    items: [
+      {
+        id: 1,
+        task_id: 99,
+        job_id: 1001,
+        stage: "extract_posting_facts",
+        status: "pending" as const,
+        attempts: 3,
+        next_run_at: new Date().toISOString(),
+        last_error: "429 too many requests",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    summary: {
+      pending: 1,
+      processing: 0,
+      done: 0,
+      failed: 0,
+      latest_errors: ["429 too many requests"],
+    },
+  };
+
+  const repository: JobsIntelligenceRepository = {
+    async createPipelineTask() {
+      throw new Error("not used");
+    },
+    async getPipelineTask() {
+      return null;
+    },
+    async updatePipelineTask() {
+      throw new Error("not used");
+    },
+    async listPipelineJobs() {
+      return [];
+    },
+    async createJobFacts() {},
+    async listLatestJobFactsForCanonical() {
+      return [];
+    },
+    async listJobFacts() {
+      return { total: 0, items: [] };
+    },
+    async getLatestJobFactByJobId() {
+      return null;
+    },
+    async upsertCanonicalRoleProfile() {},
+    async listCanonicalRoles() {
+      return { total: 0, items: [] };
+    },
+    async getCanonicalRoleByKey() {
+      return null;
+    },
+    async getLatestProfileByJobId() {
+      return null;
+    },
+    async createJobProfile() {
+      throw new Error("not used");
+    },
+    async listLatestProfiles() {
+      return { total: 0, items: [] };
+    },
+    async listLatestProfilesForGraph() {
+      return [];
+    },
+    async listJobsByIds() {
+      return [];
+    },
+    async listPipelineFailures() {
+      return expectedFailures;
+    },
+    async listPipelineRetryQueue() {
+      return expectedRetryQueue;
+    },
+  };
+
+  const graphRepository: JobsIntelligenceGraphRepository = {
+    async syncGraph() {
+      return { nodes_upserted: 0, edges_upserted: 0 };
+    },
+    async getSubgraphByJobId() {
+      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+    },
+    async close() {},
+  };
+
+  const service = createJobsIntelligenceService(repository, graphRepository, buildEnv());
+  const failures = await service.listPipelineFailures(99, { offset: 0, limit: 20 });
+  const retryQueue = await service.listPipelineRetryQueue({ offset: 0, limit: 20 });
+
+  assert.equal(failures.total, 1);
+  assert.equal(failures.items[0]?.task_id, 99);
+  assert.equal(retryQueue.total, 1);
+  assert.equal(retryQueue.summary.pending, 1);
+});
+
+test("processPipelineRetryQueue: 应处理 claimed 任务并更新为 done", async () => {
+  const statusUpdates: Array<{ id: number; status: string }> = [];
+
+  const repository: JobsIntelligenceRepository = {
+    async createPipelineTask() {
+      throw new Error("not used");
+    },
+    async getPipelineTask() {
+      return null;
+    },
+    async updatePipelineTask() {
+      throw new Error("not used");
+    },
+    async listPipelineJobs() {
+      return [];
+    },
+    async getPipelineJobById(jobId: number) {
+      return {
+        id: jobId,
+        source_row_id: null,
+        normalized_source_key: null,
+        title: "前端开发工程师",
+        location: null,
+        salary_range: null,
+        company_name: null,
+        industry: "互联网",
+        company_size: null,
+        company_type: null,
+        job_code: null,
+        job_description: "熟悉 TypeScript 与协作能力",
+        company_intro: null,
+        raw_payload: {},
+        created_at: new Date().toISOString(),
+        normalized_title_hint: "前端开发工程师",
+        normalized_job_family_hint: "frontend_engineering",
+        normalization_confidence_hint: 0.9,
+      };
+    },
+    async createJobFacts() {},
+    async listLatestJobFactsForCanonical() {
+      return [];
+    },
+    async listJobFacts() {
+      return { total: 0, items: [] };
+    },
+    async getLatestJobFactByJobId() {
+      return null;
+    },
+    async upsertCanonicalRoleProfile() {},
+    async listCanonicalRoles() {
+      return { total: 0, items: [] };
+    },
+    async getCanonicalRoleByKey() {
+      return null;
+    },
+    async getLatestProfileByJobId() {
+      return null;
+    },
+    async createJobProfile() {
+      throw new Error("not used");
+    },
+    async listLatestProfiles() {
+      return { total: 0, items: [] };
+    },
+    async listLatestProfilesForGraph() {
+      return [];
+    },
+    async listJobsByIds() {
+      return [];
+    },
+    async claimPipelineRetryQueue() {
+      return [{ id: 1, task_id: 9, job_id: 1001, stage: "extract_posting_facts", attempts: 1 }];
+    },
+    async updatePipelineRetryQueueStatus(params) {
+      statusUpdates.push({ id: params.id, status: params.status });
+    },
+  };
+
+  const graphRepository: JobsIntelligenceGraphRepository = {
+    async syncGraph() {
+      return { nodes_upserted: 0, edges_upserted: 0 };
+    },
+    async getSubgraphByJobId() {
+      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+    },
+    async close() {},
+  };
+
+  const service = createJobsIntelligenceService(repository, graphRepository, buildEnv());
+  const result = await service.processPipelineRetryQueue({ limit: 10 });
+
+  assert.equal(result.claimed, 1);
+  assert.equal(result.done, 1);
+  assert.equal(result.failed, 0);
+  assert.equal(result.rescheduled, 0);
+  assert.equal(statusUpdates.length, 1);
+  assert.equal(statusUpdates[0]?.status, "done");
+});
+
+test("processPipelineRetryQueue: 可重试失败应重新排队为 pending", async () => {
+  const statusUpdates: Array<{ status: string; attempts?: number }> = [];
+
+  const repository: JobsIntelligenceRepository = {
+    async createPipelineTask() {
+      throw new Error("not used");
+    },
+    async getPipelineTask() {
+      return null;
+    },
+    async updatePipelineTask() {
+      throw new Error("not used");
+    },
+    async listPipelineJobs() {
+      return [];
+    },
+    async getPipelineJobById(jobId: number) {
+      return {
+        id: jobId,
+        source_row_id: null,
+        normalized_source_key: null,
+        title: "前端开发工程师",
+        location: null,
+        salary_range: null,
+        company_name: null,
+        industry: "互联网",
+        company_size: null,
+        company_type: null,
+        job_code: null,
+        job_description: "熟悉 TypeScript 与协作能力",
+        company_intro: null,
+        raw_payload: {},
+        created_at: new Date().toISOString(),
+        normalized_title_hint: "前端开发工程师",
+        normalized_job_family_hint: "frontend_engineering",
+        normalization_confidence_hint: 0.9,
+      };
+    },
+    async createJobFacts() {
+      throw new Error("429 too many requests");
+    },
+    async listLatestJobFactsForCanonical() {
+      return [];
+    },
+    async listJobFacts() {
+      return { total: 0, items: [] };
+    },
+    async getLatestJobFactByJobId() {
+      return null;
+    },
+    async upsertCanonicalRoleProfile() {},
+    async listCanonicalRoles() {
+      return { total: 0, items: [] };
+    },
+    async getCanonicalRoleByKey() {
+      return null;
+    },
+    async getLatestProfileByJobId() {
+      return null;
+    },
+    async createJobProfile() {
+      throw new Error("not used");
+    },
+    async listLatestProfiles() {
+      return { total: 0, items: [] };
+    },
+    async listLatestProfilesForGraph() {
+      return [];
+    },
+    async listJobsByIds() {
+      return [];
+    },
+    async claimPipelineRetryQueue() {
+      return [{ id: 2, task_id: 9, job_id: 1002, stage: "extract_posting_facts", attempts: 1 }];
+    },
+    async updatePipelineRetryQueueStatus(params) {
+      statusUpdates.push({ status: params.status, attempts: params.attempts });
+    },
+  };
+
+  const graphRepository: JobsIntelligenceGraphRepository = {
+    async syncGraph() {
+      return { nodes_upserted: 0, edges_upserted: 0 };
+    },
+    async getSubgraphByJobId() {
+      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+    },
+    async close() {},
+  };
+
+  const service = createJobsIntelligenceService(repository, graphRepository, buildEnv());
+  const result = await service.processPipelineRetryQueue({ limit: 10 });
+
+  assert.equal(result.claimed, 1);
+  assert.equal(result.done, 0);
+  assert.equal(result.failed, 0);
+  assert.equal(result.rescheduled, 1);
+  assert.equal(statusUpdates[0]?.status, "pending");
+  assert.equal(statusUpdates[0]?.attempts, 2);
 });

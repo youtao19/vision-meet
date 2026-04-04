@@ -7,10 +7,4 @@ export const listJobsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export const generateProfileSchema = z.object({
-  job_id: z.number().int().positive(),
-  force_regenerate: z.boolean().default(false),
-});
-
 export type ListJobsQuery = z.infer<typeof listJobsQuerySchema>;
-export type GenerateProfileInput = z.infer<typeof generateProfileSchema>;

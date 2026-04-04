@@ -18,6 +18,7 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
       CREATE TABLE IF NOT EXISTS jobs (
         id BIGSERIAL PRIMARY KEY,
         source_row_id TEXT,
+        normalized_source_key TEXT,
         title TEXT NOT NULL,
         location TEXT,
         salary_range TEXT,
@@ -31,6 +32,10 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
         raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
+    `);
+    await pool.query(`
+      ALTER TABLE jobs
+      ADD COLUMN IF NOT EXISTS normalized_source_key TEXT
     `);
 
     await pool.query(`
@@ -158,22 +163,6 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
         personal_summary TEXT,
         summary TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS job_profiles (
-        id BIGSERIAL PRIMARY KEY,
-        job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-        profile_version INTEGER NOT NULL,
-        hard_skills TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-        certificates TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-        soft_skills TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-        skill_weights JSONB NOT NULL DEFAULT '{}'::jsonb,
-        summary TEXT NOT NULL,
-        confidence DOUBLE PRECISION NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        UNIQUE(job_id, profile_version)
       )
     `);
 
