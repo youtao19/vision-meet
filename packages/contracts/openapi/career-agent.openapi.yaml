@@ -332,8 +332,8 @@ paths:
               properties:
                 mode:
                   type: string
-                  enum: [facts_canonical_full]
-                  default: facts_canonical_full
+                  enum: [cleanse_agent_portraits]
+                  default: cleanse_agent_portraits
       responses:
         "202":
           description: Pipeline task accepted
@@ -1437,7 +1437,7 @@ components:
           type: integer
         mode:
           type: string
-          enum: [facts_canonical_full]
+          enum: [cleanse_agent_portraits]
         status:
           type: string
           enum: [queued, running, success, degraded, failed]

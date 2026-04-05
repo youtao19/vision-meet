@@ -41,7 +41,7 @@ export type JobRecord = {
   created_at: string;
 };
 
-export type JobPipelineMode = "facts_canonical_full";
+export type JobPipelineMode = "cleanse_agent_portraits";
 
 export type JobPipelineTaskStatus =
   | "queued"

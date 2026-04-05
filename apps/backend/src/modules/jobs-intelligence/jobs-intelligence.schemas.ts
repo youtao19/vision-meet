@@ -4,7 +4,12 @@ import { z } from "zod";
  * 文件作用：定义岗位智能处理域的接口参数校验规则。
  */
 export const runPipelineSchema = z.object({
-  mode: z.literal("facts_canonical_full").default("facts_canonical_full"),
+  mode: z
+    .enum(["cleanse_agent_portraits", "facts_canonical_full"])
+    .default("cleanse_agent_portraits")
+    .transform((value) =>
+      value === "facts_canonical_full" ? "cleanse_agent_portraits" : value,
+    ),
 });
 
 export const pipelineTaskParamsSchema = z.object({

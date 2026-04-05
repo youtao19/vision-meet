@@ -256,7 +256,7 @@ test("runPipelineNow: 标准岗位数不足10时应判定失败", async () => {
   };
 
   const service = createJobsIntelligenceService(repository, graphRepository, buildEnv());
-  const result = await service.runPipelineNow({ mode: "facts_canonical_full" });
+  const result = await service.runPipelineNow({ mode: "cleanse_agent_portraits" });
 
   assert.equal(upsertedCanonical.length, 2);
   assert.equal(result.status, "degraded");
@@ -720,7 +720,7 @@ test("runPipelineNow: 无可处理岗位时应判定硬失败", async () => {
   };
 
   const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).runPipelineNow({
-    mode: "facts_canonical_full",
+    mode: "cleanse_agent_portraits",
   });
 
   assert.equal(result.status, "failed");
@@ -870,7 +870,7 @@ test("retryPipelineTask: 应按原任务模式创建并执行重跑任务", asyn
 
   const baseTask: JobPipelineTaskRecord = {
     id: 1,
-    mode: "facts_canonical_full",
+    mode: "cleanse_agent_portraits",
     status: "failed",
     total_jobs: 10,
     processed_jobs: 10,
@@ -978,7 +978,7 @@ test("retryPipelineTask: 应按原任务模式创建并执行重跑任务", asyn
   const retried = await service.retryPipelineTask(1);
 
   assert.equal(retried.id, 100);
-  assert.equal(retried.mode, "facts_canonical_full");
+  assert.equal(retried.mode, "cleanse_agent_portraits");
   assert.match(retried.message || "", /重跑来源任务：1/);
 });
 
@@ -1100,7 +1100,7 @@ test("runPipelineNow(full): 不应逐条调用 createJobProfile，但应完成 c
   };
 
   const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).runPipelineNow({
-    mode: "facts_canonical_full",
+    mode: "cleanse_agent_portraits",
   });
 
   assert.equal(createJobProfileCalls, 0);
@@ -1229,7 +1229,7 @@ test("runPipelineNow: 应受并发度上限约束", async () => {
   };
 
   const result = await createJobsIntelligenceService(repository, graphRepository, env).runPipelineNow({
-    mode: "facts_canonical_full",
+    mode: "cleanse_agent_portraits",
   });
 
   assert.equal(result.status, "success");
@@ -1362,7 +1362,7 @@ test("runPipelineNow: 遇到 429 应重试后成功", async () => {
   };
 
   const result = await createJobsIntelligenceService(repository, graphRepository, env).runPipelineNow({
-    mode: "facts_canonical_full",
+    mode: "cleanse_agent_portraits",
   });
 
   assert.equal(attempts, 3);
@@ -1491,7 +1491,7 @@ test("runPipelineNow: 不可重试失败应写入失败审计且不入重试队�
   };
 
   const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).runPipelineNow({
-    mode: "facts_canonical_full",
+    mode: "cleanse_agent_portraits",
   });
 
   assert.equal(result.status, "failed");

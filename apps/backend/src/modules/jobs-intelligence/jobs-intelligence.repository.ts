@@ -60,6 +60,25 @@ export type PipelineJobRecord = JobRecord & {
   normalization_confidence_hint: number | null;
 };
 
+export type PipelineCleanedJobCreateInput = {
+  task_id: number;
+  job_id: number;
+  source_row_id: string | null;
+  title: string;
+  normalized_title: string;
+  job_family: string;
+  location: string | null;
+  salary_range: string | null;
+  company_name: string | null;
+  industry: string | null;
+  normalization_confidence: number;
+  keywords: string[];
+  cleaned_text: string;
+  source_payload: Record<string, unknown>;
+};
+
+export type AgentJobPortraitUpsertInput = Omit<ManualJobPortraitRecord, "created_at" | "updated_at">;
+
 export type PipelineTaskUpdateInput = Partial<
   Pick<
     JobPipelineTaskRecord,
@@ -85,6 +104,7 @@ export interface JobsIntelligenceRepository {
   getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord | null>;
   updatePipelineTask(taskId: number, input: PipelineTaskUpdateInput): Promise<JobPipelineTaskRecord>;
   listPipelineJobs(mode: JobPipelineMode): Promise<PipelineJobRecord[]>;
+  replacePipelineCleanedJobs?(taskId: number, input: PipelineCleanedJobCreateInput[]): Promise<void>;
   createJobFacts(input: JobFactsCreateInput): Promise<void>;
   listLatestJobFactsForCanonical(): Promise<PostingProfileFacts[]>;
   listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse>;
@@ -94,6 +114,11 @@ export interface JobsIntelligenceRepository {
   listCanonicalRoles(params: CanonicalRolesListParams): Promise<CanonicalRolesListResponse>;
   getCanonicalRoleByKey(roleKey: string): Promise<CanonicalRoleRecord | null>;
   listManualJobPortraits?(): Promise<ManualJobPortraitRecord[]>;
+  replaceAgentJobPortraits?(
+    taskId: number,
+    input: AgentJobPortraitUpsertInput[],
+    metadata: { source_model: string | null; source_trace_id: string },
+  ): Promise<void>;
   replaceManualJobPortraits?(input: ManualJobPortraitUpsertInput[]): Promise<void>;
   getLatestProfileByJobId(jobId: number): Promise<JobProfileV2Record | null>;
   createJobProfile(input: JobProfileV2CreateInput): Promise<JobProfileV2Record>;

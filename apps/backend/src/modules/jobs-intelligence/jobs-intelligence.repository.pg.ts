@@ -29,7 +29,9 @@ import type {
 
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 import type {
+  AgentJobPortraitUpsertInput,
   JobFactsCreateInput,
+  PipelineCleanedJobCreateInput,
   PipelineFailureCreateInput,
   PipelineRetryQueueClaimRecord,
   PipelineRetryQueueCreateInput,
@@ -436,6 +438,52 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
         `);
 
         await pool.query(`
+          CREATE TABLE IF NOT EXISTS v2_pipeline_cleaned_jobs (
+            id BIGSERIAL PRIMARY KEY,
+            task_id BIGINT NOT NULL REFERENCES v2_pipeline_tasks(id) ON DELETE CASCADE,
+            job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+            source_row_id TEXT,
+            title TEXT NOT NULL,
+            normalized_title TEXT NOT NULL,
+            job_family TEXT NOT NULL,
+            location TEXT,
+            salary_range TEXT,
+            company_name TEXT,
+            industry TEXT,
+            normalization_confidence DOUBLE PRECISION NOT NULL DEFAULT 0,
+            keywords TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+            cleaned_text TEXT NOT NULL,
+            source_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          )
+        `);
+
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS v2_pipeline_cleaned_jobs_task_idx
+          ON v2_pipeline_cleaned_jobs (task_id, job_id)
+        `);
+
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS v2_agent_job_portraits (
+            id BIGSERIAL PRIMARY KEY,
+            task_id BIGINT NOT NULL REFERENCES v2_pipeline_tasks(id) ON DELETE CASCADE,
+            job_name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            payload JSONB NOT NULL,
+            source_model TEXT,
+            source_trace_id TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (task_id, job_name)
+          )
+        `);
+
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS v2_agent_job_portraits_task_idx
+          ON v2_agent_job_portraits (task_id, created_at DESC)
+        `);
+
+        await pool.query(`
           CREATE TABLE IF NOT EXISTS v2_pipeline_failures (
             id BIGSERIAL PRIMARY KEY,
             task_id BIGINT NOT NULL REFERENCES v2_pipeline_tasks(id) ON DELETE CASCADE,
@@ -608,6 +656,77 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     );
 
     return result.rows.map((row) => mapPipelineJob(row));
+  }
+
+  /**
+   * 作用：按流水线任务批量写入“清洗后岗位数据”。
+   * 注意：同一 task_id 采用覆盖写，保证后续 Agent 输入与任务快照一致。
+   */
+  async function replacePipelineCleanedJobs(
+    taskId: number,
+    input: PipelineCleanedJobCreateInput[],
+  ): Promise<void> {
+    await ensureSchema();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `
+          DELETE FROM v2_pipeline_cleaned_jobs
+          WHERE task_id = $1
+        `,
+        [taskId],
+      );
+
+      for (const item of input) {
+        await client.query(
+          `
+            INSERT INTO v2_pipeline_cleaned_jobs (
+              task_id,
+              job_id,
+              source_row_id,
+              title,
+              normalized_title,
+              job_family,
+              location,
+              salary_range,
+              company_name,
+              industry,
+              normalization_confidence,
+              keywords,
+              cleaned_text,
+              source_payload
+            )
+            VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::text[], $13, $14::jsonb
+            )
+          `,
+          [
+            taskId,
+            item.job_id,
+            item.source_row_id,
+            item.title,
+            item.normalized_title,
+            item.job_family,
+            item.location,
+            item.salary_range,
+            item.company_name,
+            item.industry,
+            item.normalization_confidence,
+            item.keywords,
+            item.cleaned_text,
+            JSON.stringify(item.source_payload ?? {}),
+          ],
+        );
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async function getPipelineJobById(jobId: number): Promise<PipelineJobRecord | null> {
@@ -1105,12 +1224,98 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
 
   async function listManualJobPortraits(): Promise<ManualJobPortraitRecord[]> {
     await ensureSchema();
+    const latestAgentTaskResult = await pool.query(`
+      SELECT task_id
+      FROM v2_agent_job_portraits
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+
+    if (latestAgentTaskResult.rowCount) {
+      const taskId = Number(latestAgentTaskResult.rows[0].task_id);
+      const agentRows = await pool.query(
+        `
+          SELECT job_name, category, payload, created_at, updated_at
+          FROM v2_agent_job_portraits
+          WHERE task_id = $1
+          ORDER BY created_at ASC, job_name ASC
+        `,
+        [taskId],
+      );
+
+      if (agentRows.rowCount) {
+        return agentRows.rows.map((row) => mapManualJobPortrait(row));
+      }
+    }
+
     const result = await pool.query(`
       SELECT *
       FROM v2_manual_job_portraits
       ORDER BY created_at ASC, job_name ASC
     `);
     return result.rows.map((row) => mapManualJobPortrait(row));
+  }
+
+  async function replaceAgentJobPortraits(
+    taskId: number,
+    input: AgentJobPortraitUpsertInput[],
+    metadata: { source_model: string | null; source_trace_id: string },
+  ): Promise<void> {
+    await ensureSchema();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `
+          DELETE FROM v2_agent_job_portraits
+          WHERE task_id = $1
+        `,
+        [taskId],
+      );
+
+      for (const item of input) {
+        const payload = {
+          skills: item.skills,
+          certification: item.certification,
+          innovation: item.innovation,
+          learning: item.learning,
+          stress: item.stress,
+          communication: item.communication,
+          experience: item.experience,
+        };
+
+        await client.query(
+          `
+            INSERT INTO v2_agent_job_portraits (
+              task_id,
+              job_name,
+              category,
+              payload,
+              source_model,
+              source_trace_id,
+              created_at,
+              updated_at
+            )
+            VALUES ($1, $2, $3, $4::jsonb, $5, $6, NOW(), NOW())
+          `,
+          [
+            taskId,
+            item.job_name,
+            item.category,
+            JSON.stringify(payload),
+            metadata.source_model,
+            metadata.source_trace_id,
+          ],
+        );
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async function replaceManualJobPortraits(input: ManualJobPortraitUpsertInput[]): Promise<void> {
@@ -1536,6 +1741,7 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     getPipelineTask,
     updatePipelineTask,
     listPipelineJobs,
+    replacePipelineCleanedJobs,
     getPipelineJobById,
     createJobFacts,
     listLatestJobFactsForCanonical,
@@ -1546,6 +1752,7 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     listCanonicalRoles,
     getCanonicalRoleByKey,
     listManualJobPortraits,
+    replaceAgentJobPortraits,
     replaceManualJobPortraits,
     getLatestProfileByJobId,
     createJobProfile,
