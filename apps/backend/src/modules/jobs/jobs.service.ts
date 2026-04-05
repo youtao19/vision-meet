@@ -1,8 +1,4 @@
-import type {
-  JobImportResponse,
-  JobsListParams,
-  JobsListResponse,
-} from "@career/contracts/types";
+import type { JobImportResponse, JobsListParams, JobsListResponse } from "@career/contracts/types";
 
 import { parseUploadedJobs } from "./jobs.importer.js";
 import type { JobsRepository } from "./jobs.repository.js";
@@ -13,7 +9,10 @@ export interface JobsService {
 }
 
 export function createJobsService(repository: JobsRepository): JobsService {
-  async function importJobs(file: { originalname: string; buffer: Buffer }): Promise<JobImportResponse> {
+  async function importJobs(file: {
+    originalname: string;
+    buffer: Buffer;
+  }): Promise<JobImportResponse> {
     const parsed = parseUploadedJobs(file);
     const { imported } = await repository.addJobs(parsed.rows);
 

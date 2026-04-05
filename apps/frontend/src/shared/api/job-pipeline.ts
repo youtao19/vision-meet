@@ -1,7 +1,4 @@
-import type {
-  JobPipelineRunRequest,
-  JobPipelineTaskRecord,
-} from "@career/contracts/types";
+import type { JobPipelineRunRequest, JobPipelineTaskRecord } from "@career/contracts/types";
 
 import { requestJson } from "./http";
 

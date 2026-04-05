@@ -59,8 +59,10 @@ function resolveDimensionWeights(skillWeights: Record<string, number>): Dimensio
     ...DEFAULT_DIMENSION_WEIGHTS,
     base_requirements: skillWeights["基础要求"] ?? DEFAULT_DIMENSION_WEIGHTS.base_requirements,
     professional_skills: skillWeights["职业技能"] ?? DEFAULT_DIMENSION_WEIGHTS.professional_skills,
-    professional_quality: skillWeights["职业素养"] ?? DEFAULT_DIMENSION_WEIGHTS.professional_quality,
-    development_potential: skillWeights["发展潜力"] ?? DEFAULT_DIMENSION_WEIGHTS.development_potential,
+    professional_quality:
+      skillWeights["职业素养"] ?? DEFAULT_DIMENSION_WEIGHTS.professional_quality,
+    development_potential:
+      skillWeights["发展潜力"] ?? DEFAULT_DIMENSION_WEIGHTS.development_potential,
   };
 
   const total =
@@ -91,7 +93,10 @@ function buildTargetDimensions(params: {
 
   return {
     base_requirements: clampScore(
-      45 + params.certificatesCount * 7 + Math.min(params.hardSkillsCount, 5) * 4 + confidenceRatio * 10,
+      45 +
+        params.certificatesCount * 7 +
+        Math.min(params.hardSkillsCount, 5) * 4 +
+        confidenceRatio * 10,
     ),
     professional_skills: clampScore(40 + params.hardSkillsCount * 8 + confidenceRatio * 15),
     professional_quality: clampScore(45 + params.softSkillsCount * 7 + confidenceRatio * 10),
@@ -104,7 +109,9 @@ function buildMatchDimensionScores(
   targetScores: DimensionScores,
 ): DimensionScores {
   return {
-    base_requirements: clampScore(100 - Math.max(0, targetScores.base_requirements - studentScores.base_requirements)),
+    base_requirements: clampScore(
+      100 - Math.max(0, targetScores.base_requirements - studentScores.base_requirements),
+    ),
     professional_skills: clampScore(
       100 - Math.max(0, targetScores.professional_skills - studentScores.professional_skills),
     ),

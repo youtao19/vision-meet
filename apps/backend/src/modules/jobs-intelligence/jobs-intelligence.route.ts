@@ -3,6 +3,7 @@ import { Router } from "express";
 import { HttpError } from "../../shared/errors/http-error.js";
 import {
   canonicalRoleParamsSchema,
+  careerPathGenerateSchema,
   careerPathQuerySchema,
   jobIdParamsSchema,
   listCanonicalRolesSchema,
@@ -92,7 +93,9 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.post("/jobs/pipeline/run", async (req, res, next) => {
     const parsed = runPipelineSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "流水线启动参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "流水线启动参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -105,7 +108,9 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.get("/jobs/pipeline/tasks/:task_id", async (req, res, next) => {
     const parsed = pipelineTaskParamsSchema.safeParse(req.params);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -118,7 +123,9 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.post("/jobs/pipeline/tasks/:task_id/retry", async (req, res, next) => {
     const parsed = pipelineTaskParamsSchema.safeParse(req.params);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -131,15 +138,21 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.get("/jobs/pipeline/tasks/:task_id/failures", async (req, res, next) => {
     const paramsParsed = pipelineTaskParamsSchema.safeParse(req.params);
     if (!paramsParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", paramsParsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", paramsParsed.error.flatten()),
+      );
     }
     const queryParsed = pipelineListQuerySchema.safeParse(req.query);
     if (!queryParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "分页参数不合法", queryParsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "分页参数不合法", queryParsed.error.flatten()),
+      );
     }
 
     try {
-      return res.json(await service.listPipelineFailures(paramsParsed.data.task_id, queryParsed.data));
+      return res.json(
+        await service.listPipelineFailures(paramsParsed.data.task_id, queryParsed.data),
+      );
     } catch (error) {
       return next(error);
     }
@@ -148,7 +161,9 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.get("/jobs/pipeline/retry-queue", async (req, res, next) => {
     const parsed = pipelineRetryQueueQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "重试队列查询参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "重试队列查询参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -161,7 +176,9 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.post("/jobs/pipeline/retry-queue/process", async (req, res, next) => {
     const parsed = pipelineRetryProcessSchema.safeParse(req.body ?? {});
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "重试消费参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "重试消费参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -178,7 +195,9 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.get("/job-profiles", async (req, res, next) => {
     const parsed = listCanonicalRolesSchema.safeParse(req.query);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "岗位画像查询参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "岗位画像查询参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -207,7 +226,9 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.get("/canonical-roles", async (req, res, next) => {
     const parsed = listCanonicalRolesSchema.safeParse(req.query);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "标准岗位查询参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "标准岗位查询参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -220,7 +241,9 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.get("/canonical-roles/:role_key", async (req, res, next) => {
     const parsed = canonicalRoleParamsSchema.safeParse(req.params);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "标准岗位参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "标准岗位参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -233,7 +256,9 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.get("/job-facts", async (req, res, next) => {
     const parsed = listJobFactsSchema.safeParse(req.query);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "岗位事实查询参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "岗位事实查询参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -259,12 +284,16 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
   router.get("/career-paths/jobs/:job_id", async (req, res, next) => {
     const paramsParsed = jobIdParamsSchema.safeParse(req.params);
     if (!paramsParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "岗位参数不合法", paramsParsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "岗位参数不合法", paramsParsed.error.flatten()),
+      );
     }
 
     const queryParsed = careerPathQuerySchema.safeParse(req.query);
     if (!queryParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "图谱查询参数不合法", queryParsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "图谱查询参数不合法", queryParsed.error.flatten()),
+      );
     }
 
     try {
@@ -275,6 +304,21 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
           min_score: queryParsed.data.min_score,
         }),
       );
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.post("/career-paths/generate", async (req, res, next) => {
+    const parsed = careerPathGenerateSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "图谱生成参数不合法", parsed.error.flatten()),
+      );
+    }
+
+    try {
+      return res.json(await service.generateCareerPathGraph(parsed.data));
     } catch (error) {
       return next(error);
     }

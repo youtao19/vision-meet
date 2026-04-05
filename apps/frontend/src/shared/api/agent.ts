@@ -19,7 +19,9 @@ export async function createAgentTask(payload: CreateAgentTaskRequest): Promise<
   });
 }
 
-export async function createResumeHtml(payload: CreateResumeHtmlRequest): Promise<ResumeHtmlResponse> {
+export async function createResumeHtml(
+  payload: CreateResumeHtmlRequest,
+): Promise<ResumeHtmlResponse> {
   return requestJson<ResumeHtmlResponse>("/api/v2/ai/resume-html", {
     method: "POST",
     headers: {
@@ -29,7 +31,10 @@ export async function createResumeHtml(payload: CreateResumeHtmlRequest): Promis
   });
 }
 
-export async function listResumeHtmlRecords(offset = 0, limit = 20): Promise<ResumeHtmlListResponse> {
+export async function listResumeHtmlRecords(
+  offset = 0,
+  limit = 20,
+): Promise<ResumeHtmlListResponse> {
   const params = new URLSearchParams({
     offset: String(offset),
     limit: String(limit),

@@ -13,10 +13,7 @@ import {
   ModelRegistry,
   SessionManager,
 } from "@mariozechner/pi-coding-agent";
-import type {
-  CreateResumeHtmlRequest,
-  ResumeHtmlResponse,
-} from "@career/contracts/types";
+import type { CreateResumeHtmlRequest, ResumeHtmlResponse } from "@career/contracts/types";
 import { HttpError } from "../../../shared/errors/http-error.js";
 
 import {
@@ -306,7 +303,10 @@ export async function runResumeHtmlAgent(
       return;
     }
 
-    if (event.type === "message_end" && (event.message as { role?: unknown }).role === "assistant") {
+    if (
+      event.type === "message_end" &&
+      (event.message as { role?: unknown }).role === "assistant"
+    ) {
       const finalText = streamingAssistantBuffer.trim() || summarizeAssistantMessage(event.message);
       streamingAssistantBuffer = "";
       if (finalText) {
@@ -328,10 +328,7 @@ export async function runResumeHtmlAgent(
   });
 
   try {
-    await withTimeout(
-      session.prompt(buildUserPrompt(options.input)),
-      timeoutMs,
-    );
+    await withTimeout(session.prompt(buildUserPrompt(options.input)), timeoutMs);
 
     if (lastTurnError) {
       throw new HttpError(502, "AI_RESUME_HTML_AGENT_ERROR", `简历生成失败：${lastTurnError}`);

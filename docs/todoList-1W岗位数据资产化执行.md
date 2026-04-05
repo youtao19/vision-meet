@@ -19,17 +19,17 @@
 
 ## 2. 执行分解
 
-| 编号 | 阶段 | 执行项 | 状态 | 产出物 | 验收口径 |
-| --- | --- | --- | --- | --- | --- |
-| D01 | 数据底座 | 新增岗位资产分层表（raw/normalized/category/graph） | 已完成 | `apps/backend/src/shared/db/career-schema.ts` | 服务启动后核心表可自动建表 |
-| D02 | 数据处理 | 新增 Python 清洗与标准化脚本（首版） | 已完成 | `scripts/job_data_asset_pipeline.py` | 脚本可对样例数据输出 cleaned/normalized 两类结果 |
-| D03 | 任务编排 | 增加根脚本命令，统一触发数据预处理 | 已完成 | `package.json` | 可通过 npm 命令触发 Python 管线 |
-| D04 | 数据验证 | 使用样例数据执行首轮清洗并落盘结果 | 已完成 | `data/processed/jobs_cleaned.csv`、`data/processed/job_normalized_summary.csv` | 输出文件存在且记录数 > 0 |
-| D05 | 画像联动 | 将标准化结果接入 v2 岗位画像流水线输入 | 已完成首版 | `jobs-intelligence.repository.ts/.pg.ts`、`jobs-intelligence.service.ts`、`jobs-intelligence.profile.ts`、`jobs-intelligence.llm.ts` | 流水线生成时可消费 `job_normalized` 的岗位族/标题提示 |
-| D06 | 匹配联动 | 匹配服务消费标准岗位族与画像证据 | 已完成首版 | `matching.repository.ts/.pg.ts`、`matching.service.ts` | 匹配结果 `evidence_refs` 包含岗位族/标准标题/置信度证据 |
-| D07 | 报告联动 | 报告模板接入岗位证据和路径建议 | 已完成首版 | `template-report.generator.ts` | 报告证据合并匹配证据 + 路径差距证据，路径段落展示关键技能 |
-| D08 | 入库闭环 | 清洗结果导入 `job_normalized`（导入脚本 + 幂等 UPSERT） | 已完成首版 | `apps/backend/src/scripts/job-normalized-import.ts`、`package.json` | 可通过命令把 `jobs_cleaned.csv` 幂等导入 `job_normalized` |
-| D09 | 验收闭环 | 增加端到端验收脚本（岗位族证据一致性） | 已完成首版 | `apps/backend/src/scripts/evaluation-normalized-e2e.ts`、`docs/评测结果-岗位标准化证据一致性.md` | 可抽样校验画像/匹配/报告三层岗位族证据一致性 |
+| 编号 | 阶段     | 执行项                                                  | 状态       | 产出物                                                                                                                               | 验收口径                                                  |
+| ---- | -------- | ------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| D01  | 数据底座 | 新增岗位资产分层表（raw/normalized/category/graph）     | 已完成     | `apps/backend/src/shared/db/career-schema.ts`                                                                                        | 服务启动后核心表可自动建表                                |
+| D02  | 数据处理 | 新增 Python 清洗与标准化脚本（首版）                    | 已完成     | `scripts/job_data_asset_pipeline.py`                                                                                                 | 脚本可对样例数据输出 cleaned/normalized 两类结果          |
+| D03  | 任务编排 | 增加根脚本命令，统一触发数据预处理                      | 已完成     | `package.json`                                                                                                                       | 可通过 npm 命令触发 Python 管线                           |
+| D04  | 数据验证 | 使用样例数据执行首轮清洗并落盘结果                      | 已完成     | `data/processed/jobs_cleaned.csv`、`data/processed/job_normalized_summary.csv`                                                       | 输出文件存在且记录数 > 0                                  |
+| D05  | 画像联动 | 将标准化结果接入 v2 岗位画像流水线输入                  | 已完成首版 | `jobs-intelligence.repository.ts/.pg.ts`、`jobs-intelligence.service.ts`、`jobs-intelligence.profile.ts`、`jobs-intelligence.llm.ts` | 流水线生成时可消费 `job_normalized` 的岗位族/标题提示     |
+| D06  | 匹配联动 | 匹配服务消费标准岗位族与画像证据                        | 已完成首版 | `matching.repository.ts/.pg.ts`、`matching.service.ts`                                                                               | 匹配结果 `evidence_refs` 包含岗位族/标准标题/置信度证据   |
+| D07  | 报告联动 | 报告模板接入岗位证据和路径建议                          | 已完成首版 | `template-report.generator.ts`                                                                                                       | 报告证据合并匹配证据 + 路径差距证据，路径段落展示关键技能 |
+| D08  | 入库闭环 | 清洗结果导入 `job_normalized`（导入脚本 + 幂等 UPSERT） | 已完成首版 | `apps/backend/src/scripts/job-normalized-import.ts`、`package.json`                                                                  | 可通过命令把 `jobs_cleaned.csv` 幂等导入 `job_normalized` |
+| D09  | 验收闭环 | 增加端到端验收脚本（岗位族证据一致性）                  | 已完成首版 | `apps/backend/src/scripts/evaluation-normalized-e2e.ts`、`docs/评测结果-岗位标准化证据一致性.md`                                     | 可抽样校验画像/匹配/报告三层岗位族证据一致性              |
 
 ## 3. 执行日志
 

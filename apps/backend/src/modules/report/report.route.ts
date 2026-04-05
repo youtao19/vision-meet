@@ -20,7 +20,9 @@ export function createReportRouter(service: ReportService): Router {
   router.post("", async (req, res, next) => {
     const parsed = createReportSchema.safeParse(req.body);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "报告创建参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "报告创建参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -34,7 +36,9 @@ export function createReportRouter(service: ReportService): Router {
   router.get("", async (req, res, next) => {
     const parsed = listReportsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "报告查询参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "报告查询参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -47,7 +51,9 @@ export function createReportRouter(service: ReportService): Router {
   router.get("/:report_id", async (req, res, next) => {
     const parsed = reportIdParamsSchema.safeParse(req.params);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -60,12 +66,21 @@ export function createReportRouter(service: ReportService): Router {
   router.patch("/:report_id", async (req, res, next) => {
     const paramsParsed = reportIdParamsSchema.safeParse(req.params);
     if (!paramsParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", paramsParsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", paramsParsed.error.flatten()),
+      );
     }
 
     const bodyParsed = updateReportSchema.safeParse(req.body);
     if (!bodyParsed.success) {
-      return next(new HttpError(400, "REPORT_SECTION_INVALID", "报告章节内容不合法", bodyParsed.error.flatten()));
+      return next(
+        new HttpError(
+          400,
+          "REPORT_SECTION_INVALID",
+          "报告章节内容不合法",
+          bodyParsed.error.flatten(),
+        ),
+      );
     }
 
     try {
@@ -78,16 +93,23 @@ export function createReportRouter(service: ReportService): Router {
   router.post("/:report_id/exports", async (req, res, next) => {
     const paramsParsed = reportIdParamsSchema.safeParse(req.params);
     if (!paramsParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", paramsParsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", paramsParsed.error.flatten()),
+      );
     }
 
     const bodyParsed = createReportExportSchema.safeParse(req.body);
     if (!bodyParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "导出请求参数不合法", bodyParsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "导出请求参数不合法", bodyParsed.error.flatten()),
+      );
     }
 
     try {
-      const created = await service.createReportExport(paramsParsed.data.report_id, bodyParsed.data);
+      const created = await service.createReportExport(
+        paramsParsed.data.report_id,
+        bodyParsed.data,
+      );
       return res.status(201).json(created);
     } catch (error) {
       return next(error);
@@ -97,7 +119,9 @@ export function createReportRouter(service: ReportService): Router {
   router.get("/:report_id/exports", async (req, res, next) => {
     const paramsParsed = reportIdParamsSchema.safeParse(req.params);
     if (!paramsParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", paramsParsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", paramsParsed.error.flatten()),
+      );
     }
 
     try {
@@ -119,13 +143,20 @@ export function createReportExportDownloadRouter(service: ReportService): Router
   router.get("/:export_id/download", async (req, res, next) => {
     const parsed = exportIdParamsSchema.safeParse(req.params);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "导出下载参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "导出下载参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
-      const { record, absoluteFilePath } = await service.resolveReportExportDownload(parsed.data.export_id);
+      const { record, absoluteFilePath } = await service.resolveReportExportDownload(
+        parsed.data.export_id,
+      );
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(record.file_name)}"`);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${encodeURIComponent(record.file_name)}"`,
+      );
       return res.sendFile(absoluteFilePath);
     } catch (error) {
       return next(error);

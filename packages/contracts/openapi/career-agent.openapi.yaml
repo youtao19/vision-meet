@@ -1478,7 +1478,8 @@ components:
 
     JobPipelineFailureRecord:
       type: object
-      required: [id, task_id, job_id, stage, error_code, error_message, attempts, retryable, created_at]
+      required:
+        [id, task_id, job_id, stage, error_code, error_message, attempts, retryable, created_at]
       properties:
         id:
           type: integer
@@ -2413,8 +2414,7 @@ components:
 
     ResumeHtmlRecord:
       type: object
-      required:
-        [id, trace_id, basic_name, target_position, input_payload, html, created_at]
+      required: [id, trace_id, basic_name, target_position, input_payload, html, created_at]
       properties:
         id:
           type: integer

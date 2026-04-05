@@ -313,16 +313,28 @@ onMounted(async () => {
           匹配结果 ID
           <input v-model="form.matchId" type="text" placeholder="例如：1" />
         </label>
-        <button class="ghost-btn" :disabled="loading.match || loading.list" @click="searchByMatchId">
+        <button
+          class="ghost-btn"
+          :disabled="loading.match || loading.list"
+          @click="searchByMatchId"
+        >
           {{ loading.match || loading.list ? "加载中..." : "加载报告上下文" }}
         </button>
-        <button class="primary-btn" :disabled="!canCreate || loading.create" @click="createNewVersion">
+        <button
+          class="primary-btn"
+          :disabled="!canCreate || loading.create"
+          @click="createNewVersion"
+        >
           {{ loading.create ? "生成中..." : "生成新报告版本" }}
         </button>
       </div>
 
       <div v-if="matchDetail" class="match-card">
-        <p>匹配结果 #{{ matchDetail.id }} | 学生画像 #{{ matchDetail.student_profile_id }} | 岗位 #{{ matchDetail.job_id }}</p>
+        <p>
+          匹配结果 #{{ matchDetail.id }} | 学生画像 #{{ matchDetail.student_profile_id }} | 岗位 #{{
+            matchDetail.job_id
+          }}
+        </p>
         <p>总分 {{ matchDetail.total_score }}，四维分数已可直接用于报告生成与后续复测。</p>
         <button class="ghost-btn inline-btn" @click="openCareerPath">打开职业路径图谱</button>
       </div>
@@ -358,10 +370,18 @@ onMounted(async () => {
           <h3 v-if="selectedReport">报告详情 #{{ selectedReport.id }}</h3>
           <h3 v-else>报告详情</h3>
           <div class="action-group">
-            <button class="ghost-btn" :disabled="!selectedReport || loading.export" @click="exportCurrentReport">
+            <button
+              class="ghost-btn"
+              :disabled="!selectedReport || loading.export"
+              @click="exportCurrentReport"
+            >
               {{ loading.export ? "导出中..." : "导出 PDF" }}
             </button>
-            <button class="primary-btn" :disabled="!selectedReport || loading.save" @click="saveCurrentReport">
+            <button
+              class="primary-btn"
+              :disabled="!selectedReport || loading.save"
+              @click="saveCurrentReport"
+            >
               {{ loading.save ? "保存中..." : "保存当前版本" }}
             </button>
           </div>
@@ -385,11 +405,15 @@ onMounted(async () => {
           <h4>结构化行动计划</h4>
           <p>短期行动：</p>
           <ul>
-            <li v-for="item in selectedReport.action_plan.short_term" :key="`s-${item}`">{{ item }}</li>
+            <li v-for="item in selectedReport.action_plan.short_term" :key="`s-${item}`">
+              {{ item }}
+            </li>
           </ul>
           <p>中期行动：</p>
           <ul>
-            <li v-for="item in selectedReport.action_plan.mid_term" :key="`m-${item}`">{{ item }}</li>
+            <li v-for="item in selectedReport.action_plan.mid_term" :key="`m-${item}`">
+              {{ item }}
+            </li>
           </ul>
         </div>
 
@@ -398,7 +422,12 @@ onMounted(async () => {
             <header>
               <p class="section-key">{{ section.key }}</p>
               <h4>{{ section.title }}</h4>
-              <button v-if="section.key === 'career_path'" class="inline-link-btn" type="button" @click="openCareerPath">
+              <button
+                v-if="section.key === 'career_path'"
+                class="inline-link-btn"
+                type="button"
+                @click="openCareerPath"
+              >
                 在图谱页查看
               </button>
             </header>
@@ -428,7 +457,9 @@ onMounted(async () => {
           <span>{{ new Date(item.created_at).toLocaleString() }}</span>
         </button>
 
-        <p v-if="!loading.exportList && exportsList.length === 0" class="empty-text">当前报告版本还没有导出记录。</p>
+        <p v-if="!loading.exportList && exportsList.length === 0" class="empty-text">
+          当前报告版本还没有导出记录。
+        </p>
         <p v-if="loading.exportList" class="empty-text">导出记录加载中...</p>
       </div>
 

@@ -14,7 +14,11 @@ import type {
 
 import { createPgAgentRepository } from "../agent/agent.repository.pg.js";
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
-import type { AiRepository, ResumeHtmlListQuery, ResumeHtmlRecordCreateInput } from "./ai.repository.js";
+import type {
+  AiRepository,
+  ResumeHtmlListQuery,
+  ResumeHtmlRecordCreateInput,
+} from "./ai.repository.js";
 
 function mapResumeHtmlRecord(row: Record<string, unknown>): ResumeHtmlRecord {
   return {
@@ -105,7 +109,9 @@ export function createPgAiRepository(pool: Pool): AiRepository {
     return mapResumeHtmlRecord(result.rows[0]);
   }
 
-  async function listResumeHtmlRecords(query: ResumeHtmlListQuery): Promise<ResumeHtmlListResponse> {
+  async function listResumeHtmlRecords(
+    query: ResumeHtmlListQuery,
+  ): Promise<ResumeHtmlListResponse> {
     await ensureSchema();
     const [listResult, countResult] = await Promise.all([
       pool.query(

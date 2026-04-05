@@ -2,9 +2,7 @@ import type { Router } from "express";
 import type { Pool } from "pg";
 
 import type { AppEnv } from "../../shared/config/env.js";
-import {
-  type Neo4jConnectionOptions,
-} from "../../shared/db/neo4j.js";
+import { type Neo4jConnectionOptions } from "../../shared/db/neo4j.js";
 import { createNeo4jJobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import { createPgJobsIntelligenceRepository } from "./jobs-intelligence.repository.pg.js";
 import { createJobsIntelligenceRouter } from "./jobs-intelligence.route.js";

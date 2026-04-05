@@ -15,14 +15,9 @@ import type {
 
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
-import {
-  isNeo4jUnavailableError,
-} from "../../shared/db/neo4j.js";
+import { isNeo4jUnavailableError } from "../../shared/db/neo4j.js";
 import { HttpError } from "../../shared/errors/http-error.js";
-import type {
-  CareerPathGraphSnapshot,
-  CareerPathRepository,
-} from "./career-path.repository.js";
+import type { CareerPathGraphSnapshot, CareerPathRepository } from "./career-path.repository.js";
 import {
   CANONICAL_CAREER_EDGES,
   CANONICAL_CAREER_ROLES,
@@ -78,7 +73,9 @@ function getRouteSummary(routeType: "promotion" | "transition", steps: CareerRou
   const lastStep = steps[steps.length - 1];
   const missingSkills = Array.from(new Set(steps.flatMap((step) => step.gap_skills)));
   const missingSkillText =
-    missingSkills.length > 0 ? `当前仍需重点补齐：${missingSkills.join("、")}。` : "当前技能结构已具备较好迁移基础。";
+    missingSkills.length > 0
+      ? `当前仍需重点补齐：${missingSkills.join("、")}。`
+      : "当前技能结构已具备较好迁移基础。";
 
   return routeType === "promotion"
     ? `建议以【${lastStep.title}】作为下一阶段目标岗位，沿当前技术主线持续进阶。${missingSkillText}`
@@ -201,13 +198,17 @@ function buildRouteRecommendations(params: {
 } {
   const maxEdges = Math.max(1, Math.min(3, params.depth));
   const promotionRoutes = buildPromotionEdgePaths(params.targetRoleKey, Math.min(2, maxEdges))
-    .map((edgePath) => mapEdgePathToRoute("promotion", params.targetRoleKey, edgePath, params.profile))
+    .map((edgePath) =>
+      mapEdgePathToRoute("promotion", params.targetRoleKey, edgePath, params.profile),
+    )
     .filter((item): item is CareerRouteRecommendation => item !== null)
     .sort((left, right) => right.suitability_score - left.suitability_score)
     .slice(0, MAX_ROUTE_COUNT);
 
   const transitionRoutes = buildTransitionEdgePaths(params.targetRoleKey, Math.min(2, maxEdges))
-    .map((edgePath) => mapEdgePathToRoute("transition", params.targetRoleKey, edgePath, params.profile))
+    .map((edgePath) =>
+      mapEdgePathToRoute("transition", params.targetRoleKey, edgePath, params.profile),
+    )
     .filter((item): item is CareerRouteRecommendation => item !== null)
     .sort((left, right) => {
       if (right.suitability_score !== left.suitability_score) {
@@ -305,7 +306,9 @@ export function createCareerPathService(
     return syncPromise;
   }
 
-  async function getCareerPathGraph(input: GetCareerPathGraphInput): Promise<CareerPathGraphResponse> {
+  async function getCareerPathGraph(
+    input: GetCareerPathGraphInput,
+  ): Promise<CareerPathGraphResponse> {
     const depth = Math.max(1, Math.min(3, input.depth ?? 2));
     const job = await jobsRepository.getJobById(input.job_id);
     if (!job) {

@@ -34,7 +34,8 @@ function mapMatchResultDetail(row: Record<string, unknown>): MatchResultDetail {
     gaps: (row.gaps as MatchResultDetail["gaps"]) ?? [],
     suggestions: (row.suggestions as string[]) ?? [],
     explanations: (row.explanations as MatchResultDetail["explanations"]) ?? [],
-    path_recommendations: (row.path_recommendations as MatchResultDetail["path_recommendations"]) ?? [],
+    path_recommendations:
+      (row.path_recommendations as MatchResultDetail["path_recommendations"]) ?? [],
     evidence_refs: Array.isArray(row.evidence_refs) ? (row.evidence_refs as string[]) : [],
     created_at: new Date(String(row.created_at)).toISOString(),
   };
@@ -204,7 +205,9 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
     };
   }
 
-  async function findReusableResult(uniqueKey: MatchResultUniqueKey): Promise<MatchResultDetail | null> {
+  async function findReusableResult(
+    uniqueKey: MatchResultUniqueKey,
+  ): Promise<MatchResultDetail | null> {
     await ensureSchema();
     const result = await pool.query(
       `

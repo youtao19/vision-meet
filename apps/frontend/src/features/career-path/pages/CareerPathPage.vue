@@ -7,7 +7,7 @@ import {
   type CareerPathV2GraphResponse,
   type CareerPathNode,
   type CareerRouteRecommendation,
-  type JobRecord,
+  type ManualJobPortraitRecord,
   type StudentProfileRecord,
 } from "@career/contracts/types";
 import { GraphChart } from "echarts/charts";
@@ -15,9 +15,9 @@ import { LegendComponent, TooltipComponent } from "echarts/components";
 import { init, use, type ECharts } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 
-import { fetchCareerPathGraph } from "@/shared/api/career-path";
+import { fetchCareerPathGraph, generateCareerPathGraph } from "@/shared/api/career-path";
 import { ApiRequestError } from "@/shared/api/http";
-import { fetchJobs } from "@/shared/api/jobs";
+import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { fetchStudentProfiles } from "@/shared/api/profile";
 
 use([CanvasRenderer, GraphChart, TooltipComponent, LegendComponent]);
@@ -25,7 +25,7 @@ use([CanvasRenderer, GraphChart, TooltipComponent, LegendComponent]);
 const route = useRoute();
 const router = useRouter();
 
-const jobs = ref<JobRecord[]>([]);
+const manualPortraits = ref<ManualJobPortraitRecord[]>([]);
 const profiles = ref<StudentProfileRecord[]>([]);
 const graphResult = ref<CareerPathV2GraphResponse | null>(null);
 const chartRef = ref<HTMLDivElement | null>(null);
@@ -35,16 +35,20 @@ const selectedEdgeId = ref("");
 const loading = reactive({
   bootstrap: false,
   graph: false,
+  generate: false,
 });
 
 const form = reactive({
   jobId: "",
   studentProfileId: "",
   depth: 2,
+  /** 图谱生成是否使用 Agent 推理模式 */
+  useAgent: false,
 });
 
 const uiState = reactive({
   error: "",
+  success: "",
 });
 
 let chartInstance: ECharts | null = null;
@@ -113,21 +117,12 @@ function buildGraphOption(result: CareerPathV2GraphResponse) {
           edgeLength: [120, 190],
           gravity: 0.08,
         },
-        categories: [
-          { name: "目标岗位" },
-          { name: "晋升岗位" },
-          { name: "转岗岗位" },
-        ],
+        categories: [{ name: "目标岗位" }, { name: "晋升岗位" }, { name: "转岗岗位" }],
         data: result.nodes.map((node) => ({
           id: node.id,
           name: node.title,
           value: node.level,
-          category:
-            node.category === "target"
-              ? 0
-              : node.category === "promotion"
-                ? 1
-                : 2,
+          category: node.category === "target" ? 0 : node.category === "promotion" ? 1 : 2,
           symbolSize: node.is_target ? 66 : node.category === "promotion" ? 54 : 48,
           label: {
             show: true,
@@ -168,10 +163,14 @@ function buildGraphOption(result: CareerPathV2GraphResponse) {
 async function bootstrap(): Promise<void> {
   loading.bootstrap = true;
   uiState.error = "";
+  uiState.success = "";
 
   try {
-    const [jobResponse, profileResponse] = await Promise.all([fetchJobs(100), fetchStudentProfiles()]);
-    jobs.value = jobResponse.items;
+    const [manualResponse, profileResponse] = await Promise.all([
+      fetchManualJobPortraits(),
+      fetchStudentProfiles(),
+    ]);
+    manualPortraits.value = manualResponse.items;
     profiles.value = profileResponse.items;
   } catch (error) {
     uiState.error = formatApiError(error);
@@ -220,10 +219,37 @@ async function searchGraph(): Promise<void> {
     path: "/career-paths",
     query: {
       job_id: String(jobId),
-      ...(toPositiveInt(form.studentProfileId) ? { student_profile_id: form.studentProfileId } : {}),
+      ...(toPositiveInt(form.studentProfileId)
+        ? { student_profile_id: form.studentProfileId }
+        : {}),
       depth: String(form.depth),
     },
   });
+}
+
+async function generateGraph(): Promise<void> {
+  loading.generate = true;
+  uiState.error = "";
+  uiState.success = "";
+
+  try {
+    const result = await generateCareerPathGraph({
+      force_rebuild: true,
+      max_candidates_per_node: 24,
+      use_agent: form.useAgent,
+    });
+
+    const modeLabel = result.generation_mode === "agent" ? "Agent 推理" : "规则引擎";
+    uiState.success = `图谱生成完成（${modeLabel}）：节点 ${result.nodes_written}，边 ${result.edges_written}，覆盖换岗岗位 ${result.transition_path_coverage.jobs_with_paths}`;
+
+    if (toPositiveInt(form.jobId)) {
+      await loadGraph();
+    }
+  } catch (error) {
+    uiState.error = formatApiError(error);
+  } finally {
+    loading.generate = false;
+  }
 }
 
 async function syncFromQuery(): Promise<void> {
@@ -282,6 +308,22 @@ const selectedEdge = computed(() => {
   return graphResult.value?.edges.find((edge) => edge.id === selectedEdgeId.value) ?? null;
 });
 
+const targetJobOptions = computed(() => {
+  const options = [] as Array<{ job_id: number; job_name: string; category: string }>;
+  for (const portrait of manualPortraits.value) {
+    if (!portrait.job_id) {
+      continue;
+    }
+    options.push({
+      job_id: portrait.job_id,
+      job_name: portrait.job_name,
+      category: portrait.category,
+    });
+  }
+
+  return options;
+});
+
 function routeKey(routeItem: CareerRouteRecommendation): string {
   return routeItem.route_id;
 }
@@ -320,6 +362,7 @@ onUnmounted(() => {
     </header>
 
     <p v-if="uiState.error" class="notice notice-error">{{ uiState.error }}</p>
+    <p v-if="uiState.success" class="notice notice-success">{{ uiState.success }}</p>
 
     <section class="panel">
       <h3>查询条件</h3>
@@ -328,8 +371,12 @@ onUnmounted(() => {
           目标岗位
           <select v-model="form.jobId" :disabled="loading.bootstrap || loading.graph">
             <option value="">请选择</option>
-            <option v-for="job in jobs" :key="job.id" :value="String(job.id)">
-              #{{ job.id }} {{ job.title }}
+            <option
+              v-for="option in targetJobOptions"
+              :key="`${option.job_id}-${option.job_name}`"
+              :value="String(option.job_id)"
+            >
+              #{{ option.job_id }} {{ option.job_name }}（{{ option.category }}）
             </option>
           </select>
         </label>
@@ -353,8 +400,33 @@ onUnmounted(() => {
           </select>
         </label>
 
-        <button class="primary-btn" :disabled="loading.graph" @click="searchGraph">
+        <button
+          class="primary-btn"
+          :disabled="loading.graph || loading.generate"
+          @click="searchGraph"
+        >
           {{ loading.graph ? "加载中..." : "加载图谱" }}
+        </button>
+
+        <label class="agent-toggle">
+          <input type="checkbox" v-model="form.useAgent" :disabled="loading.generate" />
+          <span>Agent 推理</span>
+        </label>
+
+        <button
+          class="secondary-btn"
+          :disabled="loading.generate || loading.graph"
+          @click="generateGraph"
+        >
+          {{
+            loading.generate
+              ? form.useAgent
+                ? "Agent 分析中..."
+                : "生成中..."
+              : form.useAgent
+                ? "Agent 生成图谱"
+                : "规则生成图谱"
+          }}
         </button>
       </div>
     </section>
@@ -394,26 +466,38 @@ onUnmounted(() => {
             <p>关系分值：{{ selectedEdge.score }}</p>
           </div>
 
-          <p v-if="!selectedNode && !selectedEdge" class="empty-text">点击图谱节点或连线后查看详情。</p>
+          <p v-if="!selectedNode && !selectedEdge" class="empty-text">
+            点击图谱节点或连线后查看详情。
+          </p>
         </section>
 
         <section class="panel">
           <h3>晋升路径</h3>
-          <article v-for="item in graphResult.promotion_routes" :key="routeKey(item)" class="route-card">
+          <article
+            v-for="item in graphResult.promotion_routes"
+            :key="routeKey(item)"
+            class="route-card"
+          >
             <header>
               <strong>{{ item.title }}</strong>
               <span class="route-score">{{ item.suitability_score }} 分</span>
             </header>
             <p>{{ item.summary }}</p>
-            <p class="muted">缺口技能：{{ item.missing_skills.join("、") || "当前已具备主要能力" }}</p>
+            <p class="muted">
+              缺口技能：{{ item.missing_skills.join("、") || "当前已具备主要能力" }}
+            </p>
             <ol class="route-steps">
               <li v-for="step in item.steps" :key="`${item.route_id}-${step.node_id}`">
                 {{ step.title }}
-                <span v-if="step.required_skills.length > 0"> · 关键技能：{{ step.required_skills.join("、") }}</span>
+                <span v-if="step.required_skills.length > 0">
+                  · 关键技能：{{ step.required_skills.join("、") }}</span
+                >
               </li>
             </ol>
           </article>
-          <p v-if="graphResult.promotion_routes.length === 0" class="empty-text">当前暂无可展示的晋升路径。</p>
+          <p v-if="graphResult.promotion_routes.length === 0" class="empty-text">
+            当前暂无可展示的晋升路径。
+          </p>
         </section>
 
         <section class="panel">
@@ -428,21 +512,29 @@ onUnmounted(() => {
               <span class="route-score">{{ item.suitability_score }} 分</span>
             </header>
             <p>{{ item.summary }}</p>
-            <p class="muted">缺口技能：{{ item.missing_skills.join("、") || "当前已具备主要能力" }}</p>
+            <p class="muted">
+              缺口技能：{{ item.missing_skills.join("、") || "当前已具备主要能力" }}
+            </p>
             <ol class="route-steps">
               <li v-for="step in item.steps" :key="`${item.route_id}-${step.node_id}`">
                 {{ step.title }}
-                <span v-if="step.required_skills.length > 0"> · 关键技能：{{ step.required_skills.join("、") }}</span>
+                <span v-if="step.required_skills.length > 0">
+                  · 关键技能：{{ step.required_skills.join("、") }}</span
+                >
               </li>
             </ol>
           </article>
-          <p v-if="graphResult.transition_routes.length === 0" class="empty-text">当前暂无可展示的换岗路径。</p>
+          <p v-if="graphResult.transition_routes.length === 0" class="empty-text">
+            当前暂无可展示的换岗路径。
+          </p>
         </section>
       </aside>
     </section>
 
     <section v-else class="panel">
-      <p class="empty-text">请选择岗位并加载图谱。若岗位未被首批规范岗位覆盖，接口会返回明确提示。</p>
+      <p class="empty-text">
+        请选择岗位并加载图谱。若岗位未被首批规范岗位覆盖，接口会返回明确提示。
+      </p>
     </section>
   </section>
 </template>
@@ -493,6 +585,11 @@ onUnmounted(() => {
   color: #991b1b;
 }
 
+.notice-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .panel {
   padding: 16px;
   border: 1px solid #dbe4f0;
@@ -502,7 +599,7 @@ onUnmounted(() => {
 
 .toolbar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
 }
@@ -526,6 +623,43 @@ select {
   padding: 8px 12px;
   background: #0f766e;
   color: #ffffff;
+  cursor: pointer;
+}
+
+.secondary-btn {
+  border: 1px solid #1d4ed8;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.agent-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.agent-toggle:has(input:checked) {
+  border-color: #7c3aed;
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.agent-toggle input[type="checkbox"] {
+  accent-color: #7c3aed;
   cursor: pointer;
 }
 

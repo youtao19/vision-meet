@@ -46,7 +46,10 @@ const uiState = reactive({
 });
 
 const canCreate = computed(() => {
-  return toPositiveInt(createForm.studentProfileId) !== undefined && toPositiveInt(createForm.jobId) !== undefined;
+  return (
+    toPositiveInt(createForm.studentProfileId) !== undefined &&
+    toPositiveInt(createForm.jobId) !== undefined
+  );
 });
 
 function toPositiveInt(raw: string): number | undefined {
@@ -56,9 +59,7 @@ function toPositiveInt(raw: string): number | undefined {
 
 function formatApiError(error: unknown): string {
   if (error instanceof ApiRequestError) {
-    return error.traceId
-      ? `${error.message}（trace_id: ${error.traceId}）`
-      : error.message;
+    return error.traceId ? `${error.message}（trace_id: ${error.traceId}）` : error.message;
   }
 
   if (error instanceof Error) {
@@ -214,7 +215,10 @@ onMounted(async () => {
       <div class="grid two-col">
         <label>
           学生画像
-          <select v-model="createForm.studentProfileId" :disabled="loading.bootstrap || loading.create">
+          <select
+            v-model="createForm.studentProfileId"
+            :disabled="loading.bootstrap || loading.create"
+          >
             <option value="">请选择</option>
             <option v-for="profile in profiles" :key="profile.id" :value="String(profile.id)">
               #{{ profile.id }} {{ profile.name }}（{{ profile.target_role }}）
@@ -238,7 +242,11 @@ onMounted(async () => {
         强制重算（忽略缓存）
       </label>
 
-      <button class="primary-btn" :disabled="!canCreate || loading.create" @click="submitCreateMatch">
+      <button
+        class="primary-btn"
+        :disabled="!canCreate || loading.create"
+        @click="submitCreateMatch"
+      >
         {{ loading.create ? "分析中..." : "开始匹配分析" }}
       </button>
     </section>
@@ -264,7 +272,8 @@ onMounted(async () => {
         <h4>差距项</h4>
         <ul>
           <li v-for="gap in selectedDetail.gaps" :key="gap.dimension">
-            {{ gap.dimension }}：当前 {{ gap.current_score }} / 目标 {{ gap.target_score }}（差距 {{ gap.gap }}）
+            {{ gap.dimension }}：当前 {{ gap.current_score }} / 目标 {{ gap.target_score }}（差距
+            {{ gap.gap }}）
           </li>
         </ul>
       </div>
@@ -293,8 +302,13 @@ onMounted(async () => {
       </div>
 
       <div class="action-row">
-        <button class="ghost-btn" :disabled="loading.create" @click="repeatAnalyze">重复分析（验证一致性）</button>
-        <button class="ghost-btn" @click="goToCareerPath(selectedDetail.job_id, selectedDetail.student_profile_id)">
+        <button class="ghost-btn" :disabled="loading.create" @click="repeatAnalyze">
+          重复分析（验证一致性）
+        </button>
+        <button
+          class="ghost-btn"
+          @click="goToCareerPath(selectedDetail.job_id, selectedDetail.student_profile_id)"
+        >
           查看路径规划
         </button>
         <button class="primary-btn" @click="goToReport(selectedDetail.id)">生成/查看报告</button>
@@ -349,8 +363,15 @@ onMounted(async () => {
             <td>{{ new Date(item.created_at).toLocaleString() }}</td>
             <td>
               <div class="table-actions">
-                <button class="table-btn" :disabled="loading.detail" @click="openDetail(item.id)">详情</button>
-                <button class="table-btn" @click="goToCareerPath(item.job_id, item.student_profile_id)">路径</button>
+                <button class="table-btn" :disabled="loading.detail" @click="openDetail(item.id)">
+                  详情
+                </button>
+                <button
+                  class="table-btn"
+                  @click="goToCareerPath(item.job_id, item.student_profile_id)"
+                >
+                  路径
+                </button>
                 <button class="table-btn" @click="goToReport(item.id)">报告</button>
               </div>
             </td>

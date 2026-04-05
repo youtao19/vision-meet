@@ -95,9 +95,7 @@ function extractMaxYears(text: string): number | null {
     return null;
   }
 
-  const values = matches
-    .map((item) => Number(item[1]))
-    .filter((value) => Number.isFinite(value));
+  const values = matches.map((item) => Number(item[1])).filter((value) => Number.isFinite(value));
   if (values.length === 0) {
     return null;
   }

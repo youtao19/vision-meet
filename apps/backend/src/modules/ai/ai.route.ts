@@ -88,12 +88,7 @@ export function createAiRouter(service: AiService): Router {
     const parsed = aiResumeHtmlIdParamsSchema.safeParse(req.params);
     if (!parsed.success) {
       return next(
-        new HttpError(
-          400,
-          "AI_RESUME_HTML_ID_INVALID",
-          "简历标识不合法",
-          parsed.error.flatten(),
-        ),
+        new HttpError(400, "AI_RESUME_HTML_ID_INVALID", "简历标识不合法", parsed.error.flatten()),
       );
     }
 

@@ -37,7 +37,10 @@ function buildJob(overrides: Partial<JobRecord> = {}): JobRecord {
   };
 }
 
-function hasEvidenceForField(facts: PostingProfileFacts, field: PostingProfileFacts["evidence"][number]["field"]): boolean {
+function hasEvidenceForField(
+  facts: PostingProfileFacts,
+  field: PostingProfileFacts["evidence"][number]["field"],
+): boolean {
   return facts.evidence.some((item) => item.field === field && item.text.trim().length > 0);
 }
 
@@ -92,7 +95,11 @@ test("buildCanonicalRoleProfile: 应按频率分层聚合技能", () => {
       soft_skills: ["沟通"],
       industry_context: ["互联网"],
       evidence: [
-        { field: "required_skills", text: "熟悉 JavaScript、TypeScript、Vue", source: "job_description" },
+        {
+          field: "required_skills",
+          text: "熟悉 JavaScript、TypeScript、Vue",
+          source: "job_description",
+        },
       ],
       confidence: 0.8,
     },
@@ -111,7 +118,11 @@ test("buildCanonicalRoleProfile: 应按频率分层聚合技能", () => {
       soft_skills: ["协作"],
       industry_context: ["互联网"],
       evidence: [
-        { field: "required_skills", text: "掌握 JavaScript、TypeScript、Vue、CSS", source: "job_description" },
+        {
+          field: "required_skills",
+          text: "掌握 JavaScript、TypeScript、Vue、CSS",
+          source: "job_description",
+        },
       ],
       confidence: 0.82,
     },
@@ -130,7 +141,11 @@ test("buildCanonicalRoleProfile: 应按频率分层聚合技能", () => {
       soft_skills: ["学习"],
       industry_context: ["互联网"],
       evidence: [
-        { field: "required_skills", text: "掌握 JavaScript、TypeScript、React", source: "job_description" },
+        {
+          field: "required_skills",
+          text: "掌握 JavaScript、TypeScript、React",
+          source: "job_description",
+        },
       ],
       confidence: 0.76,
     },
@@ -328,7 +343,9 @@ test("buildCanonicalRoleProfile: 应产出稳定的结构化岗位总结", () =>
       experience_requirement: "2年",
       soft_skills: ["沟通"],
       industry_context: ["互联网"],
-      evidence: [{ field: "required_skills", text: "熟悉 Java、SQL、Spring", source: "job_description" }],
+      evidence: [
+        { field: "required_skills", text: "熟悉 Java、SQL、Spring", source: "job_description" },
+      ],
       confidence: 0.82,
     },
     {

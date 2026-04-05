@@ -46,7 +46,13 @@ test("buildAutoCareerGraph: 应输出带版本元信息的图谱快照", () => {
     buildProfile({ id: 2, family: "frontend", level: 2, skills: ["typescript", "vue", "node"] }),
   ];
 
-  const snapshot = buildAutoCareerGraph(profiles, new Map([[1, "前端工程师"], [2, "前端高级工程师"]]));
+  const snapshot = buildAutoCareerGraph(
+    profiles,
+    new Map([
+      [1, "前端工程师"],
+      [2, "前端高级工程师"],
+    ]),
+  );
   assert.equal(typeof snapshot.graph_version, "string");
   assert.ok(snapshot.graph_version.length > 0);
   assert.equal(typeof snapshot.generated_at, "string");
@@ -58,20 +64,36 @@ test("buildAutoCareerGraph: 晋升边必须满足同岗位族且 level+1", () =>
     buildProfile({ id: 11, family: "frontend", level: 1, skills: ["typescript", "vue", "css"] }),
     buildProfile({ id: 12, family: "frontend", level: 2, skills: ["typescript", "vue", "node"] }),
     buildProfile({ id: 13, family: "backend", level: 2, skills: ["java", "sql", "spring"] }),
-    buildProfile({ id: 14, family: "frontend", level: 3, skills: ["typescript", "node", "system-design"] }),
+    buildProfile({
+      id: 14,
+      family: "frontend",
+      level: 3,
+      skills: ["typescript", "node", "system-design"],
+    }),
   ];
 
   const snapshot = buildAutoCareerGraph(profiles, new Map());
   const promotionEdges = snapshot.edges.filter((edge) => edge.relation_type === "promotion");
 
   assert.ok(promotionEdges.some((edge) => edge.source === "job-11" && edge.target === "job-12"));
-  assert.equal(promotionEdges.some((edge) => edge.source === "job-11" && edge.target === "job-13"), false);
-  assert.equal(promotionEdges.some((edge) => edge.source === "job-11" && edge.target === "job-14"), false);
+  assert.equal(
+    promotionEdges.some((edge) => edge.source === "job-11" && edge.target === "job-13"),
+    false,
+  );
+  assert.equal(
+    promotionEdges.some((edge) => edge.source === "job-11" && edge.target === "job-14"),
+    false,
+  );
 });
 
 test("buildAutoCareerGraph: 换岗边必须跨岗位族且满足可迁移技能阈值", () => {
   const profiles = [
-    buildProfile({ id: 21, family: "frontend", level: 2, skills: ["typescript", "react", "css", "node"] }),
+    buildProfile({
+      id: 21,
+      family: "frontend",
+      level: 2,
+      skills: ["typescript", "react", "css", "node"],
+    }),
     buildProfile({ id: 22, family: "data", level: 2, skills: ["python", "sql", "pandas"] }),
     buildProfile({ id: 23, family: "product", level: 2, skills: ["typescript", "react", "axure"] }),
     buildProfile({ id: 24, family: "frontend", level: 2, skills: ["typescript", "react", "css"] }),
@@ -81,14 +103,25 @@ test("buildAutoCareerGraph: 换岗边必须跨岗位族且满足可迁移技能�
   const transitionEdges = snapshot.edges.filter((edge) => edge.relation_type === "transition");
 
   assert.ok(transitionEdges.some((edge) => edge.source === "job-21" && edge.target === "job-23"));
-  assert.equal(transitionEdges.some((edge) => edge.source === "job-21" && edge.target === "job-22"), false);
-  assert.equal(transitionEdges.some((edge) => edge.source === "job-21" && edge.target === "job-24"), false);
+  assert.equal(
+    transitionEdges.some((edge) => edge.source === "job-21" && edge.target === "job-22"),
+    false,
+  );
+  assert.equal(
+    transitionEdges.some((edge) => edge.source === "job-21" && edge.target === "job-24"),
+    false,
+  );
 });
 
 test("buildAutoCareerGraph: 每条边都应具备可解释字段", () => {
   const profiles = [
     buildProfile({ id: 31, family: "backend", level: 1, skills: ["java", "sql", "redis"] }),
-    buildProfile({ id: 32, family: "backend", level: 2, skills: ["java", "sql", "redis", "kafka"] }),
+    buildProfile({
+      id: 32,
+      family: "backend",
+      level: 2,
+      skills: ["java", "sql", "redis", "kafka"],
+    }),
   ];
 
   const snapshot = buildAutoCareerGraph(profiles, new Map());

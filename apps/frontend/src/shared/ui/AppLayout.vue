@@ -1,9 +1,13 @@
 <template>
   <div class="font-body text-slate-800 transition-colors bg-surface min-h-screen">
     <!-- TopNavBar -->
-    <header class="sticky top-0 z-50 flex items-center justify-between px-6 h-16 w-full backdrop-blur-lg border-b border-sky-400/10 shadow-[0_0_30px_rgba(125,211,252,0.05)] bg-slate-100/60">
+    <header
+      class="sticky top-0 z-50 flex items-center justify-between px-6 h-16 w-full backdrop-blur-lg border-b border-sky-400/10 shadow-[0_0_30px_rgba(125,211,252,0.05)] bg-slate-100/60"
+    >
       <div class="flex items-center gap-4">
-        <span class="text-2xl font-semibold tracking-tight text-sky-600 font-['Inter']">预见遇见</span>
+        <span class="text-2xl font-semibold tracking-tight text-sky-600 font-['Inter']"
+          >预见遇见</span
+        >
       </div>
       <div class="flex items-center gap-4">
         <button class="p-2 text-slate-500 hover:text-sky-600 active:scale-95 transition-all">
@@ -17,37 +21,63 @@
 
     <div class="flex min-h-[calc(100vh-4rem)]">
       <!-- SideNavBar -->
-      <aside class="hidden md:flex fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 flex-col pt-4 pb-8 backdrop-blur-xl border-r border-sky-400/10 shadow-2xl z-40 bg-slate-100/70">
+      <aside
+        class="hidden md:flex fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 flex-col pt-4 pb-8 backdrop-blur-xl border-r border-sky-400/10 shadow-2xl z-40 bg-slate-100/70"
+      >
         <nav class="flex-1 space-y-1">
-          <RouterLink to="/" class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200">
+          <RouterLink
+            to="/"
+            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
+          >
             <span class="material-symbols-outlined">dashboard</span>
             <span class="font-['Inter'] text-sm font-medium">控制台</span>
           </RouterLink>
-          <RouterLink to="/pipeline" class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200">
+          <RouterLink
+            to="/pipeline"
+            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
+          >
             <span class="material-symbols-outlined">hub</span>
             <span class="font-['Inter'] text-sm font-medium">数据处理中心</span>
           </RouterLink>
-          <RouterLink to="/job-profiles" class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200">
+          <RouterLink
+            to="/job-profiles"
+            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
+          >
             <span class="material-symbols-outlined">badge</span>
             <span class="font-['Inter'] text-sm font-medium">岗位画像中心</span>
           </RouterLink>
-          <RouterLink to="/career-paths" class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200">
+          <RouterLink
+            to="/career-paths"
+            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
+          >
             <span class="material-symbols-outlined">route</span>
             <span class="font-['Inter'] text-sm font-medium">路径图谱中心</span>
           </RouterLink>
-          <RouterLink to="/profile" class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200">
+          <RouterLink
+            to="/profile"
+            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
+          >
             <span class="material-symbols-outlined">person</span>
             <span class="font-['Inter'] text-sm font-medium">学生画像中心</span>
           </RouterLink>
-          <RouterLink to="/matching" class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200">
+          <RouterLink
+            to="/matching"
+            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
+          >
             <span class="material-symbols-outlined">compare_arrows</span>
             <span class="font-['Inter'] text-sm font-medium">匹配分析中心</span>
           </RouterLink>
-          <RouterLink to="/report" class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200">
+          <RouterLink
+            to="/report"
+            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
+          >
             <span class="material-symbols-outlined">analytics</span>
             <span class="font-['Inter'] text-sm font-medium">职业报告中心</span>
           </RouterLink>
-          <RouterLink to="/agent" class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200">
+          <RouterLink
+            to="/agent"
+            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
+          >
             <span class="material-symbols-outlined">smart_toy</span>
             <span class="font-['Inter'] text-sm font-medium">Pi Agent</span>
           </RouterLink>
@@ -85,6 +115,10 @@
 }
 
 .material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
 }
 </style>

@@ -19,6 +19,7 @@ import type {
   CanonicalRolesListParams,
   CanonicalRolesListResponse,
   CareerPathNode,
+  CareerPathV2GenerateResponse,
   CareerPathV2GraphResponse,
   CareerRouteRecommendation,
   CareerRouteStep,
@@ -50,6 +51,8 @@ import {
   groupPostingFactsByRole,
   isPostingFactEligibleForCanonical,
 } from "./jobs-intelligence.profile.js";
+import { buildCareerGraphFromManualPortraits } from "./jobs-intelligence.graph.manual.js";
+import { generateCareerGraphByAgent } from "./jobs-intelligence.graph.agent.js";
 import type { JobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
 
@@ -125,21 +128,24 @@ function tokenizeKeywords(input: string): string[] {
   ).slice(0, 24);
 }
 
-function buildPipelineCleanedJob(taskId: number, job: {
-  id: number;
-  source_row_id: string | null;
-  title: string;
-  job_description: string | null;
-  company_intro: string | null;
-  normalized_title_hint: string | null;
-  normalized_job_family_hint: string | null;
-  normalization_confidence_hint: number | null;
-  location: string | null;
-  salary_range: string | null;
-  company_name: string | null;
-  industry: string | null;
-  raw_payload: Record<string, unknown>;
-}): PipelineCleanedJob {
+function buildPipelineCleanedJob(
+  taskId: number,
+  job: {
+    id: number;
+    source_row_id: string | null;
+    title: string;
+    job_description: string | null;
+    company_intro: string | null;
+    normalized_title_hint: string | null;
+    normalized_job_family_hint: string | null;
+    normalization_confidence_hint: number | null;
+    location: string | null;
+    salary_range: string | null;
+    company_name: string | null;
+    industry: string | null;
+    raw_payload: Record<string, unknown>;
+  },
+): PipelineCleanedJob {
   const normalizedTitle = sanitizePlainText(job.normalized_title_hint || job.title || "未知岗位");
   const jobFamily = sanitizePlainText(job.normalized_job_family_hint || "other") || "other";
   const mergedText = sanitizePlainText(
@@ -213,9 +219,9 @@ function clampPortraitWeight(weight: number): number {
 }
 
 function toPortraitDimension(input: unknown): PortraitDimension {
-  const source = (input && typeof input === "object"
-    ? (input as Partial<PortraitDimension>)
-    : {}) as Partial<PortraitDimension>;
+  const source = (
+    input && typeof input === "object" ? (input as Partial<PortraitDimension>) : {}
+  ) as Partial<PortraitDimension>;
 
   return {
     level: Number.isFinite(source.level) ? Number(source.level) : 3,
@@ -402,7 +408,10 @@ async function generateJobPortraitsByAgent(params: {
       return;
     }
 
-    if (event.type === "message_end" && (event.message as { role?: unknown }).role === "assistant") {
+    if (
+      event.type === "message_end" &&
+      (event.message as { role?: unknown }).role === "assistant"
+    ) {
       const finalText = streamingAssistantBuffer.trim() || summarizeAssistantMessage(event.message);
       streamingAssistantBuffer = "";
       if (finalText) {
@@ -478,11 +487,7 @@ function isRetryableFailure(message: string): boolean {
   );
 }
 
-function computeBackoffDelay(params: {
-  attempt: number;
-  baseMs: number;
-  maxMs: number;
-}): number {
+function computeBackoffDelay(params: { attempt: number; baseMs: number; maxMs: number }): number {
   const exp = params.baseMs * 2 ** Math.max(0, params.attempt - 1);
   const jitter = Math.floor(Math.random() * 300);
   return Math.min(params.maxMs, exp + jitter);
@@ -494,8 +499,15 @@ function scaledMinimum(total: number, ratio: number, floor: number): number {
 
 type CareerPathQueryOptions = {
   depth: number;
-  relation_type: "promotion" | "transition" | "all";
+  relation_type: "promotion" | "transition" | "skill_migration" | "all";
   min_score: number;
+};
+
+type CareerPathGenerateOptions = {
+  force_rebuild?: boolean;
+  max_candidates_per_node?: number;
+  /** 是否使用 Agent 推理生成图谱关系，默认 false 走规则引擎 */
+  use_agent?: boolean;
 };
 
 function isAuthenticationFailure(message: string): boolean {
@@ -757,7 +769,13 @@ export interface JobsIntelligenceService {
   listCanonicalRoles(params: CanonicalRolesListParams): Promise<CanonicalRolesListResponse>;
   getCanonicalRole(roleKey: string): Promise<CanonicalRoleRecord>;
   listManualJobPortraits(): Promise<ManualJobPortraitRecord[]>;
-  getCareerPathGraph(jobId: number, options: CareerPathQueryOptions | number): Promise<CareerPathV2GraphResponse>;
+  generateCareerPathGraph(
+    options: CareerPathGenerateOptions,
+  ): Promise<CareerPathV2GenerateResponse>;
+  getCareerPathGraph(
+    jobId: number,
+    options: CareerPathQueryOptions | number,
+  ): Promise<CareerPathV2GraphResponse>;
 }
 
 export function createJobsIntelligenceService(
@@ -928,7 +946,9 @@ export function createJobsIntelligenceService(
    * 参数：limit 为本次最多处理数量。
    * 返回：本次领取、成功、失败、重新排队数量统计。
    */
-  async function processPipelineRetryQueue(input: { limit: number }): Promise<JobPipelineRetryProcessResult> {
+  async function processPipelineRetryQueue(input: {
+    limit: number;
+  }): Promise<JobPipelineRetryProcessResult> {
     if (
       typeof repository.claimPipelineRetryQueue !== "function" ||
       typeof repository.updatePipelineRetryQueueStatus !== "function"
@@ -1044,9 +1064,123 @@ export function createJobsIntelligenceService(
 
   async function listManualJobPortraits(): Promise<ManualJobPortraitRecord[]> {
     if (typeof repository.listManualJobPortraits !== "function") {
-      throw new HttpError(501, "MANUAL_JOB_PORTRAITS_UNSUPPORTED", "当前仓储未实现人工岗位画像查询");
+      throw new HttpError(
+        501,
+        "MANUAL_JOB_PORTRAITS_UNSUPPORTED",
+        "当前仓储未实现人工岗位画像查询",
+      );
     }
     return repository.listManualJobPortraits();
+  }
+
+  /**
+   * 作用：基于 v2_manual_job_portraits 重新生成职业图谱并写入图数据库。
+   * 参数：
+   *   - use_agent: 是否使用 Agent 推理生成图谱关系（含智能 reason），默认 false 走规则引擎。
+   *   - max_candidates_per_node: 控制规则引擎的候选召回规模。
+   * 返回：图谱写入统计与覆盖率指标，供前端提示和运维审计。
+   * 注意：
+   *   - 强制读取 v2_manual_job_portraits，确保图谱来源稳定可追溯。
+   *   - Agent 模式下如果失败，会自动降级到规则引擎并在日志中记录警告。
+   */
+  async function generateCareerPathGraph(
+    options: CareerPathGenerateOptions,
+  ): Promise<CareerPathV2GenerateResponse> {
+    if (typeof repository.listManualJobPortraitsFromTable !== "function") {
+      throw new HttpError(
+        501,
+        "MANUAL_PORTRAIT_TABLE_UNSUPPORTED",
+        "当前仓储未实现 v2_manual_job_portraits 读取能力",
+      );
+    }
+
+    const portraits = await repository.listManualJobPortraitsFromTable();
+    if (portraits.length === 0) {
+      throw new HttpError(
+        404,
+        "MANUAL_PORTRAITS_EMPTY",
+        "v2_manual_job_portraits 暂无可用岗位画像",
+      );
+    }
+
+    // ── Agent 模式：调用 Pi Agent 生成智能图谱 ──
+    if (options.use_agent) {
+      try {
+        const agentResult = await generateCareerGraphByAgent({
+          portraits,
+          env,
+          cwd: process.cwd(),
+        });
+
+        const syncResult = await graphRepository.syncGraph(agentResult.snapshot);
+
+        console.info(
+          `[career-graph] agent mode finished: nodes=${syncResult.nodes_upserted} edges=${syncResult.edges_upserted} model=${agentResult.model} trace_id=${agentResult.traceId}`,
+        );
+
+        return {
+          graph_version: agentResult.snapshot.graph_version,
+          generated_at: agentResult.snapshot.generated_at,
+          generation_mode: "agent",
+          nodes_written: syncResult.nodes_upserted,
+          edges_written: syncResult.edges_upserted,
+          candidate_pairs: agentResult.stats.candidate_pairs,
+          validated_pairs: agentResult.stats.validated_pairs,
+          promotion_edges: agentResult.stats.promotion_edges,
+          transition_edges: agentResult.stats.transition_edges,
+          skill_migration_edges: agentResult.stats.skill_migration_edges,
+          transition_path_coverage: {
+            jobs_with_paths: agentResult.stats.transition_jobs_with_paths,
+            min_paths_required: 2,
+            target_job_count: 5,
+          },
+        };
+      } catch (agentError) {
+        // Agent 失败时自动降级到规则引擎
+        const reason = agentError instanceof Error ? agentError.message : String(agentError);
+        console.warn(`[career-graph] agent mode failed, falling back to rule engine: ${reason}`);
+      }
+    }
+
+    // ── 规则模式：使用内置规则引擎生成图谱 ──
+    const pipelineJobs = await repository.listPipelineJobs("cleanse_agent_portraits");
+    const jobIdByTitle = new Map<string, number>();
+    for (const job of pipelineJobs) {
+      const key = job.title.trim().toLowerCase();
+      if (!jobIdByTitle.has(key)) {
+        jobIdByTitle.set(key, job.id);
+      }
+    }
+
+    const buildResult = buildCareerGraphFromManualPortraits({
+      portraits,
+      jobIdByTitle,
+      options: {
+        maxCandidatesPerNode: Math.max(5, Math.min(80, options.max_candidates_per_node ?? 24)),
+        minTransitionPathsPerJob: 2,
+        targetTransitionJobCount: 5,
+      },
+    });
+
+    const syncResult = await graphRepository.syncGraph(buildResult.snapshot);
+
+    return {
+      graph_version: buildResult.snapshot.graph_version,
+      generated_at: buildResult.snapshot.generated_at,
+      generation_mode: "rule",
+      nodes_written: syncResult.nodes_upserted,
+      edges_written: syncResult.edges_upserted,
+      candidate_pairs: buildResult.stats.candidate_pairs,
+      validated_pairs: buildResult.stats.validated_pairs,
+      promotion_edges: buildResult.stats.promotion_edges,
+      transition_edges: buildResult.stats.transition_edges,
+      skill_migration_edges: buildResult.stats.skill_migration_edges,
+      transition_path_coverage: {
+        jobs_with_paths: buildResult.stats.transition_jobs_with_paths,
+        min_paths_required: 2,
+        target_job_count: 5,
+      },
+    };
   }
 
   async function getCareerPathGraph(
@@ -1073,17 +1207,17 @@ export function createJobsIntelligenceService(
         return edge.score >= query.min_score;
       })
       .map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      relation_type: edge.relation_type,
-      reason: edge.reason,
-      required_skills: edge.required_skills,
-      gap_skills: edge.gap_skills,
-      transition_cost: edge.transition_cost,
-      direction_label: edge.direction_label,
-      score: edge.score,
-    }));
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        relation_type: edge.relation_type,
+        reason: edge.reason,
+        required_skills: edge.required_skills,
+        gap_skills: edge.gap_skills,
+        transition_cost: edge.transition_cost,
+        direction_label: edge.direction_label,
+        score: edge.score,
+      }));
 
     const promotionRoutes = buildRouteRecommendations({
       targetNodeId: targetNode.id,
@@ -1163,6 +1297,7 @@ export function createJobsIntelligenceService(
     listCanonicalRoles,
     getCanonicalRole,
     listManualJobPortraits,
+    generateCareerPathGraph,
     getCareerPathGraph,
   };
 }

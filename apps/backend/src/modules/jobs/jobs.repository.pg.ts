@@ -108,7 +108,9 @@ export function createPgJobsRepository(pool: Pool): JobsRepository {
     return schemaReady;
   }
 
-  async function addJobs(rows: JobCreateInput[]): Promise<{ imported: number; insertedJobs: JobRecord[] }> {
+  async function addJobs(
+    rows: JobCreateInput[],
+  ): Promise<{ imported: number; insertedJobs: JobRecord[] }> {
     await ensureSchema();
     const client = await pool.connect();
     try {

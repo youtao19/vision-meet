@@ -15,15 +15,9 @@ import type {
 
 import type { AppEnv } from "../../../shared/config/env.js";
 import { HttpError } from "../../../shared/errors/http-error.js";
-import {
-  createJobsIntelligenceService,
-} from "../jobs-intelligence.service.js";
-import type {
-  JobsIntelligenceGraphRepository,
-} from "../jobs-intelligence.repository.neo4j.js";
-import type {
-  JobsIntelligenceRepository,
-} from "../jobs-intelligence.repository.js";
+import { createJobsIntelligenceService } from "../jobs-intelligence.service.js";
+import type { JobsIntelligenceGraphRepository } from "../jobs-intelligence.repository.neo4j.js";
+import type { JobsIntelligenceRepository } from "../jobs-intelligence.repository.js";
 import type { PostingProfileFacts } from "../jobs-intelligence.profile.js";
 
 function buildEnv(): AppEnv {
@@ -101,9 +95,7 @@ function buildFacts(jobId: number, family: string, title: string): PostingProfil
     experience_requirement: "2年",
     soft_skills: ["沟通"],
     industry_context: ["互联网"],
-    evidence: [
-      { field: "required_skills", text: "熟悉 typescript", source: "job_description" },
-    ],
+    evidence: [{ field: "required_skills", text: "熟悉 typescript", source: "job_description" }],
     confidence: 0.8,
   };
 }
@@ -250,7 +242,12 @@ test("runPipelineNow: 标准岗位数不足10时应判定失败", async () => {
       return { nodes_upserted: snapshot.nodes.length, edges_upserted: snapshot.edges.length };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -348,7 +345,12 @@ test("listCanonicalRoles: 应返回标准岗位分页结果", async () => {
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -435,7 +437,12 @@ test("listJobFacts: 应返回抽取层分页结果", async () => {
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -499,13 +506,19 @@ test("getJobFact: 目标岗位事实不存在时应返回404", async () => {
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
 
   await assert.rejects(
-    async () => createJobsIntelligenceService(repository, graphRepository, buildEnv()).getJobFact(100),
+    async () =>
+      createJobsIntelligenceService(repository, graphRepository, buildEnv()).getJobFact(100),
     (error: unknown) => error instanceof HttpError && error.status === 404,
   );
 });
@@ -592,7 +605,12 @@ test("getCanonicalRole: 应返回标准岗位详情", async () => {
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -653,9 +671,7 @@ test("runPipelineNow: 无可处理岗位时应判定硬失败", async () => {
     async listLatestJobFactsForCanonical() {
       const groups: PostingProfileFacts[] = [];
       for (let index = 0; index < 10; index += 1) {
-        groups.push(
-          buildFacts(index + 1, `family_${index + 1}`, `岗位-${index + 1}`),
-        );
+        groups.push(buildFacts(index + 1, `family_${index + 1}`, `岗位-${index + 1}`));
       }
       return groups;
     },
@@ -714,12 +730,21 @@ test("runPipelineNow: 无可处理岗位时应判定硬失败", async () => {
       return { nodes_upserted: snapshot.nodes.length, edges_upserted: snapshot.edges.length };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
 
-  const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).runPipelineNow({
+  const result = await createJobsIntelligenceService(
+    repository,
+    graphRepository,
+    buildEnv(),
+  ).runPipelineNow({
     mode: "cleanse_agent_portraits",
   });
 
@@ -775,7 +800,7 @@ test("getCareerPathGraph: 应支持边过滤并返回图谱元信息", async () 
         {
           id: 1,
           source_row_id: null,
-        normalized_source_key: null,
+          normalized_source_key: null,
           title: "前端工程师",
           location: null,
           salary_range: null,
@@ -852,7 +877,11 @@ test("getCareerPathGraph: 应支持边过滤并返回图谱元信息", async () 
     async close() {},
   };
 
-  const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).getCareerPathGraph(1, {
+  const result = await createJobsIntelligenceService(
+    repository,
+    graphRepository,
+    buildEnv(),
+  ).getCareerPathGraph(1, {
     depth: 2,
     relation_type: "promotion",
     min_score: 70,
@@ -969,7 +998,12 @@ test("retryPipelineTask: 应按原任务模式创建并执行重跑任务", asyn
       return { nodes_upserted: snapshot.nodes.length, edges_upserted: snapshot.edges.length };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -990,7 +1024,7 @@ test("runPipelineNow(full): 不应逐条调用 createJobProfile，但应完成 c
   const pipelineJob: JobRecord = {
     id: 1,
     source_row_id: null,
-        normalized_source_key: null,
+    normalized_source_key: null,
     title: "前端开发工程师",
     location: "上海",
     salary_range: "15-25k",
@@ -1094,12 +1128,21 @@ test("runPipelineNow(full): 不应逐条调用 createJobProfile，但应完成 c
       throw new Error("full 模式不应触发图谱同步");
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
 
-  const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).runPipelineNow({
+  const result = await createJobsIntelligenceService(
+    repository,
+    graphRepository,
+    buildEnv(),
+  ).runPipelineNow({
     mode: "cleanse_agent_portraits",
   });
 
@@ -1218,7 +1261,12 @@ test("runPipelineNow: 应受并发度上限约束", async () => {
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -1228,7 +1276,11 @@ test("runPipelineNow: 应受并发度上限约束", async () => {
     JOBS_PIPELINE_CONCURRENCY: 3,
   };
 
-  const result = await createJobsIntelligenceService(repository, graphRepository, env).runPipelineNow({
+  const result = await createJobsIntelligenceService(
+    repository,
+    graphRepository,
+    env,
+  ).runPipelineNow({
     mode: "cleanse_agent_portraits",
   });
 
@@ -1349,7 +1401,12 @@ test("runPipelineNow: 遇到 429 应重试后成功", async () => {
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -1361,7 +1418,11 @@ test("runPipelineNow: 遇到 429 应重试后成功", async () => {
     JOBS_PIPELINE_RETRY_MAX_ATTEMPTS: 3,
   };
 
-  const result = await createJobsIntelligenceService(repository, graphRepository, env).runPipelineNow({
+  const result = await createJobsIntelligenceService(
+    repository,
+    graphRepository,
+    env,
+  ).runPipelineNow({
     mode: "cleanse_agent_portraits",
   });
 
@@ -1485,12 +1546,21 @@ test("runPipelineNow: 不可重试失败应写入失败审计且不入重试队�
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
 
-  const result = await createJobsIntelligenceService(repository, graphRepository, buildEnv()).runPipelineNow({
+  const result = await createJobsIntelligenceService(
+    repository,
+    graphRepository,
+    buildEnv(),
+  ).runPipelineNow({
     mode: "cleanse_agent_portraits",
   });
 
@@ -1601,7 +1671,12 @@ test("pipeline failures/retry queue 查询应返回仓储结果", async () => {
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -1699,7 +1774,12 @@ test("processPipelineRetryQueue: 应处理 claimed 任务并更新为 done", asy
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -1800,7 +1880,12 @@ test("processPipelineRetryQueue: 可重试失败应重新排队为 pending", asy
       return { nodes_upserted: 0, edges_upserted: 0 };
     },
     async getSubgraphByJobId() {
-      return { graph_version: "v2.1", generated_at: new Date().toISOString(), nodes: [], edges: [] };
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
     },
     async close() {},
   };
@@ -1814,4 +1899,173 @@ test("processPipelineRetryQueue: 可重试失败应重新排队为 pending", asy
   assert.equal(result.rescheduled, 1);
   assert.equal(statusUpdates[0]?.status, "pending");
   assert.equal(statusUpdates[0]?.attempts, 2);
+});
+
+test("generateCareerPathGraph: 应从 v2_manual_job_portraits 生成并写入图谱", async () => {
+  let syncedSnapshotNodes = 0;
+  let syncedSnapshotEdges = 0;
+
+  const repository: JobsIntelligenceRepository = {
+    async createPipelineTask() {
+      throw new Error("not used");
+    },
+    async getPipelineTask() {
+      return null;
+    },
+    async updatePipelineTask() {
+      throw new Error("not used");
+    },
+    async listPipelineJobs() {
+      return [
+        {
+          id: 11,
+          source_row_id: null,
+          normalized_source_key: null,
+          title: "前端开发工程师",
+          location: null,
+          salary_range: null,
+          company_name: null,
+          industry: "互联网",
+          company_size: null,
+          company_type: null,
+          job_code: null,
+          job_description: null,
+          company_intro: null,
+          raw_payload: {},
+          created_at: new Date().toISOString(),
+          normalized_title_hint: "前端开发工程师",
+          normalized_job_family_hint: "frontend_engineering",
+          normalization_confidence_hint: 0.9,
+        },
+      ];
+    },
+    async createJobFacts() {},
+    async listLatestJobFactsForCanonical() {
+      return [];
+    },
+    async listJobFacts() {
+      return { total: 0, items: [] };
+    },
+    async getLatestJobFactByJobId() {
+      return null;
+    },
+    async upsertCanonicalRoleProfile() {},
+    async listCanonicalRoles() {
+      return { total: 0, items: [] };
+    },
+    async getCanonicalRoleByKey() {
+      return null;
+    },
+    async listManualJobPortraitsFromTable() {
+      const now = new Date().toISOString();
+      return [
+        {
+          job_name: "前端开发工程师",
+          category: "frontend_engineering",
+          skills: { level: 3, weight: 0.2, description: "typescript vue" },
+          certification: { level: 2, weight: 0.1, description: "前端工程化" },
+          innovation: { level: 3, weight: 0.14, description: "交互优化" },
+          learning: { level: 3, weight: 0.14, description: "技术学习" },
+          stress: { level: 3, weight: 0.14, description: "项目节奏" },
+          communication: { level: 3, weight: 0.14, description: "跨团队协作" },
+          experience: { level: 3, weight: 0.14, description: "中型项目经验" },
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          job_name: "前端高级工程师",
+          category: "frontend_engineering",
+          skills: { level: 4, weight: 0.2, description: "typescript node 架构" },
+          certification: { level: 2, weight: 0.1, description: "性能优化" },
+          innovation: { level: 4, weight: 0.14, description: "架构演进" },
+          learning: { level: 3, weight: 0.14, description: "技术学习" },
+          stress: { level: 3, weight: 0.14, description: "项目节奏" },
+          communication: { level: 4, weight: 0.14, description: "跨团队协作" },
+          experience: { level: 4, weight: 0.14, description: "复杂项目经验" },
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          job_name: "后端开发工程师",
+          category: "backend_engineering",
+          skills: { level: 3, weight: 0.2, description: "node typescript api" },
+          certification: { level: 2, weight: 0.1, description: "服务治理" },
+          innovation: { level: 3, weight: 0.14, description: "架构优化" },
+          learning: { level: 3, weight: 0.14, description: "技术学习" },
+          stress: { level: 3, weight: 0.14, description: "线上稳定性" },
+          communication: { level: 3, weight: 0.14, description: "跨团队协作" },
+          experience: { level: 3, weight: 0.14, description: "中型项目经验" },
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          job_name: "测试开发工程师",
+          category: "quality_engineering",
+          skills: { level: 3, weight: 0.2, description: "typescript 自动化 测试" },
+          certification: { level: 2, weight: 0.1, description: "质量体系" },
+          innovation: { level: 3, weight: 0.14, description: "流程优化" },
+          learning: { level: 3, weight: 0.14, description: "技术学习" },
+          stress: { level: 3, weight: 0.14, description: "项目节奏" },
+          communication: { level: 3, weight: 0.14, description: "跨团队协作" },
+          experience: { level: 3, weight: 0.14, description: "中型项目经验" },
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          job_name: "产品经理",
+          category: "product_management",
+          skills: { level: 3, weight: 0.2, description: "需求分析 沟通 协作" },
+          certification: { level: 2, weight: 0.1, description: "产品方法论" },
+          innovation: { level: 3, weight: 0.14, description: "方案设计" },
+          learning: { level: 3, weight: 0.14, description: "业务学习" },
+          stress: { level: 3, weight: 0.14, description: "项目节奏" },
+          communication: { level: 4, weight: 0.14, description: "跨团队协作" },
+          experience: { level: 3, weight: 0.14, description: "项目经验" },
+          created_at: now,
+          updated_at: now,
+        },
+      ];
+    },
+    async getLatestProfileByJobId() {
+      return null;
+    },
+    async createJobProfile() {
+      throw new Error("not used");
+    },
+    async listLatestProfiles() {
+      return { total: 0, items: [] };
+    },
+    async listLatestProfilesForGraph() {
+      return [];
+    },
+    async listJobsByIds() {
+      return [];
+    },
+  };
+
+  const graphRepository: JobsIntelligenceGraphRepository = {
+    async syncGraph(snapshot) {
+      syncedSnapshotNodes = snapshot.nodes.length;
+      syncedSnapshotEdges = snapshot.edges.length;
+      return { nodes_upserted: snapshot.nodes.length, edges_upserted: snapshot.edges.length };
+    },
+    async getSubgraphByJobId() {
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
+    },
+    async close() {},
+  };
+
+  const service = createJobsIntelligenceService(repository, graphRepository, buildEnv());
+  const result = await service.generateCareerPathGraph({ max_candidates_per_node: 20 });
+
+  assert.equal(result.nodes_written, syncedSnapshotNodes);
+  assert.equal(result.edges_written, syncedSnapshotEdges);
+  assert.ok(result.nodes_written >= 5);
+  assert.ok(result.edges_written > 0);
+  assert.ok(result.transition_edges + result.skill_migration_edges > 0);
 });

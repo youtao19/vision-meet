@@ -21,7 +21,10 @@ function normalizeSkills(skills: string[]): string[] {
   return Array.from(new Set(skills.map((item) => item.trim().toLowerCase()).filter(Boolean)));
 }
 
-function skillOverlap(sourceSkills: string[], targetSkills: string[]): { overlap: string[]; jaccard: number } {
+function skillOverlap(
+  sourceSkills: string[],
+  targetSkills: string[],
+): { overlap: string[]; jaccard: number } {
   const sourceSet = new Set(normalizeSkills(sourceSkills));
   const targetSet = new Set(normalizeSkills(targetSkills));
   const overlap = Array.from(sourceSet).filter((skill) => targetSet.has(skill));
@@ -48,7 +51,10 @@ function topEdgeByScore<T extends { score: number }>(items: T[], limit: number):
 
 function resolveGapSkills(sourceSkills: string[], targetSkills: string[]): string[] {
   const sourceSet = new Set(normalizeSkills(sourceSkills));
-  return uniqueLimited(targetSkills.filter((skill) => !sourceSet.has(skill.trim().toLowerCase())), 8);
+  return uniqueLimited(
+    targetSkills.filter((skill) => !sourceSet.has(skill.trim().toLowerCase())),
+    8,
+  );
 }
 
 function uniqueLimited(items: string[], limit: number): string[] {
@@ -103,7 +109,8 @@ export function buildAutoCareerGraph(
     const sourceNodeId = `job-${source.job_id}`;
 
     // 垂直晋升边：同岗位族 level + 1。
-    const promotionCandidates = familyLevelMap.get(source.job_family)?.get(source.job_level + 1) ?? [];
+    const promotionCandidates =
+      familyLevelMap.get(source.job_family)?.get(source.job_level + 1) ?? [];
     const promotionEdges: CareerGraphEdgeRecord[] = [];
     for (const target of promotionCandidates) {
       const similarity = skillOverlap(source.professional_skills, target.professional_skills);
@@ -153,7 +160,10 @@ export function buildAutoCareerGraph(
       }
 
       const similarity = skillOverlap(source.professional_skills, target.professional_skills);
-      if (similarity.overlap.length < MIN_TRANSITION_OVERLAP || similarity.jaccard < MIN_TRANSITION_JACCARD) {
+      if (
+        similarity.overlap.length < MIN_TRANSITION_OVERLAP ||
+        similarity.jaccard < MIN_TRANSITION_JACCARD
+      ) {
         continue;
       }
 

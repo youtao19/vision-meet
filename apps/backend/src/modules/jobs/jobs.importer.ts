@@ -52,7 +52,11 @@ function pickValue(source: Record<string, unknown>, aliases: string[]): string |
 }
 
 function normalizeSourceToken(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, "").replace(/[^\p{L}\p{N}]+/gu, "");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
 function buildNormalizedSourceKey(params: {

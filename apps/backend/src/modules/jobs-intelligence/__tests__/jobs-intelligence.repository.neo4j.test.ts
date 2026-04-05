@@ -8,9 +8,7 @@ import test from "node:test";
 
 import type { CareerGraphSnapshot } from "@career/contracts/types";
 
-import {
-  createNeo4jJobsIntelligenceGraphRepositoryWithDriver,
-} from "../jobs-intelligence.repository.neo4j.js";
+import { createNeo4jJobsIntelligenceGraphRepositoryWithDriver } from "../jobs-intelligence.repository.neo4j.js";
 
 type QueryCall = {
   query: string;

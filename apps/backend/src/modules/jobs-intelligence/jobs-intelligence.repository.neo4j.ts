@@ -20,7 +20,9 @@ import {
 const DEFAULT_GRAPH_VERSION = "v2.1";
 
 export interface JobsIntelligenceGraphRepository {
-  syncGraph(snapshot: CareerGraphSnapshot): Promise<{ nodes_upserted: number; edges_upserted: number }>;
+  syncGraph(
+    snapshot: CareerGraphSnapshot,
+  ): Promise<{ nodes_upserted: number; edges_upserted: number }>;
   getSubgraphByJobId(jobId: number, depth: number): Promise<CareerGraphSnapshot>;
   close(): Promise<void>;
 }

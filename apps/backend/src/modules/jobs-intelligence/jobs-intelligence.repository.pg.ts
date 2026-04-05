@@ -69,9 +69,7 @@ function mapPipelineJob(row: Record<string, unknown>): PipelineJobRecord {
     normalized_title_hint: (row.normalized_title_hint as string | null) ?? null,
     normalized_job_family_hint: (row.normalized_job_family_hint as string | null) ?? null,
     normalization_confidence_hint:
-      row.normalization_confidence_hint == null
-        ? null
-        : Number(row.normalization_confidence_hint),
+      row.normalization_confidence_hint == null ? null : Number(row.normalization_confidence_hint),
   };
 }
 
@@ -177,6 +175,7 @@ function mapCanonicalRole(row: Record<string, unknown>): CanonicalRoleRecord {
 function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRecord {
   const payload = (row.payload as Record<string, unknown> | null) ?? {};
   return {
+    job_id: row.job_id == null ? null : Number(row.job_id),
     job_name: String(row.job_name),
     category: String(row.category),
     skills: payload.skills as ManualJobPortraitRecord["skills"],
@@ -227,7 +226,14 @@ function buildCanonicalContentHash(input: CanonicalRoleProfileDraft): string {
 function mapFactRow(
   row: Record<string, unknown>,
   evidence: Array<{
-    field: "required_skills" | "preferred_skills" | "tools" | "certificates" | "education_requirement" | "experience_requirement" | "soft_skills";
+    field:
+      | "required_skills"
+      | "preferred_skills"
+      | "tools"
+      | "certificates"
+      | "education_requirement"
+      | "experience_requirement"
+      | "soft_skills";
     text: string;
     source: "job_description" | "title" | "company_intro";
   }>,
@@ -388,24 +394,24 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           )
         `);
-          await pool.query(`
+        await pool.query(`
             ALTER TABLE v2_canonical_roles
             ADD COLUMN IF NOT EXISTS summary_version TEXT NOT NULL DEFAULT 'v1'
           `);
-          await pool.query(`
+        await pool.query(`
             ALTER TABLE v2_canonical_roles
             ADD COLUMN IF NOT EXISTS summary_payload JSONB NOT NULL DEFAULT '{}'::jsonb
           `);
-          await pool.query(`
+        await pool.query(`
             ALTER TABLE v2_canonical_roles
             ADD COLUMN IF NOT EXISTS canonical_version INTEGER NOT NULL DEFAULT 1
           `);
-          await pool.query(`
+        await pool.query(`
             ALTER TABLE v2_canonical_roles
             ADD COLUMN IF NOT EXISTS content_hash TEXT NOT NULL DEFAULT ''
           `);
 
-          await pool.query(`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS v2_canonical_role_versions (
               id BIGSERIAL PRIMARY KEY,
               role_key TEXT NOT NULL,
@@ -871,7 +877,11 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
 
     const evidenceByFactId = new Map<
       number,
-      Array<{ field: PostingProfileFacts["evidence"][number]["field"]; text: string; source: PostingProfileFacts["evidence"][number]["source"] }>
+      Array<{
+        field: PostingProfileFacts["evidence"][number]["field"];
+        text: string;
+        source: PostingProfileFacts["evidence"][number]["source"];
+      }>
     >();
     for (const row of evidenceResult.rows) {
       const factId = Number(row.fact_id);
@@ -1235,10 +1245,22 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
       const taskId = Number(latestAgentTaskResult.rows[0].task_id);
       const agentRows = await pool.query(
         `
-          SELECT job_name, category, payload, created_at, updated_at
-          FROM v2_agent_job_portraits
+          SELECT
+            p.job_name,
+            p.category,
+            p.payload,
+            p.created_at,
+            p.updated_at,
+            (
+              SELECT j.id
+              FROM jobs j
+              WHERE lower(trim(j.title)) = lower(trim(p.job_name))
+              ORDER BY j.id DESC
+              LIMIT 1
+            ) AS job_id
+          FROM v2_agent_job_portraits p
           WHERE task_id = $1
-          ORDER BY created_at ASC, job_name ASC
+          ORDER BY p.created_at ASC, p.job_name ASC
         `,
         [taskId],
       );
@@ -1249,9 +1271,35 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     }
 
     const result = await pool.query(`
-      SELECT *
-      FROM v2_manual_job_portraits
-      ORDER BY created_at ASC, job_name ASC
+      SELECT
+        p.*,
+        (
+          SELECT j.id
+          FROM jobs j
+          WHERE lower(trim(j.title)) = lower(trim(p.job_name))
+          ORDER BY j.id DESC
+          LIMIT 1
+        ) AS job_id
+      FROM v2_manual_job_portraits p
+      ORDER BY p.created_at ASC, p.job_name ASC
+    `);
+    return result.rows.map((row) => mapManualJobPortrait(row));
+  }
+
+  async function listManualJobPortraitsFromTable(): Promise<ManualJobPortraitRecord[]> {
+    await ensureSchema();
+    const result = await pool.query(`
+      SELECT
+        p.*,
+        (
+          SELECT j.id
+          FROM jobs j
+          WHERE lower(trim(j.title)) = lower(trim(p.job_name))
+          ORDER BY j.id DESC
+          LIMIT 1
+        ) AS job_id
+      FROM v2_manual_job_portraits p
+      ORDER BY p.created_at ASC, p.job_name ASC
     `);
     return result.rows.map((row) => mapManualJobPortrait(row));
   }
@@ -1420,7 +1468,9 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     return mapJobProfileV2(result.rows[0]);
   }
 
-  async function listLatestProfiles(params: JobProfilesV2ListParams): Promise<JobProfilesV2ListResponse> {
+  async function listLatestProfiles(
+    params: JobProfilesV2ListParams,
+  ): Promise<JobProfilesV2ListResponse> {
     await ensureSchema();
     const values: unknown[] = [];
     const filters: string[] = [];
@@ -1752,6 +1802,7 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     listCanonicalRoles,
     getCanonicalRoleByKey,
     listManualJobPortraits,
+    listManualJobPortraitsFromTable,
     replaceAgentJobPortraits,
     replaceManualJobPortraits,
     getLatestProfileByJobId,

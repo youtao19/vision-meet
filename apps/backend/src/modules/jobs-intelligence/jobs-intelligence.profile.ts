@@ -262,10 +262,10 @@ function resolveCanonicalSkillBuckets(params: {
 } {
   const baseline = JOB_FAMILY_BASELINE_SKILLS.get(params.jobFamily) ?? [];
   const core = params.core.length > 0 ? params.core : baseline.slice(0, 3);
-  const occupied = new Set([...core, ...params.common, ...params.bonus].map((item) => item.toLowerCase()));
-  const fallbackCommon = baseline
-    .filter((item) => !occupied.has(item.toLowerCase()))
-    .slice(0, 5);
+  const occupied = new Set(
+    [...core, ...params.common, ...params.bonus].map((item) => item.toLowerCase()),
+  );
+  const fallbackCommon = baseline.filter((item) => !occupied.has(item.toLowerCase())).slice(0, 5);
 
   return {
     core,
@@ -315,7 +315,9 @@ function resolveCanonicalJobFamily(params: {
     return aliasMatched;
   }
 
-  const byKey = JOB_FAMILY_DEFINITIONS.find((item) => normalizeJobTitle(item.key) === normalizedHint);
+  const byKey = JOB_FAMILY_DEFINITIONS.find(
+    (item) => normalizeJobTitle(item.key) === normalizedHint,
+  );
   if (byKey) {
     return byKey.key;
   }
@@ -386,13 +388,23 @@ function buildCanonicalSummary(input: {
     input.levelBand >= 4
       ? `具备 ${coreRequirements.slice(0, 3).join("、") || "系统设计能力"}，可主导关键模块技术决策`
       : `优先具备 ${coreRequirements.slice(0, 3).join("、") || "基础开发能力"}`,
-    input.levelBand >= 4 ? "通过复杂项目沉淀领域方法论与技术标准" : "通过中小型项目积累完整交付经验",
-    input.levelBand >= 4 ? "在跨团队协同中扩大技术影响力并承担培养职责" : "补齐工程化与协作规范后进入稳定产出阶段",
+    input.levelBand >= 4
+      ? "通过复杂项目沉淀领域方法论与技术标准"
+      : "通过中小型项目积累完整交付经验",
+    input.levelBand >= 4
+      ? "在跨团队协同中扩大技术影响力并承担培养职责"
+      : "补齐工程化与协作规范后进入稳定产出阶段",
   ];
   const developmentDirections = [
-    input.levelBand >= 4 ? `${input.normalizedTitle}（技术专家）` : `${input.normalizedTitle}（进阶）`,
-    input.levelBand >= 4 ? `${input.normalizedTitle}（架构负责人）` : `${input.normalizedTitle}（骨干）`,
-    input.levelBand >= 4 ? `${input.normalizedTitle}（技术管理方向）` : `${input.normalizedTitle}（负责人方向）`,
+    input.levelBand >= 4
+      ? `${input.normalizedTitle}（技术专家）`
+      : `${input.normalizedTitle}（进阶）`,
+    input.levelBand >= 4
+      ? `${input.normalizedTitle}（架构负责人）`
+      : `${input.normalizedTitle}（骨干）`,
+    input.levelBand >= 4
+      ? `${input.normalizedTitle}（技术管理方向）`
+      : `${input.normalizedTitle}（负责人方向）`,
   ];
 
   return {
@@ -435,13 +447,18 @@ export function buildCanonicalRoleProfile(
   const softBuckets = bucketItemsByFrequency(
     sorted.map((item) =>
       item.soft_skills.filter((skill) =>
-        CANONICAL_SOFT_SKILL_WHITELIST.some((allowed) => skill.toLowerCase() === allowed.toLowerCase()),
+        CANONICAL_SOFT_SKILL_WHITELIST.some(
+          (allowed) => skill.toLowerCase() === allowed.toLowerCase(),
+        ),
       ),
     ),
   );
 
   const responsibilities = resolveCanonicalResponsibilities({
-    existingResponsibilities: uniqueItems(sorted.flatMap((item) => item.responsibilities)).slice(0, 8),
+    existingResponsibilities: uniqueItems(sorted.flatMap((item) => item.responsibilities)).slice(
+      0,
+      8,
+    ),
     normalizedTitle: anchor.normalized_title,
     levelBand: levelBandNumber,
   });
@@ -534,9 +551,11 @@ export function extractPostingProfileFacts(
 
   const educationRequirement =
     pickEvidenceSentence(sentences, EDUCATION_KEYWORDS) ||
-    (EDUCATION_KEYWORDS.find((item) => sourceText.includes(item)) || "");
+    EDUCATION_KEYWORDS.find((item) => sourceText.includes(item)) ||
+    "";
   const experienceRequirement =
-    sentences.find((sentence) => EXPERIENCE_PATTERNS.some((pattern) => pattern.test(sentence))) || "";
+    sentences.find((sentence) => EXPERIENCE_PATTERNS.some((pattern) => pattern.test(sentence))) ||
+    "";
 
   const evidence: PostingEvidenceItem[] = [];
   const pushEvidence = (
@@ -610,4 +629,3 @@ export function extractPostingProfileFacts(
     confidence,
   };
 }
-

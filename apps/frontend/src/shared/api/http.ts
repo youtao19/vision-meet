@@ -40,7 +40,8 @@ export async function requestJson<T>(path: string, init?: RequestInit): Promise<
   const payload = await parseJsonSafe(response);
 
   if (!response.ok) {
-    const structuredError = payload && typeof payload === "object" ? (payload as StructuredApiError) : undefined;
+    const structuredError =
+      payload && typeof payload === "object" ? (payload as StructuredApiError) : undefined;
     throw new ApiRequestError(response.status, structuredError);
   }
 

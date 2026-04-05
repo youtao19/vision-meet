@@ -283,7 +283,11 @@ onBeforeUnmount(() => {
             <option value="cleanse_agent_portraits">清洗数据入库 + Agent 生成 10 条岗位画像</option>
           </select>
         </label>
-        <button class="primary-btn" :disabled="loading.run || isTaskRunning" @click="runPipelineNow">
+        <button
+          class="primary-btn"
+          :disabled="loading.run || isTaskRunning"
+          @click="runPipelineNow"
+        >
           {{ runButtonText }}
         </button>
       </div>
@@ -307,8 +311,7 @@ onBeforeUnmount(() => {
       <article v-if="currentTask" class="task-card">
         <p>
           <strong>任务 #{{ currentTask.id }}</strong>
-          · 方案：清洗入库 + Agent 画像
-          · 状态码：{{ currentTask.status }}
+          · 方案：清洗入库 + Agent 画像 · 状态码：{{ currentTask.status }}
         </p>
         <p class="stage-line">
           <span class="stage-chip">{{ liveStageText }}</span>
@@ -329,15 +332,25 @@ onBeforeUnmount(() => {
             <span class="timeline-label">{{ step.label }}</span>
           </div>
         </div>
-        <div class="progress-wrap" role="progressbar" :aria-valuenow="pipelineProgressPercent" aria-valuemin="0" aria-valuemax="100">
+        <div
+          class="progress-wrap"
+          role="progressbar"
+          :aria-valuenow="pipelineProgressPercent"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
           <div class="progress-bar" :style="{ width: `${pipelineProgressPercent}%` }" />
         </div>
         <p class="progress-text">当前进度：{{ pipelineProgressPercent }}%</p>
         <p>清洗目标：{{ currentTask.total_jobs }}，已清洗：{{ currentTask.processed_jobs }}</p>
-        <p>画像产出：{{ currentTask.success_profiles }}，失败任务：{{ currentTask.failed_profiles }}</p>
+        <p>
+          画像产出：{{ currentTask.success_profiles }}，失败任务：{{ currentTask.failed_profiles }}
+        </p>
         <p>当前画像数量：{{ currentTask.family_count }}</p>
         <p v-if="currentTask.message">进度日志：{{ currentTask.message }}</p>
-        <p v-if="currentTask.error_message" class="error-text">失败原因：{{ currentTask.error_message }}</p>
+        <p v-if="currentTask.error_message" class="error-text">
+          失败原因：{{ currentTask.error_message }}
+        </p>
       </article>
     </section>
   </section>

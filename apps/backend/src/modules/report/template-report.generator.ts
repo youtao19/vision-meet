@@ -62,10 +62,9 @@ function buildMatchAnalysis(input: ReportGeneratorInput): string {
     return `${label}：${item.reasoning}`;
   });
 
-  return [
-    `本次分析围绕四个维度展开：${formatDimensionScores(input)}。`,
-    ...explanations,
-  ].join("\n");
+  return [`本次分析围绕四个维度展开：${formatDimensionScores(input)}。`, ...explanations].join(
+    "\n",
+  );
 }
 
 function buildStrengths(input: ReportGeneratorInput): string {
@@ -91,10 +90,7 @@ function buildGapsAndActions(input: ReportGeneratorInput): string {
     return `${label}：当前 ${gap.current_score} / 目标 ${gap.target_score}，差距 ${gap.gap}。依据：${evidence}`;
   });
 
-  return [
-    ...gapLines,
-    `优先改进动作：${input.match.suggestions.join("；")}。`,
-  ].join("\n");
+  return [...gapLines, `优先改进动作：${input.match.suggestions.join("；")}。`].join("\n");
 }
 
 function buildShortTermPlan(input: ReportGeneratorInput): string {
@@ -102,9 +98,7 @@ function buildShortTermPlan(input: ReportGeneratorInput): string {
   const fallback = ["围绕目标岗位补齐至少 1 个可展示项目", "将薄弱维度转化为可验证成果"];
   const actions = topSuggestions.length > 0 ? topSuggestions : fallback;
 
-  return actions
-    .map((action, index) => `${index + 1}. ${action}`)
-    .join("\n");
+  return actions.map((action, index) => `${index + 1}. ${action}`).join("\n");
 }
 
 function buildCareerPath(input: ReportGeneratorInput): string {

@@ -7,9 +7,7 @@ export const runPipelineSchema = z.object({
   mode: z
     .enum(["cleanse_agent_portraits", "facts_canonical_full"])
     .default("cleanse_agent_portraits")
-    .transform((value) =>
-      value === "facts_canonical_full" ? "cleanse_agent_portraits" : value,
-    ),
+    .transform((value) => (value === "facts_canonical_full" ? "cleanse_agent_portraits" : value)),
 });
 
 export const pipelineTaskParamsSchema = z.object({
@@ -55,6 +53,13 @@ export const canonicalRoleParamsSchema = z.object({
 
 export const careerPathQuerySchema = z.object({
   depth: z.coerce.number().int().min(1).max(3).default(2),
-  relation_type: z.enum(["promotion", "transition", "all"]).default("all"),
+  relation_type: z.enum(["promotion", "transition", "skill_migration", "all"]).default("all"),
   min_score: z.coerce.number().int().min(0).max(100).default(0),
+});
+
+export const careerPathGenerateSchema = z.object({
+  force_rebuild: z.coerce.boolean().optional().default(false),
+  max_candidates_per_node: z.coerce.number().int().min(5).max(80).default(24),
+  /** 是否使用 Agent 推理生成图谱关系，默认 false 走规则引擎 */
+  use_agent: z.coerce.boolean().optional().default(false),
 });

@@ -170,8 +170,10 @@ async function main(): Promise<void> {
         title: row.title,
         node_count: snapshot.nodes.length,
         edge_count: snapshot.edges.length,
-        promotion_edge_count: snapshot.edges.filter((item) => item.relation_type === "promotion").length,
-        transition_edge_count: snapshot.edges.filter((item) => item.relation_type === "transition").length,
+        promotion_edge_count: snapshot.edges.filter((item) => item.relation_type === "promotion")
+          .length,
+        transition_edge_count: snapshot.edges.filter((item) => item.relation_type === "transition")
+          .length,
         isolated_node_ratio: ratio(isolatedNodes, snapshot.nodes.length),
       });
     }
@@ -214,7 +216,11 @@ async function main(): Promise<void> {
     const timestamp = generatedAt.replace(/[.:]/g, "-");
     const outputFile = path.resolve(outputDir, `graph-e2e-${timestamp}.json`);
     fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2), "utf-8");
-    fs.writeFileSync(path.resolve(outputDir, "latest.json"), JSON.stringify(payload, null, 2), "utf-8");
+    fs.writeFileSync(
+      path.resolve(outputDir, "latest.json"),
+      JSON.stringify(payload, null, 2),
+      "utf-8",
+    );
 
     const lowQualityJobs = results.filter(
       (item) => item.edge_count === 0 || item.isolated_node_ratio > 0.7,

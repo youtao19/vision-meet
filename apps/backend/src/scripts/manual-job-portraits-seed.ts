@@ -16,7 +16,8 @@ const MANUAL_JOB_PORTRAITS: Array<Omit<ManualJobPortraitRecord, "created_at" | "
     skills: {
       level: 4,
       weight: 0.3,
-      description: "掌握HTML/CSS/JavaScript，熟悉Vue或React框架，具备组件化开发、工程化能力及接口联调经验",
+      description:
+        "掌握HTML/CSS/JavaScript，熟悉Vue或React框架，具备组件化开发、工程化能力及接口联调经验",
     },
     certification: {
       level: 3,

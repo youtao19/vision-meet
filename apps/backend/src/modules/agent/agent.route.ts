@@ -16,7 +16,12 @@ export function createAgentRouter(service: AgentService): Router {
     const parsed = agentTaskCreateSchema.safeParse(req.body);
     if (!parsed.success) {
       return next(
-        new HttpError(400, "AGENT_TASK_INPUT_INVALID", "Agent 任务参数不合法", parsed.error.flatten()),
+        new HttpError(
+          400,
+          "AGENT_TASK_INPUT_INVALID",
+          "Agent 任务参数不合法",
+          parsed.error.flatten(),
+        ),
       );
     }
 

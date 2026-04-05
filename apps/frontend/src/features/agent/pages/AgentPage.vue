@@ -59,7 +59,10 @@ async function bootstrap(): Promise<void> {
   uiState.error = "";
 
   try {
-    const [profileResponse, jobsResponse] = await Promise.all([fetchStudentProfiles(), fetchJobs(50)]);
+    const [profileResponse, jobsResponse] = await Promise.all([
+      fetchStudentProfiles(),
+      fetchJobs(50),
+    ]);
     profiles.value = profileResponse.items;
     jobs.value = jobsResponse.items;
 
@@ -201,7 +204,13 @@ onMounted(async () => {
       <div class="grid two-col">
         <label>
           检索 Top K
-          <input v-model.number="form.topK" type="number" min="1" max="10" :disabled="loading.analyze" />
+          <input
+            v-model.number="form.topK"
+            type="number"
+            min="1"
+            max="10"
+            :disabled="loading.analyze"
+          />
         </label>
 
         <label class="checkbox-row">
@@ -212,11 +221,19 @@ onMounted(async () => {
 
       <div class="deliverable-grid">
         <label class="checkbox-row">
-          <input v-model="form.deliverables.matchAnalysis" type="checkbox" :disabled="loading.analyze" />
+          <input
+            v-model="form.deliverables.matchAnalysis"
+            type="checkbox"
+            :disabled="loading.analyze"
+          />
           输出匹配结论
         </label>
         <label class="checkbox-row">
-          <input v-model="form.deliverables.careerReport" type="checkbox" :disabled="loading.analyze" />
+          <input
+            v-model="form.deliverables.careerReport"
+            type="checkbox"
+            :disabled="loading.analyze"
+          />
           输出职业报告
         </label>
       </div>
@@ -237,7 +254,8 @@ onMounted(async () => {
         <p>模型：{{ result.model || "未返回" }}</p>
         <p>目标：{{ result.objective }}</p>
         <p v-if="result.result.match_result">
-          匹配结果：#{{ result.result.match_result.id }}，总分 {{ result.result.match_result.total_score }}
+          匹配结果：#{{ result.result.match_result.id }}，总分
+          {{ result.result.match_result.total_score }}
         </p>
         <p v-if="result.result.warnings.length === 0">本次执行未触发降级告警。</p>
         <div v-else class="warning-box">
@@ -271,7 +289,11 @@ onMounted(async () => {
       <section class="panel">
         <h3>证据片段</h3>
         <div v-if="result.result.knowledge_hits.length > 0" class="knowledge-list">
-          <article v-for="item in result.result.knowledge_hits" :key="item.id" class="knowledge-card">
+          <article
+            v-for="item in result.result.knowledge_hits"
+            :key="item.id"
+            class="knowledge-card"
+          >
             <header>
               <strong>{{ item.title }}</strong>
               <span>score {{ item.final_score.toFixed(3) }}</span>
@@ -290,8 +312,12 @@ onMounted(async () => {
           <ul class="score-grid">
             <li>基础要求：{{ result.result.match_result.dimension_scores.base_requirements }}</li>
             <li>职业技能：{{ result.result.match_result.dimension_scores.professional_skills }}</li>
-            <li>职业素养：{{ result.result.match_result.dimension_scores.professional_quality }}</li>
-            <li>发展潜力：{{ result.result.match_result.dimension_scores.development_potential }}</li>
+            <li>
+              职业素养：{{ result.result.match_result.dimension_scores.professional_quality }}
+            </li>
+            <li>
+              发展潜力：{{ result.result.match_result.dimension_scores.development_potential }}
+            </li>
           </ul>
           <div class="sub-panel">
             <h4>建议</h4>
@@ -305,11 +331,17 @@ onMounted(async () => {
       <section class="panel">
         <div class="panel-title-row">
           <h3>报告结果</h3>
-          <button v-if="result.result.report" class="primary-btn" @click="openReport">查看报告</button>
+          <button v-if="result.result.report" class="primary-btn" @click="openReport">
+            查看报告
+          </button>
         </div>
         <div v-if="result.result.report" class="report-card">
           <p>报告 #{{ result.result.report.id }}，版本 V{{ result.result.report.version }}</p>
-          <p>章节数：{{ result.result.report.sections.length }}，总分：{{ result.result.report.total_score }}</p>
+          <p>
+            章节数：{{ result.result.report.sections.length }}，总分：{{
+              result.result.report.total_score
+            }}
+          </p>
         </div>
         <p v-else class="empty-text">当前未生成报告产物。</p>
       </section>

@@ -25,7 +25,10 @@ import type {
 
 export type JobProfileV2CreateInput = Omit<JobProfileV2Record, "id" | "created_at">;
 export type JobFactsCreateInput = PostingProfileFacts;
-export type ManualJobPortraitUpsertInput = Omit<ManualJobPortraitRecord, "created_at" | "updated_at">;
+export type ManualJobPortraitUpsertInput = Omit<
+  ManualJobPortraitRecord,
+  "created_at" | "updated_at"
+>;
 
 export type PipelineFailureCreateInput = {
   task_id: number;
@@ -77,7 +80,10 @@ export type PipelineCleanedJobCreateInput = {
   source_payload: Record<string, unknown>;
 };
 
-export type AgentJobPortraitUpsertInput = Omit<ManualJobPortraitRecord, "created_at" | "updated_at">;
+export type AgentJobPortraitUpsertInput = Omit<
+  ManualJobPortraitRecord,
+  "created_at" | "updated_at"
+>;
 
 export type PipelineTaskUpdateInput = Partial<
   Pick<
@@ -102,9 +108,15 @@ export type PipelineTaskUpdateInput = Partial<
 export interface JobsIntelligenceRepository {
   createPipelineTask(mode: JobPipelineMode): Promise<JobPipelineTaskRecord>;
   getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord | null>;
-  updatePipelineTask(taskId: number, input: PipelineTaskUpdateInput): Promise<JobPipelineTaskRecord>;
+  updatePipelineTask(
+    taskId: number,
+    input: PipelineTaskUpdateInput,
+  ): Promise<JobPipelineTaskRecord>;
   listPipelineJobs(mode: JobPipelineMode): Promise<PipelineJobRecord[]>;
-  replacePipelineCleanedJobs?(taskId: number, input: PipelineCleanedJobCreateInput[]): Promise<void>;
+  replacePipelineCleanedJobs?(
+    taskId: number,
+    input: PipelineCleanedJobCreateInput[],
+  ): Promise<void>;
   createJobFacts(input: JobFactsCreateInput): Promise<void>;
   listLatestJobFactsForCanonical(): Promise<PostingProfileFacts[]>;
   listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse>;
@@ -114,6 +126,7 @@ export interface JobsIntelligenceRepository {
   listCanonicalRoles(params: CanonicalRolesListParams): Promise<CanonicalRolesListResponse>;
   getCanonicalRoleByKey(roleKey: string): Promise<CanonicalRoleRecord | null>;
   listManualJobPortraits?(): Promise<ManualJobPortraitRecord[]>;
+  listManualJobPortraitsFromTable?(): Promise<ManualJobPortraitRecord[]>;
   replaceAgentJobPortraits?(
     taskId: number,
     input: AgentJobPortraitUpsertInput[],

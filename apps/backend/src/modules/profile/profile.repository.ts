@@ -1,7 +1,4 @@
-import type {
-  ListStudentProfilesResponse,
-  StudentProfileRecord,
-} from "@career/contracts/types";
+import type { ListStudentProfilesResponse, StudentProfileRecord } from "@career/contracts/types";
 
 /**
  * 文件作用：定义学生画像仓储抽象接口。

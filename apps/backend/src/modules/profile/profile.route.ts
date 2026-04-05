@@ -63,11 +63,7 @@ export function createProfileRouter(service: ProfileService): Router {
     const normalizedFileContent = normalizeResumeFileContent(req.file.buffer);
     if (!normalizedFileContent) {
       return next(
-        new HttpError(
-          422,
-          "RESUME_TEXT_EMPTY",
-          "简历文本为空或不可解析，请上传可读文本后重试",
-        ),
+        new HttpError(422, "RESUME_TEXT_EMPTY", "简历文本为空或不可解析，请上传可读文本后重试"),
       );
     }
 

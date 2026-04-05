@@ -43,12 +43,7 @@ export type JobRecord = {
 
 export type JobPipelineMode = "cleanse_agent_portraits";
 
-export type JobPipelineTaskStatus =
-  | "queued"
-  | "running"
-  | "success"
-  | "degraded"
-  | "failed";
+export type JobPipelineTaskStatus = "queued" | "running" | "success" | "degraded" | "failed";
 
 export type JobProfileGenerationMode = "agent" | "heuristic";
 
@@ -145,6 +140,7 @@ export type ManualJobPortraitDimension = {
 };
 
 export type ManualJobPortraitRecord = {
+  job_id?: number | null;
   job_name: string;
   category: string;
   skills: ManualJobPortraitDimension;
@@ -212,7 +208,7 @@ export type CareerGraphEdgeRecord = {
   id: string;
   source: string;
   target: string;
-  relation_type: "promotion" | "transition";
+  relation_type: "promotion" | "transition" | "skill_migration";
   reason: string;
   required_skills: string[];
   gap_skills: string[];
@@ -523,7 +519,7 @@ export type ReportExportListResponse = {
   items: CareerReportExportRecord[];
 };
 
-export type CareerPathRelationType = "promotion" | "transition";
+export type CareerPathRelationType = "promotion" | "transition" | "skill_migration";
 
 export type CareerPathTransitionCost = "low" | "medium" | "high";
 
@@ -610,6 +606,32 @@ export type CareerPathV2GraphResponse = {
   edges: CareerPathEdge[];
   promotion_routes: CareerRouteRecommendation[];
   transition_routes: CareerRouteRecommendation[];
+};
+
+export type CareerPathV2GenerateRequest = {
+  force_rebuild?: boolean;
+  max_candidates_per_node?: number;
+  /** 是否使用 Agent 推理生成图谱关系，默认 false 走规则引擎 */
+  use_agent?: boolean;
+};
+
+export type CareerPathV2GenerateResponse = {
+  graph_version: string;
+  generated_at: string;
+  /** 生成模式：agent 为 AI 推理，rule 为规则引擎 */
+  generation_mode: "agent" | "rule";
+  nodes_written: number;
+  edges_written: number;
+  candidate_pairs: number;
+  validated_pairs: number;
+  promotion_edges: number;
+  transition_edges: number;
+  skill_migration_edges: number;
+  transition_path_coverage: {
+    jobs_with_paths: number;
+    min_paths_required: number;
+    target_job_count: number;
+  };
 };
 
 export type KnowledgeSourceKind = "job_dataset" | "resume_text" | "project_doc";

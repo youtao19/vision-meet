@@ -31,7 +31,9 @@ export function createJobsRouter(service: JobsService): Router {
   router.get("", async (req, res, next) => {
     const parsed = listJobsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "岗位查询参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "岗位查询参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {

@@ -12,10 +12,7 @@ export type Neo4jConnectionOptions = {
 };
 
 export function createNeo4jDriver(options: Neo4jConnectionOptions): Driver {
-  return neo4j.driver(
-    options.uri,
-    neo4j.auth.basic(options.username, options.password),
-  );
+  return neo4j.driver(options.uri, neo4j.auth.basic(options.username, options.password));
 }
 
 export function isNeo4jUnavailableError(error: unknown): boolean {

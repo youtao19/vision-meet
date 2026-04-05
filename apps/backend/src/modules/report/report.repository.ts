@@ -15,5 +15,8 @@ export interface ReportRepository {
   createReport(input: CareerReportCreateInput): Promise<CareerReportRecord>;
   listReports(params: ReportListParams): Promise<ReportListResponse>;
   getReportById(reportId: number): Promise<CareerReportRecord | null>;
-  updateReport(reportId: number, sections: CareerReportSection[]): Promise<CareerReportRecord | null>;
+  updateReport(
+    reportId: number,
+    sections: CareerReportSection[],
+  ): Promise<CareerReportRecord | null>;
 }

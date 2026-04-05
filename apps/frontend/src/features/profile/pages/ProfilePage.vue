@@ -7,11 +7,7 @@ import type {
   StudentProfileRecord,
 } from "@career/contracts/types";
 
-import {
-  createResumeHtml,
-  getResumeHtmlRecord,
-  listResumeHtmlRecords,
-} from "@/shared/api/agent";
+import { createResumeHtml, getResumeHtmlRecord, listResumeHtmlRecords } from "@/shared/api/agent";
 import { ApiRequestError } from "@/shared/api/http";
 import {
   createStudentProfile,
@@ -148,17 +144,16 @@ function resetResumeMessage(): void {
 }
 
 function hasEmptyCapability(input: CapabilityFormState): boolean {
-  return [
-    input.certificates,
-  ].some((item) => !item.trim())
-    ||
+  return (
+    [input.certificates].some((item) => !item.trim()) ||
     [
       input.innovationAbility,
       input.learningAbility,
       input.pressureResistance,
       input.communicationAbility,
       input.internshipAbility,
-    ].some((item) => item === "");
+    ].some((item) => item === "")
+  );
 }
 
 function formatSourceType(sourceType: StudentProfileRecord["source_type"]): string {
@@ -258,7 +253,8 @@ async function submitManualProfile(): Promise<void> {
   const targetRole = manualForm.targetRole.trim();
   const skills = parseTagText(manualForm.skills);
   if (!name || !targetRole || skills.length === 0 || hasEmptyCapability(manualCapability)) {
-    uiState.error = "请完整填写姓名、目标岗位、专业技能，以及证书/创新/学习/抗压/沟通/实习能力信息。";
+    uiState.error =
+      "请完整填写姓名、目标岗位、专业技能，以及证书/创新/学习/抗压/沟通/实习能力信息。";
     return;
   }
 
@@ -273,7 +269,8 @@ async function submitManualProfile(): Promise<void> {
       experience: {
         internship_count: normalizeCapabilityLevel(manualCapability.internshipAbility),
         project_count: manualForm.projects.trim() ? 1 : 0,
-        competition_count: normalizeCapabilityLevel(manualCapability.innovationAbility) >= 4 ? 1 : 0,
+        competition_count:
+          normalizeCapabilityLevel(manualCapability.innovationAbility) >= 4 ? 1 : 0,
       },
       self_assessment: {
         communication: normalizeCapabilityLevel(manualCapability.communicationAbility),
@@ -392,10 +389,21 @@ function validateResumeBuilder(): string[] {
   if (!resumeBuilder.basic.targetPosition.trim()) {
     errors.push("请填写目标职位");
   }
-  if (!resumeBuilder.education.school.trim() || !resumeBuilder.education.major.trim() || !resumeBuilder.education.degree.trim() || !resumeBuilder.education.period.trim()) {
+  if (
+    !resumeBuilder.education.school.trim() ||
+    !resumeBuilder.education.major.trim() ||
+    !resumeBuilder.education.degree.trim() ||
+    !resumeBuilder.education.period.trim()
+  ) {
     errors.push("请完整填写教育背景");
   }
-  if (!resumeBuilder.experience.organization.trim() || !resumeBuilder.experience.role.trim() || !resumeBuilder.experience.period.trim() || !resumeBuilder.experience.responsibilities.trim() || !resumeBuilder.experience.achievements.trim()) {
+  if (
+    !resumeBuilder.experience.organization.trim() ||
+    !resumeBuilder.experience.role.trim() ||
+    !resumeBuilder.experience.period.trim() ||
+    !resumeBuilder.experience.responsibilities.trim() ||
+    !resumeBuilder.experience.achievements.trim()
+  ) {
     errors.push("请完整填写工作/项目经历");
   }
   if (!resumeBuilder.skills.trim()) {
@@ -456,7 +464,9 @@ onMounted(async () => {
     <header class="hero">
       <p class="hero-tag">Student Profile Studio</p>
       <h2>学生画像中心</h2>
-      <p class="hero-desc">本页统一承载简历生成、学生画像构建和历史画像回看，数据均可落库并复用。</p>
+      <p class="hero-desc">
+        本页统一承载简历生成、学生画像构建和历史画像回看，数据均可落库并复用。
+      </p>
     </header>
 
     <section class="panel">
@@ -473,7 +483,11 @@ onMounted(async () => {
         </label>
         <label>
           目标岗位
-          <input v-model="resumeBuilder.basic.targetPosition" type="text" placeholder="例如：Java 开发工程师" />
+          <input
+            v-model="resumeBuilder.basic.targetPosition"
+            type="text"
+            placeholder="例如：Java 开发工程师"
+          />
         </label>
       </div>
 
@@ -484,14 +498,22 @@ onMounted(async () => {
         </label>
         <label>
           邮箱
-          <input v-model="resumeBuilder.basic.email" type="email" placeholder="例如：name@email.com" />
+          <input
+            v-model="resumeBuilder.basic.email"
+            type="email"
+            placeholder="例如：name@email.com"
+          />
         </label>
       </div>
 
       <div class="grid two-col">
         <label>
           学校
-          <input v-model="resumeBuilder.education.school" type="text" placeholder="例如：华中科技大学" />
+          <input
+            v-model="resumeBuilder.education.school"
+            type="text"
+            placeholder="例如：华中科技大学"
+          />
         </label>
         <label>
           专业
@@ -506,49 +528,85 @@ onMounted(async () => {
         </label>
         <label>
           教育时间
-          <input v-model="resumeBuilder.education.period" type="text" placeholder="例如：2018.09 - 2022.06" />
+          <input
+            v-model="resumeBuilder.education.period"
+            type="text"
+            placeholder="例如：2018.09 - 2022.06"
+          />
         </label>
       </div>
 
       <div class="grid two-col">
         <label>
           公司/项目
-          <input v-model="resumeBuilder.experience.organization" type="text" placeholder="例如：XX 科技" />
+          <input
+            v-model="resumeBuilder.experience.organization"
+            type="text"
+            placeholder="例如：XX 科技"
+          />
         </label>
         <label>
           岗位
-          <input v-model="resumeBuilder.experience.role" type="text" placeholder="例如：后端开发工程师" />
+          <input
+            v-model="resumeBuilder.experience.role"
+            type="text"
+            placeholder="例如：后端开发工程师"
+          />
         </label>
       </div>
 
       <div class="grid two-col">
         <label>
           经历时间
-          <input v-model="resumeBuilder.experience.period" type="text" placeholder="例如：2022.07 - 2025.03" />
+          <input
+            v-model="resumeBuilder.experience.period"
+            type="text"
+            placeholder="例如：2022.07 - 2025.03"
+          />
         </label>
         <label>
           专业技能
-          <input v-model="resumeBuilder.skills" type="text" placeholder="例如：Java Spring PostgreSQL" />
+          <input
+            v-model="resumeBuilder.skills"
+            type="text"
+            placeholder="例如：Java Spring PostgreSQL"
+          />
         </label>
       </div>
 
       <label>
         主要职责
-        <textarea v-model="resumeBuilder.experience.responsibilities" rows="3" placeholder="例如：负责核心服务开发与性能优化" />
+        <textarea
+          v-model="resumeBuilder.experience.responsibilities"
+          rows="3"
+          placeholder="例如：负责核心服务开发与性能优化"
+        />
       </label>
 
       <label>
         工作成果
-        <textarea v-model="resumeBuilder.experience.achievements" rows="3" placeholder="例如：将核心接口响应从 300ms 优化到 90ms" />
+        <textarea
+          v-model="resumeBuilder.experience.achievements"
+          rows="3"
+          placeholder="例如：将核心接口响应从 300ms 优化到 90ms"
+        />
       </label>
 
       <label>
         个人总结（可选）
-        <textarea v-model="resumeBuilder.summary" rows="3" placeholder="例如：3 年后端经验，具备微服务拆分与高并发治理实践" />
+        <textarea
+          v-model="resumeBuilder.summary"
+          rows="3"
+          placeholder="例如：3 年后端经验，具备微服务拆分与高并发治理实践"
+        />
       </label>
 
       <div class="action-row">
-        <button class="primary-btn" :disabled="loading.resumeGenerate" @click="generateResumeWithAgent">
+        <button
+          class="primary-btn"
+          :disabled="loading.resumeGenerate"
+          @click="generateResumeWithAgent"
+        >
           {{ loading.resumeGenerate ? "简历生成中..." : "生成简历" }}
         </button>
         <button class="ghost-btn" :disabled="loading.resumeHistory" @click="loadResumeHistory">
@@ -559,7 +617,9 @@ onMounted(async () => {
       <div v-if="resumePreviewVisible" class="resume-preview">
         <div class="resume-preview-header">
           <h4>简历预览</h4>
-          <button class="ghost-btn" type="button" @click="resumePreviewVisible = false">收起预览</button>
+          <button class="ghost-btn" type="button" @click="resumePreviewVisible = false">
+            收起预览
+          </button>
         </div>
         <iframe class="resume-preview-frame" :srcdoc="resumePreviewHtml" title="简历预览" />
       </div>
@@ -570,12 +630,19 @@ onMounted(async () => {
       <ul class="history-list">
         <li v-for="item in resumeHistory" :key="item.id">
           <div>
-            <p class="history-title">#{{ item.id }} {{ item.basic_name }} · {{ item.target_position }}</p>
+            <p class="history-title">
+              #{{ item.id }} {{ item.basic_name }} · {{ item.target_position }}
+            </p>
             <p class="history-meta">
-              {{ item.model || "未知模型" }} ｜ {{ formatDate(item.created_at) }} ｜ trace_id: {{ item.trace_id }}
+              {{ item.model || "未知模型" }} ｜ {{ formatDate(item.created_at) }} ｜ trace_id:
+              {{ item.trace_id }}
             </p>
           </div>
-          <button class="ghost-btn" :disabled="loading.resumePreviewLoad" @click="openResumeHistoryItem(item.id)">
+          <button
+            class="ghost-btn"
+            :disabled="loading.resumePreviewLoad"
+            @click="openResumeHistoryItem(item.id)"
+          >
             预览
           </button>
         </li>
@@ -589,7 +656,9 @@ onMounted(async () => {
         学生就业能力来源通过简历上传或自行录入方式输入，系统会通过大模型能力将录入信息拆解为学生就业能力画像，
         并给出完整度与竞争力评分（画像结果写入数据库，可在下方历史区回看）。
       </p>
-      <p class="capability-title">请在下方表单中输入这些维度信息：专业技能、证书、创新能力、学习能力、抗压能力、沟通能力、实习能力。</p>
+      <p class="capability-title">
+        请在下方表单中输入这些维度信息：专业技能、证书、创新能力、学习能力、抗压能力、沟通能力、实习能力。
+      </p>
     </section>
 
     <section class="mode-selector panel">
@@ -618,14 +687,22 @@ onMounted(async () => {
             </label>
             <label>
               目标岗位
-              <input v-model="manualForm.targetRole" type="text" placeholder="例如：前端开发工程师" />
+              <input
+                v-model="manualForm.targetRole"
+                type="text"
+                placeholder="例如：前端开发工程师"
+              />
             </label>
           </div>
 
           <div class="grid two-col">
             <label>
               教育背景（可选）
-              <input v-model="manualForm.education" type="text" placeholder="例如：计算机科学与技术 本科" />
+              <input
+                v-model="manualForm.education"
+                type="text"
+                placeholder="例如：计算机科学与技术 本科"
+              />
             </label>
             <label>
               专业技能（必填）
@@ -636,13 +713,21 @@ onMounted(async () => {
           <div class="grid two-col">
             <label>
               证书（必填）
-              <input v-model="manualCapability.certificates" type="text" placeholder="例如：英语六级、软考中级" />
+              <input
+                v-model="manualCapability.certificates"
+                type="text"
+                placeholder="例如：英语六级、软考中级"
+              />
             </label>
             <label>
               创新能力（必选）
               <select v-model="manualCapability.innovationAbility">
                 <option :value="''">请选择等级</option>
-                <option v-for="option in capabilityLevelOptions" :key="`innovation-${option.value}`" :value="option.value">
+                <option
+                  v-for="option in capabilityLevelOptions"
+                  :key="`innovation-${option.value}`"
+                  :value="option.value"
+                >
                   {{ option.label }}
                 </option>
               </select>
@@ -654,7 +739,11 @@ onMounted(async () => {
               学习能力（必选）
               <select v-model="manualCapability.learningAbility">
                 <option :value="''">请选择等级</option>
-                <option v-for="option in capabilityLevelOptions" :key="`learning-${option.value}`" :value="option.value">
+                <option
+                  v-for="option in capabilityLevelOptions"
+                  :key="`learning-${option.value}`"
+                  :value="option.value"
+                >
                   {{ option.label }}
                 </option>
               </select>
@@ -663,7 +752,11 @@ onMounted(async () => {
               抗压能力（必选）
               <select v-model="manualCapability.pressureResistance">
                 <option :value="''">请选择等级</option>
-                <option v-for="option in capabilityLevelOptions" :key="`stress-${option.value}`" :value="option.value">
+                <option
+                  v-for="option in capabilityLevelOptions"
+                  :key="`stress-${option.value}`"
+                  :value="option.value"
+                >
                   {{ option.label }}
                 </option>
               </select>
@@ -675,7 +768,11 @@ onMounted(async () => {
               沟通能力（必选）
               <select v-model="manualCapability.communicationAbility">
                 <option :value="''">请选择等级</option>
-                <option v-for="option in capabilityLevelOptions" :key="`communication-${option.value}`" :value="option.value">
+                <option
+                  v-for="option in capabilityLevelOptions"
+                  :key="`communication-${option.value}`"
+                  :value="option.value"
+                >
                   {{ option.label }}
                 </option>
               </select>
@@ -684,7 +781,11 @@ onMounted(async () => {
               实习能力（必选）
               <select v-model="manualCapability.internshipAbility">
                 <option :value="''">请选择等级</option>
-                <option v-for="option in capabilityLevelOptions" :key="`internship-${option.value}`" :value="option.value">
+                <option
+                  v-for="option in capabilityLevelOptions"
+                  :key="`internship-${option.value}`"
+                  :value="option.value"
+                >
                   {{ option.label }}
                 </option>
               </select>
@@ -702,7 +803,11 @@ onMounted(async () => {
 
           <label>
             个人摘要（可选）
-            <textarea v-model="manualForm.summary" rows="3" placeholder="一句话总结你的优势和求职诉求。" />
+            <textarea
+              v-model="manualForm.summary"
+              rows="3"
+              placeholder="一句话总结你的优势和求职诉求。"
+            />
           </label>
 
           <button class="primary-btn" :disabled="loading.manualSubmit" @click="submitManualProfile">
@@ -731,7 +836,11 @@ onMounted(async () => {
 
         <div v-if="latestProfile" class="preview-card">
           <p class="preview-headline">#{{ latestProfile.id }} {{ latestProfile.name }}</p>
-          <p class="preview-meta">来源：{{ formatSourceType(latestProfile.source_type) }} ｜ 目标岗位：{{ latestProfile.target_role }}</p>
+          <p class="preview-meta">
+            来源：{{ formatSourceType(latestProfile.source_type) }} ｜ 目标岗位：{{
+              latestProfile.target_role
+            }}
+          </p>
           <p class="preview-summary">{{ latestProfile.summary }}</p>
 
           <div class="score-grid">
@@ -779,11 +888,16 @@ onMounted(async () => {
           <div>
             <p class="history-title">#{{ item.id }} {{ item.name }} · {{ item.target_role }}</p>
             <p class="history-meta">
-              {{ formatSourceType(item.source_type) }} ｜ 完整度 {{ item.completeness_score }} ｜ 竞争力 {{ item.competitiveness_score }}
-              ｜ {{ formatDate(item.created_at) }}
+              {{ formatSourceType(item.source_type) }} ｜ 完整度 {{ item.completeness_score }} ｜
+              竞争力 {{ item.competitiveness_score }} ｜ {{ formatDate(item.created_at) }}
             </p>
           </div>
-          <button class="ghost-btn" @click="mode = item.source_type === 'manual' ? 'manual' : 'resume'">切换到对应入口</button>
+          <button
+            class="ghost-btn"
+            @click="mode = item.source_type === 'manual' ? 'manual' : 'resume'"
+          >
+            切换到对应入口
+          </button>
         </li>
         <li v-if="profileRecords.length === 0" class="empty">暂无记录</li>
       </ul>
@@ -881,7 +995,10 @@ onMounted(async () => {
   padding: 14px;
   background: #ffffff;
   cursor: pointer;
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .mode-card:hover {

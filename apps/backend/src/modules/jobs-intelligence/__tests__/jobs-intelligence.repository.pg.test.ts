@@ -69,7 +69,9 @@ test("createJobFacts: 应写入事实主表与证据表", async () => {
   const factInsert = calls.find((call) => call.sql.includes("INSERT INTO v2_job_facts"));
   assert.ok(factInsert, "应写入 v2_job_facts");
 
-  const evidenceInsert = calls.filter((call) => call.sql.includes("INSERT INTO v2_job_fact_evidence"));
+  const evidenceInsert = calls.filter((call) =>
+    call.sql.includes("INSERT INTO v2_job_fact_evidence"),
+  );
   assert.ok(evidenceInsert.length >= 1, "应写入 v2_job_fact_evidence");
 });
 
@@ -81,7 +83,10 @@ test("upsertCanonicalRoleProfile: 同内容重跑应保持幂等不重复升版"
     async query(sql: string, params?: unknown[]) {
       calls.push({ sql, params });
 
-      if (sql.includes("SELECT canonical_version, content_hash") && sql.includes("v2_canonical_roles")) {
+      if (
+        sql.includes("SELECT canonical_version, content_hash") &&
+        sql.includes("v2_canonical_roles")
+      ) {
         if (state.version === 0) {
           return { rowCount: 0, rows: [] };
         }
@@ -137,9 +142,12 @@ test("upsertCanonicalRoleProfile: 同内容重跑应保持幂等不重复升版"
   await repository.upsertCanonicalRoleProfile(draft);
   await repository.upsertCanonicalRoleProfile(draft);
 
-  const canonicalInsertCount = calls.filter((call) => call.sql.includes("INSERT INTO v2_canonical_roles")).length;
+  const canonicalInsertCount = calls.filter((call) =>
+    call.sql.includes("INSERT INTO v2_canonical_roles"),
+  ).length;
   const canonicalTouchCount = calls.filter(
-    (call) => call.sql.includes("UPDATE v2_canonical_roles") && call.sql.includes("updated_at = NOW()"),
+    (call) =>
+      call.sql.includes("UPDATE v2_canonical_roles") && call.sql.includes("updated_at = NOW()"),
   ).length;
 
   assert.equal(canonicalInsertCount, 1);

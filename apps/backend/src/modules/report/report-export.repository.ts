@@ -1,7 +1,4 @@
-import type {
-  CareerReportExportRecord,
-  ReportExportListResponse,
-} from "@career/contracts/types";
+import type { CareerReportExportRecord, ReportExportListResponse } from "@career/contracts/types";
 
 /**
  * 文件作用：定义报告导出记录仓储抽象。

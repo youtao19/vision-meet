@@ -107,7 +107,9 @@ onMounted(loadProfiles);
       <article class="panel detail-panel">
         <h3>画像详情</h3>
         <div v-if="selected">
-          <p><strong>{{ selected.job_name }}</strong></p>
+          <p>
+            <strong>{{ selected.job_name }}</strong>
+          </p>
           <p>岗位分类：{{ selected.category }}</p>
 
           <ul class="dimension-list">
@@ -118,7 +120,9 @@ onMounted(loadProfiles);
             </li>
             <li>
               <p class="dimension-title">资质要求</p>
-              <p>等级：{{ selected.certification.level }} · 权重：{{ selected.certification.weight }}</p>
+              <p>
+                等级：{{ selected.certification.level }} · 权重：{{ selected.certification.weight }}
+              </p>
               <p>{{ selected.certification.description }}</p>
             </li>
             <li>
@@ -138,7 +142,9 @@ onMounted(loadProfiles);
             </li>
             <li>
               <p class="dimension-title">沟通能力</p>
-              <p>等级：{{ selected.communication.level }} · 权重：{{ selected.communication.weight }}</p>
+              <p>
+                等级：{{ selected.communication.level }} · 权重：{{ selected.communication.weight }}
+              </p>
               <p>{{ selected.communication.description }}</p>
             </li>
             <li>

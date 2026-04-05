@@ -101,7 +101,9 @@ function loadRows(absInputPath: string): CleanedRow[] {
   });
 }
 
-function createCategoryCodeResolver(categories: Array<{ category_code: unknown; category_name: unknown; aliases: unknown }>) {
+function createCategoryCodeResolver(
+  categories: Array<{ category_code: unknown; category_name: unknown; aliases: unknown }>,
+) {
   const map = new Map<string, string>();
 
   for (const row of categories) {
@@ -111,9 +113,7 @@ function createCategoryCodeResolver(categories: Array<{ category_code: unknown; 
     }
     const names = [
       String(row.category_name || "").trim(),
-      ...(Array.isArray(row.aliases)
-        ? row.aliases.map((item) => String(item || "").trim())
-        : []),
+      ...(Array.isArray(row.aliases) ? row.aliases.map((item) => String(item || "").trim()) : []),
     ].filter(Boolean);
 
     for (const name of names) {
