@@ -1,4 +1,11 @@
-import type { AiTaskResponse, CreateAiTaskRequest } from "@career/contracts/types";
+import type {
+  AiTaskResponse,
+  CreateAiTaskRequest,
+  CreateResumeHtmlRequest,
+  ResumeHtmlListResponse,
+  ResumeHtmlRecord,
+  ResumeHtmlResponse,
+} from "@career/contracts/types";
 
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { KnowledgeService } from "../knowledge/knowledge.service.js";
@@ -6,7 +13,9 @@ import type { MatchingService } from "../matching/matching.service.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import type { ReportService } from "../report/report.service.js";
 import { createAgentService } from "../agent/agent.service.js";
+import { HttpError } from "../../shared/errors/http-error.js";
 import type { AiRepository } from "./ai.repository.js";
+import { runResumeHtmlAgent } from "./runtime/ai-resume.runtime.js";
 
 type AiServiceDependencies = {
   aiRepository: AiRepository;
@@ -19,6 +28,7 @@ type AiServiceDependencies = {
   sessionStoreDir?: string;
   model?: string;
   thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  resumeTimeoutMs?: number;
   cwd?: string;
 };
 
@@ -32,6 +42,12 @@ export type AiTaskRuntimeContext = {
  */
 export interface AiService {
   createTask(input: CreateAiTaskRequest, runtime: AiTaskRuntimeContext): Promise<AiTaskResponse>;
+  generateResumeHtml(
+    input: CreateResumeHtmlRequest,
+    runtime: AiTaskRuntimeContext,
+  ): Promise<ResumeHtmlResponse>;
+  listResumeHtmlRecords(offset: number, limit: number): Promise<ResumeHtmlListResponse>;
+  getResumeHtmlRecordById(resumeId: number): Promise<ResumeHtmlRecord>;
   getTask(taskId: number): Promise<AiTaskResponse>;
 }
 
@@ -52,6 +68,42 @@ export function createAiService(dependencies: AiServiceDependencies): AiService 
 
   return {
     createTask: (input, runtime) => agentService.createTask(input, runtime),
+    generateResumeHtml: async (input, runtime) => {
+      const generated = await runResumeHtmlAgent({
+        input,
+        traceId: runtime.traceId,
+        cwd: dependencies.cwd || process.cwd(),
+        piAgentDir: dependencies.piAgentDir,
+        sessionStoreDir: dependencies.sessionStoreDir,
+        model: dependencies.model,
+        thinkingLevel: dependencies.thinkingLevel || "medium",
+        timeoutMs: dependencies.resumeTimeoutMs,
+      });
+
+      const record = await dependencies.aiRepository.createResumeHtmlRecord({
+        trace_id: runtime.traceId,
+        model: generated.model,
+        basic_name: input.basic.name,
+        target_position: input.basic.target_position,
+        summary: input.summary || null,
+        input_payload: input,
+        html: generated.html,
+      });
+
+      return {
+        ...generated,
+        resume_id: record.id,
+      };
+    },
+    listResumeHtmlRecords: (offset, limit) =>
+      dependencies.aiRepository.listResumeHtmlRecords({ offset, limit }),
+    getResumeHtmlRecordById: async (resumeId) => {
+      const record = await dependencies.aiRepository.getResumeHtmlRecordById(resumeId);
+      if (!record) {
+        throw new HttpError(404, "AI_RESUME_HTML_NOT_FOUND", "简历记录不存在");
+      }
+      return record;
+    },
     getTask: (taskId) => agentService.getTask(taskId),
   };
 }

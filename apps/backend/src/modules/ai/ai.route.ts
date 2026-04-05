@@ -2,7 +2,13 @@ import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 
 import { HttpError } from "../../shared/errors/http-error.js";
-import { aiTaskCreateSchema, aiTaskIdParamsSchema } from "./ai.schemas.js";
+import {
+  aiResumeHtmlIdParamsSchema,
+  aiResumeHtmlListQuerySchema,
+  aiResumeHtmlCreateSchema,
+  aiTaskCreateSchema,
+  aiTaskIdParamsSchema,
+} from "./ai.schemas.js";
 import type { AiService } from "./ai.service.js";
 
 /**
@@ -32,6 +38,72 @@ export function createAiRouter(service: AiService): Router {
   }
 
   router.post("/tasks", handleCreateTask);
+
+  router.post("/resume-html", async (req, res, next) => {
+    const parsed = aiResumeHtmlCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return next(
+        new HttpError(
+          400,
+          "AI_RESUME_HTML_INPUT_INVALID",
+          "简历生成参数不合法",
+          parsed.error.flatten(),
+        ),
+      );
+    }
+
+    try {
+      const traceId = (res.locals.trace_id as string | undefined) || "";
+      const result = await service.generateResumeHtml(parsed.data, {
+        traceId,
+      });
+      return res.status(201).json(result);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get("/resume-html", async (req, res, next) => {
+    const parsed = aiResumeHtmlListQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return next(
+        new HttpError(
+          400,
+          "AI_RESUME_HTML_LIST_QUERY_INVALID",
+          "简历列表查询参数不合法",
+          parsed.error.flatten(),
+        ),
+      );
+    }
+
+    try {
+      const result = await service.listResumeHtmlRecords(parsed.data.offset, parsed.data.limit);
+      return res.json(result);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get("/resume-html/:resume_id", async (req, res, next) => {
+    const parsed = aiResumeHtmlIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return next(
+        new HttpError(
+          400,
+          "AI_RESUME_HTML_ID_INVALID",
+          "简历标识不合法",
+          parsed.error.flatten(),
+        ),
+      );
+    }
+
+    try {
+      const result = await service.getResumeHtmlRecordById(parsed.data.resume_id);
+      return res.json(result);
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   // 为前端和外部调用方保留“聊天式发起任务”的兼容语义，但底层仍统一走任务型入口。
   router.post("/chat", handleCreateTask);

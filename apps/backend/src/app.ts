@@ -183,6 +183,7 @@ export function createApp(): express.Express {
         sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
         model: appEnv.AGENT_MODEL,
         thinkingLevel: appEnv.AGENT_THINKING_LEVEL,
+        resumeTimeoutMs: appEnv.AGENT_RESUME_TIMEOUT_MS,
         cwd: process.cwd(),
       },
     ),
@@ -211,6 +212,10 @@ export function createApp(): express.Express {
   app.use(
     (error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       const traceId = (res.locals.trace_id as string | undefined) || randomUUID();
+      const message = error instanceof Error ? error.message : "internal error";
+      // 统一打印错误日志，避免出现“前端报错但后端没有任何输出”的排障盲区。
+      console.error(`[http-error] trace_id=${traceId} message=${message}`);
+
       if (error instanceof HttpError) {
         return res.status(error.status).json({
           code: error.code,
@@ -220,7 +225,6 @@ export function createApp(): express.Express {
         });
       }
 
-      const message = error instanceof Error ? error.message : "internal error";
       return res.status(500).json({
         code: "INTERNAL_ERROR",
         message,

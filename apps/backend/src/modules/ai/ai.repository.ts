@@ -1,6 +1,9 @@
 import type {
   AgentDeliverable,
   AgentPlanStep,
+  CreateResumeHtmlRequest,
+  ResumeHtmlListResponse,
+  ResumeHtmlRecord,
   AgentStepTraceItem,
   AiTaskResult,
   AiTaskStatus,
@@ -33,7 +36,25 @@ export type AiTaskRecord = AiTaskCreateInput & {
   id: number;
 };
 
+export type ResumeHtmlRecordCreateInput = {
+  trace_id: string;
+  model: string | null;
+  basic_name: string;
+  target_position: string;
+  summary: string | null;
+  input_payload: CreateResumeHtmlRequest;
+  html: string;
+};
+
+export type ResumeHtmlListQuery = {
+  offset: number;
+  limit: number;
+};
+
 export interface AiRepository {
   createTask(input: AiTaskCreateInput): Promise<AiTaskRecord>;
   getTaskById(taskId: number): Promise<AiTaskRecord | undefined>;
+  createResumeHtmlRecord(input: ResumeHtmlRecordCreateInput): Promise<ResumeHtmlRecord>;
+  listResumeHtmlRecords(query: ResumeHtmlListQuery): Promise<ResumeHtmlListResponse>;
+  getResumeHtmlRecordById(resumeId: number): Promise<ResumeHtmlRecord | null>;
 }

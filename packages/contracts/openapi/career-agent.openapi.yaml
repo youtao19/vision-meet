@@ -844,6 +844,88 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v2/ai/resume-html:
+    post:
+      summary: Generate Resume HTML
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeHtmlRequest"
+      responses:
+        "201":
+          description: Resume HTML generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeHtmlResponse"
+        "400":
+          description: Invalid resume generation request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Resume generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      summary: List Generated Resume HTML Records
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Resume HTML record list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeHtmlListResponse"
+        "400":
+          description: Invalid list query
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v2/ai/resume-html/{resume_id}:
+    get:
+      summary: Get Generated Resume HTML Record
+      parameters:
+        - in: path
+          name: resume_id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Resume HTML record detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeHtmlRecord"
+        "404":
+          description: Resume record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v2/ai/chat:
     post:
       summary: Create AI Task From Chat-Compatible Path
@@ -2198,6 +2280,161 @@ components:
           type: string
           format: date-time
         finished_at:
+          type: string
+
+    ResumeBasicInfoInput:
+      type: object
+      required: [name, phone, email, target_position]
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        phone:
+          type: string
+          maxLength: 40
+        email:
+          type: string
+          maxLength: 120
+        target_position:
+          type: string
+          maxLength: 120
+
+    ResumeEducationInput:
+      type: object
+      required: [school, major, degree, period]
+      properties:
+        school:
+          type: string
+          maxLength: 120
+        major:
+          type: string
+          maxLength: 120
+        degree:
+          type: string
+          maxLength: 80
+        period:
+          type: string
+          maxLength: 80
+
+    ResumeExperienceInput:
+      type: object
+      required: [organization, role, period, responsibilities, achievements]
+      properties:
+        organization:
+          type: string
+          maxLength: 120
+        role:
+          type: string
+          maxLength: 120
+        period:
+          type: string
+          maxLength: 80
+        responsibilities:
+          type: string
+          maxLength: 2000
+        achievements:
+          type: string
+          maxLength: 2000
+
+    ResumeHtmlRequest:
+      type: object
+      required: [basic, educations, experiences, skills]
+      properties:
+        basic:
+          $ref: "#/components/schemas/ResumeBasicInfoInput"
+        summary:
+          type: string
+          maxLength: 1000
+        educations:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/ResumeEducationInput"
+        experiences:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/ResumeExperienceInput"
+        skills:
+          type: string
+          maxLength: 2000
+
+    ResumeHtmlResponse:
+      type: object
+      required: [resume_id, trace_id, model, html, generated_at]
+      properties:
+        resume_id:
+          type: integer
+        trace_id:
+          type: string
+        model:
+          type: string
+          nullable: true
+        html:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+
+    ResumeHtmlListItem:
+      type: object
+      required: [id, trace_id, basic_name, target_position, created_at]
+      properties:
+        id:
+          type: integer
+        trace_id:
+          type: string
+        model:
+          type: string
+          nullable: true
+        basic_name:
+          type: string
+        target_position:
+          type: string
+        summary:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ResumeHtmlListResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResumeHtmlListItem"
+
+    ResumeHtmlRecord:
+      type: object
+      required:
+        [id, trace_id, basic_name, target_position, input_payload, html, created_at]
+      properties:
+        id:
+          type: integer
+        trace_id:
+          type: string
+        model:
+          type: string
+          nullable: true
+        basic_name:
+          type: string
+        target_position:
+          type: string
+        summary:
+          type: string
+          nullable: true
+        input_payload:
+          $ref: "#/components/schemas/ResumeHtmlRequest"
+        html:
+          type: string
+        created_at:
           type: string
           format: date-time
 

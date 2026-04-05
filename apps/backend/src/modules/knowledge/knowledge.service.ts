@@ -61,6 +61,17 @@ export interface KnowledgeService {
   dispose(): Promise<void>;
 }
 
+/**
+ * 兜底清洗文本，防止上传文件中残留控制字符导致数据库写入失败。
+ */
+function sanitizeTextForStorage(input: string): string {
+  return input
+    .replace(/\u0000/g, "")
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+}
+
 type KnowledgeServiceOptions = {
   vectorDim: number;
   defaultTopK: number;
@@ -560,6 +571,11 @@ export function createKnowledgeService(
     profile: StudentProfileRecord;
     resumeInput: CreateStudentProfileFromResumeRequest;
   }): Promise<void> {
+    const safeResumeText = sanitizeTextForStorage(params.resumeInput.file_content);
+    if (!safeResumeText) {
+      return;
+    }
+
     await index({
       namespace: "career_runtime",
       source_kind: "resume_text",
@@ -569,7 +585,7 @@ export function createKnowledgeService(
           source_id: `profile:${params.profile.id}`,
           source_path: params.resumeInput.file_name,
           title: `${params.profile.name} - ${params.profile.target_role} 简历`,
-          text: params.resumeInput.file_content,
+          text: safeResumeText,
           profile_id: params.profile.id,
         },
       ],

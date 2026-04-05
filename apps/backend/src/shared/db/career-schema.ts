@@ -237,6 +237,25 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
         finished_at TIMESTAMPTZ NOT NULL
       )
     `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_resume_html_records (
+        id BIGSERIAL PRIMARY KEY,
+        trace_id TEXT NOT NULL,
+        model TEXT,
+        basic_name TEXT NOT NULL,
+        target_position TEXT NOT NULL,
+        summary TEXT,
+        input_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        html TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS ai_resume_html_records_created_idx
+      ON ai_resume_html_records (created_at DESC)
+    `);
   })();
 
   schemaReady.set(pool, initializing);

@@ -789,6 +789,63 @@ export type AgentTaskResponse = {
   finished_at: string;
 };
 
+export type ResumeBasicInfoInput = {
+  name: string;
+  phone: string;
+  email: string;
+  target_position: string;
+};
+
+export type ResumeEducationInput = {
+  school: string;
+  major: string;
+  degree: string;
+  period: string;
+};
+
+export type ResumeExperienceInput = {
+  organization: string;
+  role: string;
+  period: string;
+  responsibilities: string;
+  achievements: string;
+};
+
+export type CreateResumeHtmlRequest = {
+  basic: ResumeBasicInfoInput;
+  summary?: string;
+  educations: ResumeEducationInput[];
+  experiences: ResumeExperienceInput[];
+  skills: string;
+};
+
+export type ResumeHtmlResponse = {
+  resume_id: number;
+  trace_id: string;
+  model: string | null;
+  html: string;
+  generated_at: string;
+};
+
+export type ResumeHtmlRecord = {
+  id: number;
+  trace_id: string;
+  model: string | null;
+  basic_name: string;
+  target_position: string;
+  summary: string | null;
+  input_payload: CreateResumeHtmlRequest;
+  html: string;
+  created_at: string;
+};
+
+export type ResumeHtmlListItem = Omit<ResumeHtmlRecord, "html" | "input_payload">;
+
+export type ResumeHtmlListResponse = {
+  total: number;
+  items: ResumeHtmlListItem[];
+};
+
 /**
  * 文件作用：为旧命名保留兼容别名，避免前后端在本轮重构期间出现大面积断裂。
  * 注意：新代码应优先使用 Task / Step 语义，而不是 Analyze / ToolTrace 语义。
@@ -804,6 +861,8 @@ export type AiTaskStatus = AgentTaskStatus;
 export type CreateAiTaskRequest = CreateAgentTaskRequest;
 export type AiTaskResult = AgentTaskResult;
 export type AiTaskResponse = AgentTaskResponse;
+export type CreateAiResumeHtmlRequest = CreateResumeHtmlRequest;
+export type AiResumeHtmlResponse = ResumeHtmlResponse;
 export type AiChatRequest = CreateAiTaskRequest;
 export type AiChatResponse = AiTaskResponse;
 

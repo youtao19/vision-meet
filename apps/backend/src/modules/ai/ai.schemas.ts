@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { agentTaskCreateSchema, agentTaskIdParamsSchema } from "../agent/agent.schemas.js";
 
 /**
@@ -7,3 +9,46 @@ import { agentTaskCreateSchema, agentTaskIdParamsSchema } from "../agent/agent.s
 export const aiTaskCreateSchema = agentTaskCreateSchema;
 
 export const aiTaskIdParamsSchema = agentTaskIdParamsSchema;
+
+export const aiResumeHtmlCreateSchema = z.object({
+	basic: z.object({
+		name: z.string().trim().min(1).max(80),
+		phone: z.string().trim().min(1).max(40),
+		email: z.string().trim().min(1).max(120),
+		target_position: z.string().trim().min(1).max(120),
+	}),
+	summary: z.string().trim().max(1000).optional(),
+	educations: z
+		.array(
+			z.object({
+				school: z.string().trim().min(1).max(120),
+				major: z.string().trim().min(1).max(120),
+				degree: z.string().trim().min(1).max(80),
+				period: z.string().trim().min(1).max(80),
+			}),
+		)
+		.min(1)
+		.max(20),
+	experiences: z
+		.array(
+			z.object({
+				organization: z.string().trim().min(1).max(120),
+				role: z.string().trim().min(1).max(120),
+				period: z.string().trim().min(1).max(80),
+				responsibilities: z.string().trim().min(1).max(2000),
+				achievements: z.string().trim().min(1).max(2000),
+			}),
+		)
+		.min(1)
+		.max(30),
+	skills: z.string().trim().min(1).max(2000),
+});
+
+export const aiResumeHtmlListQuerySchema = z.object({
+	offset: z.coerce.number().int().min(0).default(0),
+	limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const aiResumeHtmlIdParamsSchema = z.object({
+	resume_id: z.coerce.number().int().min(1),
+});

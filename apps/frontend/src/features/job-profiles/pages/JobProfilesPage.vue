@@ -6,14 +6,17 @@ import type { ManualJobPortraitRecord } from "@career/contracts/types";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 
+/**
+ * 文件作用：岗位画像中心页面。
+ * 职责说明：仅提供人工岗位画像列表与详情浏览，不再承载个人履历录入功能。
+ */
 const profiles = ref<ManualJobPortraitRecord[]>([]);
 const selected = ref<ManualJobPortraitRecord | null>(null);
+const activeCategory = ref("all");
 
 const loading = reactive({
   list: false,
 });
-
-const activeCategory = ref("all");
 
 const uiState = reactive({
   error: "",
@@ -63,7 +66,7 @@ onMounted(loadProfiles);
   <section class="job-profiles-page">
     <header class="page-header">
       <h2>岗位画像中心</h2>
-      <p>当前页面直连数据库中的人工岗位画像，共展示 10 条标准样本。</p>
+      <p>当前页面直连数据库中的人工岗位画像，支持查看标准样本。</p>
     </header>
 
     <p v-if="uiState.error" class="notice notice-error">{{ uiState.error }}</p>
@@ -187,12 +190,6 @@ onMounted(loadProfiles);
   padding: 16px;
 }
 
-.toolbar {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr auto;
-}
-
 label {
   display: grid;
   gap: 6px;
@@ -204,6 +201,13 @@ select {
   border-radius: 8px;
   padding: 8px 10px;
   background: #ffffff;
+  font: inherit;
+}
+
+.toolbar {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto;
 }
 
 .ghost-btn {
@@ -214,6 +218,11 @@ select {
   padding: 8px 12px;
   cursor: pointer;
   align-self: end;
+}
+
+.ghost-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .layout {
@@ -287,6 +296,7 @@ select {
   .toolbar {
     grid-template-columns: 1fr;
   }
+
   .layout {
     grid-template-columns: 1fr;
   }

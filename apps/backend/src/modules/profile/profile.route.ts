@@ -9,6 +9,18 @@ import type { ProfileService } from "./profile.service.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+/**
+ * 将上传简历内容清洗为可入库文本，避免 `\u0000` 等控制字符触发 PostgreSQL UTF8 错误。
+ */
+function normalizeResumeFileContent(buffer: Buffer): string {
+  return buffer
+    .toString("utf-8")
+    .replace(/\u0000/g, "")
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+}
+
 export function createProfileRouter(service: ProfileService): Router {
   const router = Router();
 
@@ -48,9 +60,20 @@ export function createProfileRouter(service: ProfileService): Router {
       );
     }
 
+    const normalizedFileContent = normalizeResumeFileContent(req.file.buffer);
+    if (!normalizedFileContent) {
+      return next(
+        new HttpError(
+          422,
+          "RESUME_TEXT_EMPTY",
+          "简历文本为空或不可解析，请上传可读文本后重试",
+        ),
+      );
+    }
+
     const payload: CreateStudentProfileFromResumeRequest = {
       file_name: req.file.originalname,
-      file_content: req.file.buffer.toString("utf-8"),
+      file_content: normalizedFileContent,
       target_role: parsed.data.target_role,
       name: parsed.data.name,
       parse_mode: parsed.data.parse_mode,

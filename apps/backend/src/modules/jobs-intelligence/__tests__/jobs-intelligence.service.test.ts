@@ -54,6 +54,7 @@ function buildEnv(): AppEnv {
     AGENT_SESSION_STORE_DIR: ".tmp/pi-agent/sessions",
     AGENT_MODEL: "kimi-coding/k2p5",
     AGENT_THINKING_LEVEL: "off",
+    AGENT_RESUME_TIMEOUT_MS: 60000,
     JOBS_PIPELINE_CONCURRENCY: 3,
     JOBS_PIPELINE_RETRY_MAX_ATTEMPTS: 3,
     JOBS_PIPELINE_RETRY_BASE_MS: 100,

@@ -16,6 +16,7 @@ export type AiModuleOptions = {
   sessionStoreDir?: string;
   model?: string;
   thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  resumeTimeoutMs?: number;
   cwd?: string;
 };
 
@@ -47,6 +48,7 @@ export function createAiModule(
     sessionStoreDir: options.sessionStoreDir,
     model: options.model,
     thinkingLevel: options.thinkingLevel,
+    resumeTimeoutMs: options.resumeTimeoutMs,
     cwd: options.cwd,
   });
 

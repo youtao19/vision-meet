@@ -62,28 +62,4 @@
     grid-template-columns: 1fr;
   }
 }
-
-html.dark .dashboard-page {
-  border-color: #334155;
-  background: linear-gradient(140deg, #0f172a 0%, #111827 55%, #0b1120 100%);
-}
-
-html.dark .dashboard-page h1 {
-  color: #e2e8f0;
-}
-
-html.dark .dashboard-page p {
-  color: #94a3b8;
-}
-
-html.dark .entry-links a {
-  border-color: #334155;
-  color: #e2e8f0;
-  background: #0b1a38;
-}
-
-html.dark .entry-links a:hover {
-  border-color: #38bdf8;
-  color: #7dd3fc;
-}
 </style>
