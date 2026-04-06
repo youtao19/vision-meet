@@ -3,20 +3,20 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import type {
-  JobRecord,
+  ManualJobPortraitRecord,
   MatchResultDetail,
   MatchResultSummary,
   StudentProfileRecord,
 } from "@career/contracts/types";
 
-import { fetchJobs } from "@/shared/api/jobs";
+import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { createMatch, fetchMatchDetail, fetchMatchList } from "@/shared/api/matching";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchStudentProfiles } from "@/shared/api/profile";
 
 const router = useRouter();
 const profiles = ref<StudentProfileRecord[]>([]);
-const jobs = ref<JobRecord[]>([]);
+const jobPortraits = ref<ManualJobPortraitRecord[]>([]);
 const matches = ref<MatchResultSummary[]>([]);
 const selectedDetail = ref<MatchResultDetail | null>(null);
 
@@ -74,22 +74,22 @@ async function bootstrap(): Promise<void> {
   uiState.error = "";
 
   try {
-    const [profileResponse, jobsResponse] = await Promise.all([
+    const [profileResponse, portraitsResponse] = await Promise.all([
       fetchStudentProfiles(),
-      fetchJobs(50),
+      fetchManualJobPortraits(),
     ]);
 
     profiles.value = profileResponse.items;
-    jobs.value = jobsResponse.items;
+    jobPortraits.value = portraitsResponse.items;
 
     if (!createForm.studentProfileId && profiles.value[0]) {
       createForm.studentProfileId = String(profiles.value[0].id);
       queryForm.studentProfileId = String(profiles.value[0].id);
     }
 
-    if (!createForm.jobId && jobs.value[0]) {
-      createForm.jobId = String(jobs.value[0].id);
-      queryForm.jobId = String(jobs.value[0].id);
+    if (!createForm.jobId && jobPortraits.value[0]?.job_id) {
+      createForm.jobId = String(jobPortraits.value[0].job_id);
+      queryForm.jobId = String(jobPortraits.value[0].job_id);
     }
   } catch (error) {
     uiState.error = formatApiError(error);
@@ -230,8 +230,12 @@ onMounted(async () => {
           目标岗位
           <select v-model="createForm.jobId" :disabled="loading.bootstrap || loading.create">
             <option value="">请选择</option>
-            <option v-for="job in jobs" :key="job.id" :value="String(job.id)">
-              #{{ job.id }} {{ job.title }}
+            <option
+              v-for="portrait in jobPortraits"
+              :key="portrait.job_id"
+              :value="String(portrait.job_id)"
+            >
+              #{{ portrait.job_id }} {{ portrait.job_name }}
             </option>
           </select>
         </label>
@@ -332,8 +336,12 @@ onMounted(async () => {
           按岗位筛选
           <select v-model="queryForm.jobId" :disabled="loading.list">
             <option value="">全部</option>
-            <option v-for="job in jobs" :key="job.id" :value="String(job.id)">
-              #{{ job.id }} {{ job.title }}
+            <option
+              v-for="portrait in jobPortraits"
+              :key="portrait.job_id"
+              :value="String(portrait.job_id)"
+            >
+              #{{ portrait.job_id }} {{ portrait.job_name }}
             </option>
           </select>
         </label>
