@@ -1,26 +1,38 @@
 <script setup lang="ts">
+/**
+ * 文件作用：展示职业路径中心的双图视图（ECharts 雷达图 + G6 关系图）。
+ * 职责边界：
+ * 1) 负责页面级查询条件与路由参数同步；
+ * 2) 消费后端图谱接口并渲染图数据；
+ * 3) 不承载岗位画像生成逻辑，仅触发后端“入库/构图”动作。
+ */
+
+import { Graph, type IEvent } from "@antv/g6";
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import {
-  type CareerPathEdge,
-  type CareerPathV2GraphResponse,
-  type CareerPathNode,
-  type CareerRouteRecommendation,
-  type ManualJobPortraitRecord,
-  type StudentProfileRecord,
+import type {
+  CareerPathEdge,
+  CareerPathNode,
+  CareerPathV2GraphResponse,
+  ManualJobPortraitRecord,
+  StudentProfileRecord,
 } from "@career/contracts/types";
-import { GraphChart } from "echarts/charts";
+import { RadarChart } from "echarts/charts";
 import { LegendComponent, TooltipComponent } from "echarts/components";
 import { init, use, type ECharts } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 
-import { fetchCareerPathGraph, generateCareerPathGraph } from "@/shared/api/career-path";
+import {
+  fetchCareerPathGraph,
+  generateCareerPathGraph,
+  seedCareerPathUserData,
+} from "@/shared/api/career-path";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { fetchStudentProfiles } from "@/shared/api/profile";
 
-use([CanvasRenderer, GraphChart, TooltipComponent, LegendComponent]);
+use([CanvasRenderer, RadarChart, TooltipComponent, LegendComponent]);
 
 const route = useRoute();
 const router = useRouter();
@@ -28,7 +40,10 @@ const router = useRouter();
 const manualPortraits = ref<ManualJobPortraitRecord[]>([]);
 const profiles = ref<StudentProfileRecord[]>([]);
 const graphResult = ref<CareerPathV2GraphResponse | null>(null);
-const chartRef = ref<HTMLDivElement | null>(null);
+
+const radarRef = ref<HTMLDivElement | null>(null);
+const g6Ref = ref<HTMLDivElement | null>(null);
+
 const selectedNodeId = ref("");
 const selectedEdgeId = ref("");
 
@@ -36,14 +51,13 @@ const loading = reactive({
   bootstrap: false,
   graph: false,
   generate: false,
+  seed: false,
 });
 
 const form = reactive({
   jobId: "",
   studentProfileId: "",
   depth: 2,
-  /** 图谱生成是否使用 Agent 推理模式 */
-  useAgent: false,
 });
 
 const uiState = reactive({
@@ -51,7 +65,8 @@ const uiState = reactive({
   success: "",
 });
 
-let chartInstance: ECharts | null = null;
+let radarInstance: ECharts | null = null;
+let g6Graph: Graph | null = null;
 
 function formatApiError(error: unknown): string {
   if (error instanceof ApiRequestError) {
@@ -70,101 +85,299 @@ function toPositiveInt(raw: string): number | undefined {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-function getNodeColor(category: CareerPathNode["category"]): string {
-  if (category === "target") {
-    return "#0f766e";
-  }
-  if (category === "promotion") {
-    return "#1d4ed8";
-  }
-  return "#ea580c";
+function clampLevel(value: number): number {
+  return Math.max(1, Math.min(5, Math.round(value)));
 }
 
-function getEdgeColor(edge: CareerPathEdge): string {
-  return edge.relation_type === "promotion" ? "#1d4ed8" : "#ea580c";
+function toPercentByLevel(level: number): number {
+  return clampLevel(level) * 20;
 }
 
-function buildGraphOption(result: CareerPathV2GraphResponse) {
+function calculateExperienceLevel(profile: StudentProfileRecord): number {
+  const total =
+    profile.experience.internship_count * 1.5 +
+    profile.experience.project_count * 1.2 +
+    profile.experience.competition_count * 0.8;
+  if (total >= 8) return 5;
+  if (total >= 5) return 4;
+  if (total >= 3) return 3;
+  if (total >= 1) return 2;
+  return 1;
+}
+
+function calculateCertificationLevel(profile: StudentProfileRecord): number {
+  if (profile.certificates.length >= 4) return 5;
+  if (profile.certificates.length >= 3) return 4;
+  if (profile.certificates.length >= 2) return 3;
+  if (profile.certificates.length >= 1) return 2;
+  return 1;
+}
+
+function calculateSkillLevel(profile: StudentProfileRecord): number {
+  return clampLevel(Math.max(1, profile.dimension_scores.professional_skills / 20));
+}
+
+const selectedJobPortrait = computed(() => {
+  const jobId = toPositiveInt(form.jobId);
+  if (!jobId) return null;
+  return manualPortraits.value.find((item) => item.job_id === jobId) ?? null;
+});
+
+const selectedProfile = computed(() => {
+  const profileId = toPositiveInt(form.studentProfileId);
+  if (!profileId) return null;
+  return profiles.value.find((item) => item.id === profileId) ?? null;
+});
+
+const radarComparison = computed(() => {
+  if (!selectedJobPortrait.value) {
+    return null;
+  }
+
+  const target = {
+    技能: toPercentByLevel(selectedJobPortrait.value.skills.level),
+    抗压: toPercentByLevel(selectedJobPortrait.value.stress.level),
+    学习: toPercentByLevel(selectedJobPortrait.value.learning.level),
+    经验: toPercentByLevel(selectedJobPortrait.value.experience.level),
+    创新: toPercentByLevel(selectedJobPortrait.value.innovation.level),
+    证书: toPercentByLevel(selectedJobPortrait.value.certification.level),
+    沟通: toPercentByLevel(selectedJobPortrait.value.communication.level),
+  };
+
+  if (!selectedProfile.value) {
+    return {
+      target,
+      student: null,
+      matchScore: null,
+    };
+  }
+
+  const studentLevel = {
+    技能: calculateSkillLevel(selectedProfile.value),
+    抗压: selectedProfile.value.self_assessment.stress_tolerance,
+    学习: selectedProfile.value.self_assessment.learning,
+    经验: calculateExperienceLevel(selectedProfile.value),
+    创新: selectedProfile.value.self_assessment.innovation,
+    证书: calculateCertificationLevel(selectedProfile.value),
+    沟通: selectedProfile.value.self_assessment.communication,
+  };
+
+  const student = {
+    技能: toPercentByLevel(studentLevel.技能),
+    抗压: toPercentByLevel(studentLevel.抗压),
+    学习: toPercentByLevel(studentLevel.学习),
+    经验: toPercentByLevel(studentLevel.经验),
+    创新: toPercentByLevel(studentLevel.创新),
+    证书: toPercentByLevel(studentLevel.证书),
+    沟通: toPercentByLevel(studentLevel.沟通),
+  };
+
+  const keys = Object.keys(target) as Array<keyof typeof target>;
+  const avgGap = keys.reduce((sum, key) => sum + Math.abs(target[key] - student[key]), 0) / keys.length;
+  const matchScore = Math.max(0, Math.min(100, Math.round(100 - avgGap)));
+
+  return { target, student, matchScore };
+});
+
+const targetJobOptions = computed(() => {
+  return manualPortraits.value
+    .filter((item) => Number.isInteger(item.job_id) && (item.job_id ?? 0) > 0)
+    .map((item) => ({
+      job_id: item.job_id as number,
+      job_name: item.job_name,
+      category: item.category,
+    }));
+});
+
+const selectedNode = computed(() => {
+  return graphResult.value?.nodes.find((node) => node.id === selectedNodeId.value) ?? null;
+});
+
+const selectedEdge = computed(() => {
+  return graphResult.value?.edges.find((edge) => edge.id === selectedEdgeId.value) ?? null;
+});
+
+function buildRadarOption() {
+  const comparison = radarComparison.value;
+  if (!comparison) {
+    return null;
+  }
+  const indicators = [
+    { name: "技能", max: 100 },
+    { name: "抗压", max: 100 },
+    { name: "学习", max: 100 },
+    { name: "经验", max: 100 },
+    { name: "创新", max: 100 },
+    { name: "证书", max: 100 },
+    { name: "沟通", max: 100 },
+  ];
+
+  const targetValues = indicators.map((item) => comparison.target[item.name as keyof typeof comparison.target]);
+  const studentValues = comparison.student
+    ? indicators.map((item) => comparison.student?.[item.name as keyof typeof comparison.student] ?? 0)
+    : [];
+
   return {
-    backgroundColor: "transparent",
-    tooltip: {
-      trigger: "item",
-      formatter: (params: { dataType?: string; data?: { value?: string }; name?: string }) => {
-        if (params.dataType === "edge") {
-          return `${params.data?.value ?? ""}`;
-        }
-
-        return `${params.name}`;
-      },
-    },
+    tooltip: { trigger: "item" },
     legend: {
-      top: 8,
-      textStyle: {
-        color: "#334155",
-      },
-      data: ["目标岗位", "晋升岗位", "转岗岗位"],
+      data: comparison.student ? ["岗位要求", "学生现状"] : ["岗位要求"],
+      textStyle: { color: "#334155" },
+    },
+    radar: {
+      indicator: indicators,
+      radius: 96,
+      splitNumber: 5,
+      splitArea: { areaStyle: { color: ["#f8fafc", "#eef2ff"] } },
     },
     series: [
       {
-        type: "graph",
-        layout: "force",
-        roam: true,
-        draggable: true,
-        edgeSymbol: ["none", "arrow"],
-        edgeSymbolSize: 10,
-        force: {
-          repulsion: 420,
-          edgeLength: [120, 190],
-          gravity: 0.08,
-        },
-        categories: [{ name: "目标岗位" }, { name: "晋升岗位" }, { name: "转岗岗位" }],
-        data: result.nodes.map((node) => ({
-          id: node.id,
-          name: node.title,
-          value: node.level,
-          category: node.category === "target" ? 0 : node.category === "promotion" ? 1 : 2,
-          symbolSize: node.is_target ? 66 : node.category === "promotion" ? 54 : 48,
-          label: {
-            show: true,
-            color: "#0f172a",
-            fontSize: 12,
+        type: "radar",
+        data: [
+          {
+            value: targetValues,
+            name: "岗位要求",
+            areaStyle: { opacity: 0.24 },
+            lineStyle: { width: 2 },
           },
-          itemStyle: {
-            color: getNodeColor(node.category),
-            borderColor: "#ffffff",
-            borderWidth: 2,
-            shadowBlur: 18,
-            shadowColor: "rgba(15, 23, 42, 0.14)",
-          },
-        })),
-        links: result.edges.map((edge) => ({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          value: edge.direction_label,
-          lineStyle: {
-            color: getEdgeColor(edge),
-            width: edge.relation_type === "promotion" ? 3 : 2,
-            type: edge.relation_type === "promotion" ? "solid" : "dashed",
-            opacity: 0.9,
-          },
-          label: {
-            show: true,
-            formatter: edge.direction_label,
-            color: "#475569",
-            fontSize: 11,
-          },
-        })),
+          ...(comparison.student
+            ? [
+                {
+                  value: studentValues,
+                  name: "学生现状",
+                  areaStyle: { opacity: 0.2 },
+                  lineStyle: { width: 2 },
+                },
+              ]
+            : []),
+        ],
       },
     ],
   };
+}
+
+function nodeColorByCategory(category: CareerPathNode["category"]): string {
+  if (category === "target") return "#0f766e";
+  if (category === "promotion") return "#1d4ed8";
+  return "#ea580c";
+}
+
+function edgeColorByType(relationType: CareerPathEdge["relation_type"]): string {
+  return relationType === "promotion" ? "#1d4ed8" : "#ea580c";
+}
+
+function pickEventTargetId(event: IEvent): string {
+  if (!("target" in event) || !event.target || typeof event.target !== "object") {
+    return "";
+  }
+  const maybeId = (event.target as { id?: unknown }).id;
+  return typeof maybeId === "string" ? maybeId : "";
+}
+
+async function renderG6Graph(result: CareerPathV2GraphResponse): Promise<void> {
+  if (!g6Ref.value) {
+    return;
+  }
+
+  const width = Math.max(300, g6Ref.value.clientWidth);
+  const height = Math.max(360, g6Ref.value.clientHeight || 560);
+
+  if (!g6Graph) {
+    g6Graph = new Graph({
+      container: g6Ref.value,
+      width,
+      height,
+      autoFit: "view",
+      layout: {
+        type: "d3-force",
+        link: { distance: 140 },
+      },
+      node: {
+        type: "circle",
+        style: {
+          size: 44,
+          labelFill: "#0f172a",
+          labelFontSize: 12,
+          lineWidth: 2,
+          stroke: "#ffffff",
+        },
+      },
+      edge: {
+        type: "line",
+        style: {
+          endArrow: true,
+          labelFill: "#475569",
+          labelFontSize: 10,
+          lineWidth: 2,
+        },
+      },
+      behaviors: ["drag-canvas", "zoom-canvas", "drag-element"],
+    });
+
+    g6Graph.on("node:click", (event: IEvent) => {
+      const nodeId = pickEventTargetId(event);
+      if (!nodeId) return;
+      selectedNodeId.value = nodeId;
+      selectedEdgeId.value = "";
+    });
+    g6Graph.on("edge:click", (event: IEvent) => {
+      const edgeId = pickEventTargetId(event);
+      if (!edgeId) return;
+      selectedEdgeId.value = edgeId;
+    });
+    g6Graph.on("canvas:click", () => {
+      selectedEdgeId.value = "";
+    });
+  } else {
+    g6Graph.setSize(width, height);
+  }
+
+  g6Graph.setData({
+    nodes: result.nodes.map((node) => ({
+      id: node.id,
+      title: node.title,
+      relation_type: node.category,
+      style: {
+        size: node.id === result.target_node_id ? 56 : 44,
+        labelText: node.title,
+        fill: nodeColorByCategory(node.category),
+      },
+    })),
+    edges: result.edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      relation_type: edge.relation_type,
+      direction_label: edge.direction_label,
+      style: {
+        labelText: edge.direction_label,
+        lineWidth: edge.relation_type === "promotion" ? 2.8 : 2,
+        lineDash: edge.relation_type === "promotion" ? [] : [5, 4],
+        stroke: edgeColorByType(edge.relation_type),
+      },
+    })),
+  });
+  await g6Graph.render();
+}
+
+function renderRadarChart(): void {
+  if (!radarRef.value) {
+    return;
+  }
+  const option = buildRadarOption();
+  if (!option) {
+    return;
+  }
+  if (!radarInstance) {
+    radarInstance = init(radarRef.value);
+  }
+  radarInstance.setOption(option);
+  radarInstance.resize();
 }
 
 async function bootstrap(): Promise<void> {
   loading.bootstrap = true;
   uiState.error = "";
   uiState.success = "";
-
   try {
     const [manualResponse, profileResponse] = await Promise.all([
       fetchManualJobPortraits(),
@@ -191,15 +404,17 @@ async function loadGraph(): Promise<void> {
   uiState.error = "";
 
   try {
-    graphResult.value = await fetchCareerPathGraph({
+    const result = await fetchCareerPathGraph({
       job_id: jobId,
       student_profile_id: toPositiveInt(form.studentProfileId),
       depth: form.depth,
     });
-    selectedNodeId.value = graphResult.value.target_node_id;
+    graphResult.value = result;
+    selectedNodeId.value = result.target_node_id;
     selectedEdgeId.value = "";
     await nextTick();
-    renderChart();
+    renderRadarChart();
+    await renderG6Graph(result);
   } catch (error) {
     graphResult.value = null;
     uiState.error = formatApiError(error);
@@ -214,34 +429,32 @@ async function searchGraph(): Promise<void> {
     uiState.error = "请选择合法的岗位";
     return;
   }
-
   await router.replace({
     path: "/career-paths",
     query: {
       job_id: String(jobId),
       ...(toPositiveInt(form.studentProfileId)
-        ? { student_profile_id: form.studentProfileId }
+        ? { student_profile_id: String(form.studentProfileId) }
         : {}),
       depth: String(form.depth),
     },
   });
 }
 
+/**
+ * 触发“固定图谱快照”构建，显式关闭 Agent 推理模式。
+ */
 async function generateGraph(): Promise<void> {
   loading.generate = true;
   uiState.error = "";
   uiState.success = "";
-
   try {
     const result = await generateCareerPathGraph({
       force_rebuild: true,
       max_candidates_per_node: 24,
-      use_agent: form.useAgent,
+      use_agent: false,
     });
-
-    const modeLabel = result.generation_mode === "agent" ? "Agent 推理" : "规则引擎";
-    uiState.success = `图谱生成完成（${modeLabel}）：节点 ${result.nodes_written}，边 ${result.edges_written}，覆盖换岗岗位 ${result.transition_path_coverage.jobs_with_paths}`;
-
+    uiState.success = `图谱生成完成（规则模式）：节点 ${result.nodes_written}，边 ${result.edges_written}`;
     if (toPositiveInt(form.jobId)) {
       await loadGraph();
     }
@@ -249,6 +462,24 @@ async function generateGraph(): Promise<void> {
     uiState.error = formatApiError(error);
   } finally {
     loading.generate = false;
+  }
+}
+
+/**
+ * 触发后端将“用户给定岗位画像”写入数据库。
+ */
+async function seedUserData(): Promise<void> {
+  loading.seed = true;
+  uiState.error = "";
+  uiState.success = "";
+  try {
+    const result = await seedCareerPathUserData();
+    uiState.success = `已完成岗位画像入库：${result.seeded} 条`;
+    await bootstrap();
+  } catch (error) {
+    uiState.error = formatApiError(error);
+  } finally {
+    loading.seed = false;
   }
 }
 
@@ -270,62 +501,14 @@ async function syncFromQuery(): Promise<void> {
 
   if (jobId) {
     await loadGraph();
+  } else {
+    renderRadarChart();
   }
-}
-
-function renderChart(): void {
-  if (!chartRef.value || !graphResult.value) {
-    return;
-  }
-
-  if (!chartInstance) {
-    chartInstance = init(chartRef.value);
-  }
-
-  chartInstance.setOption(buildGraphOption(graphResult.value));
-  chartInstance.off("click");
-  chartInstance.on("click", (params) => {
-    if (params.dataType === "edge") {
-      selectedEdgeId.value = String((params.data as { id?: string } | undefined)?.id || "");
-      return;
-    }
-
-    selectedNodeId.value = String((params.data as { id?: string } | undefined)?.id || "");
-    selectedEdgeId.value = "";
-  });
-  chartInstance.resize();
 }
 
 function handleResize(): void {
-  chartInstance?.resize();
-}
-
-const selectedNode = computed(() => {
-  return graphResult.value?.nodes.find((node) => node.id === selectedNodeId.value) ?? null;
-});
-
-const selectedEdge = computed(() => {
-  return graphResult.value?.edges.find((edge) => edge.id === selectedEdgeId.value) ?? null;
-});
-
-const targetJobOptions = computed(() => {
-  const options = [] as Array<{ job_id: number; job_name: string; category: string }>;
-  for (const portrait of manualPortraits.value) {
-    if (!portrait.job_id) {
-      continue;
-    }
-    options.push({
-      job_id: portrait.job_id,
-      job_name: portrait.job_name,
-      category: portrait.category,
-    });
-  }
-
-  return options;
-});
-
-function routeKey(routeItem: CareerRouteRecommendation): string {
-  return routeItem.route_id;
+  radarInstance?.resize();
+  g6Graph?.resize();
 }
 
 watch(
@@ -335,6 +518,11 @@ watch(
   },
 );
 
+watch([selectedJobPortrait, selectedProfile], async () => {
+  await nextTick();
+  renderRadarChart();
+});
+
 onMounted(async () => {
   await bootstrap();
   await syncFromQuery();
@@ -343,8 +531,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener("resize", handleResize);
-  chartInstance?.dispose();
-  chartInstance = null;
+  radarInstance?.dispose();
+  radarInstance = null;
+  g6Graph?.destroy();
+  g6Graph = null;
 });
 </script>
 
@@ -352,8 +542,8 @@ onUnmounted(() => {
   <section class="career-path-page">
     <header class="page-header">
       <div>
-        <h2>职业路径图谱</h2>
-        <p>围绕目标岗位查看晋升路径、换岗路径与个性化技能缺口。</p>
+        <h2>职业路径图谱（用户数据直出）</h2>
+        <p>使用你提供的岗位画像数据，展示匹配度雷达图与岗位关联/晋升图谱。</p>
       </div>
       <div class="nav-links">
         <RouterLink class="nav-link" to="/matching">匹配分析</RouterLink>
@@ -365,7 +555,7 @@ onUnmounted(() => {
     <p v-if="uiState.success" class="notice notice-success">{{ uiState.success }}</p>
 
     <section class="panel">
-      <h3>查询条件</h3>
+      <h3>查询与数据操作</h3>
       <div class="toolbar">
         <label>
           目标岗位
@@ -384,7 +574,7 @@ onUnmounted(() => {
         <label>
           学生画像（可选）
           <select v-model="form.studentProfileId" :disabled="loading.bootstrap || loading.graph">
-            <option value="">仅查看通用路径</option>
+            <option value="">仅看岗位要求</option>
             <option v-for="profile in profiles" :key="profile.id" :value="String(profile.id)">
               #{{ profile.id }} {{ profile.name }}（{{ profile.target_role }}）
             </option>
@@ -400,141 +590,110 @@ onUnmounted(() => {
           </select>
         </label>
 
-        <button
-          class="primary-btn"
-          :disabled="loading.graph || loading.generate"
-          @click="searchGraph"
-        >
+        <button class="primary-btn" :disabled="loading.graph || loading.generate" @click="searchGraph">
           {{ loading.graph ? "加载中..." : "加载图谱" }}
         </button>
 
-        <label class="agent-toggle">
-          <input type="checkbox" v-model="form.useAgent" :disabled="loading.generate" />
-          <span>Agent 推理</span>
-        </label>
+        <button class="secondary-btn" :disabled="loading.generate || loading.graph" @click="generateGraph">
+          {{ loading.generate ? "生成中..." : "重建图谱快照" }}
+        </button>
 
-        <button
-          class="secondary-btn"
-          :disabled="loading.generate || loading.graph"
-          @click="generateGraph"
-        >
-          {{
-            loading.generate
-              ? form.useAgent
-                ? "Agent 分析中..."
-                : "生成中..."
-              : form.useAgent
-                ? "Agent 生成图谱"
-                : "规则生成图谱"
-          }}
+        <button class="seed-btn" :disabled="loading.seed || loading.graph" @click="seedUserData">
+          {{ loading.seed ? "入库中..." : "使用用户数据入库" }}
         </button>
       </div>
     </section>
 
-    <section v-if="graphResult" class="layout">
+    <section class="layout">
+      <section class="panel">
+        <div class="panel-title-row">
+          <h3>ECharts 匹配度雷达图</h3>
+          <p class="muted" v-if="radarComparison?.matchScore !== null">
+            综合匹配度：{{ radarComparison?.matchScore }} 分
+          </p>
+        </div>
+        <div ref="radarRef" class="radar-canvas"></div>
+      </section>
+
       <section class="panel graph-panel">
         <div class="panel-title-row">
           <div>
-            <h3>{{ graphResult.job_title }}</h3>
-            <p class="muted">
-              节点 {{ graphResult.nodes.length }} · 边 {{ graphResult.edges.length }}
+            <h3>G6 岗位关联与晋升图谱</h3>
+            <p v-if="graphResult" class="muted">
+              节点 {{ graphResult.nodes.length }} · 边 {{ graphResult.edges.length }} · 版本
+              {{ graphResult.graph_version }}
             </p>
           </div>
         </div>
-        <div ref="chartRef" class="graph-canvas"></div>
+        <div v-if="graphResult" ref="g6Ref" class="graph-canvas"></div>
+        <p v-else class="empty-text">请选择岗位并加载图谱后查看 G6 关系图。</p>
       </section>
-
-      <aside class="side-column">
-        <section class="panel detail-panel">
-          <h3>节点/关系详情</h3>
-
-          <div v-if="selectedNode" class="detail-card">
-            <p class="detail-tag">{{ selectedNode.category }}</p>
-            <h4>{{ selectedNode.title }}</h4>
-            <p>{{ selectedNode.description }}</p>
-            <p>岗位族：{{ selectedNode.family }} · 层级 {{ selectedNode.level }}</p>
-            <p>核心技能：{{ selectedNode.typical_skills.join("、") || "暂无" }}</p>
-          </div>
-
-          <div v-if="selectedEdge" class="detail-card edge-card">
-            <p class="detail-tag">{{ selectedEdge.direction_label }}</p>
-            <h4>{{ selectedEdge.source }} -> {{ selectedEdge.target }}</h4>
-            <p>{{ selectedEdge.reason }}</p>
-            <p>关键迁移技能：{{ selectedEdge.required_skills.join("、") || "暂无" }}</p>
-            <p>待补齐技能：{{ selectedEdge.gap_skills.join("、") || "暂无" }}</p>
-            <p>迁移成本：{{ selectedEdge.transition_cost }}</p>
-            <p>关系分值：{{ selectedEdge.score }}</p>
-          </div>
-
-          <p v-if="!selectedNode && !selectedEdge" class="empty-text">
-            点击图谱节点或连线后查看详情。
-          </p>
-        </section>
-
-        <section class="panel">
-          <h3>晋升路径</h3>
-          <article
-            v-for="item in graphResult.promotion_routes"
-            :key="routeKey(item)"
-            class="route-card"
-          >
-            <header>
-              <strong>{{ item.title }}</strong>
-              <span class="route-score">{{ item.suitability_score }} 分</span>
-            </header>
-            <p>{{ item.summary }}</p>
-            <p class="muted">
-              缺口技能：{{ item.missing_skills.join("、") || "当前已具备主要能力" }}
-            </p>
-            <ol class="route-steps">
-              <li v-for="step in item.steps" :key="`${item.route_id}-${step.node_id}`">
-                {{ step.title }}
-                <span v-if="step.required_skills.length > 0">
-                  · 关键技能：{{ step.required_skills.join("、") }}</span
-                >
-              </li>
-            </ol>
-          </article>
-          <p v-if="graphResult.promotion_routes.length === 0" class="empty-text">
-            当前暂无可展示的晋升路径。
-          </p>
-        </section>
-
-        <section class="panel">
-          <h3>换岗路径</h3>
-          <article
-            v-for="item in graphResult.transition_routes"
-            :key="routeKey(item)"
-            class="route-card transition-card"
-          >
-            <header>
-              <strong>{{ item.title }}</strong>
-              <span class="route-score">{{ item.suitability_score }} 分</span>
-            </header>
-            <p>{{ item.summary }}</p>
-            <p class="muted">
-              缺口技能：{{ item.missing_skills.join("、") || "当前已具备主要能力" }}
-            </p>
-            <ol class="route-steps">
-              <li v-for="step in item.steps" :key="`${item.route_id}-${step.node_id}`">
-                {{ step.title }}
-                <span v-if="step.required_skills.length > 0">
-                  · 关键技能：{{ step.required_skills.join("、") }}</span
-                >
-              </li>
-            </ol>
-          </article>
-          <p v-if="graphResult.transition_routes.length === 0" class="empty-text">
-            当前暂无可展示的换岗路径。
-          </p>
-        </section>
-      </aside>
     </section>
 
-    <section v-else class="panel">
-      <p class="empty-text">
-        请选择岗位并加载图谱。若岗位未被首批规范岗位覆盖，接口会返回明确提示。
-      </p>
+    <section v-if="graphResult" class="layout">
+      <section class="panel">
+        <h3>节点/关系详情</h3>
+        <div class="detail-filters">
+          <label>
+            节点
+            <select v-model="selectedNodeId">
+              <option value="">请选择节点</option>
+              <option v-for="node in graphResult.nodes" :key="node.id" :value="node.id">
+                {{ node.title }}（{{ node.category }}）
+              </option>
+            </select>
+          </label>
+
+          <label>
+            关系
+            <select v-model="selectedEdgeId">
+              <option value="">请选择关系</option>
+              <option v-for="edge in graphResult.edges" :key="edge.id" :value="edge.id">
+                {{ edge.source }} → {{ edge.target }}（{{ edge.direction_label }}）
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <div v-if="selectedNode" class="detail-card">
+          <p class="detail-tag">{{ selectedNode.category }}</p>
+          <h4>{{ selectedNode.title }}</h4>
+          <p>{{ selectedNode.description }}</p>
+          <p>岗位族：{{ selectedNode.family }} · 层级 {{ selectedNode.level }}</p>
+          <p>核心技能：{{ selectedNode.typical_skills.join("、") || "暂无" }}</p>
+        </div>
+
+        <div v-if="selectedEdge" class="detail-card edge-card">
+          <p class="detail-tag">{{ selectedEdge.direction_label }}</p>
+          <h4>{{ selectedEdge.source }} → {{ selectedEdge.target }}</h4>
+          <p>{{ selectedEdge.reason }}</p>
+          <p>关键迁移技能：{{ selectedEdge.required_skills.join("、") || "暂无" }}</p>
+          <p>待补齐技能：{{ selectedEdge.gap_skills.join("、") || "暂无" }}</p>
+          <p>迁移成本：{{ selectedEdge.transition_cost }} · 关系分值：{{ selectedEdge.score }}</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>路径推荐</h3>
+        <article v-for="item in graphResult.promotion_routes" :key="item.route_id" class="route-card">
+          <header>
+            <strong>{{ item.title }}</strong>
+            <span class="route-score">{{ item.suitability_score }} 分</span>
+          </header>
+          <p>{{ item.summary }}</p>
+        </article>
+        <article
+          v-for="item in graphResult.transition_routes"
+          :key="item.route_id"
+          class="route-card transition-card"
+        >
+          <header>
+            <strong>{{ item.title }}</strong>
+            <span class="route-score">{{ item.suitability_score }} 分</span>
+          </header>
+          <p>{{ item.summary }}</p>
+        </article>
+      </section>
     </section>
   </section>
 </template>
@@ -550,8 +709,7 @@ onUnmounted(() => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+  gap: 12px;
 }
 
 .page-header h2 {
@@ -599,7 +757,7 @@ onUnmounted(() => {
 
 .toolbar {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
 }
@@ -617,72 +775,58 @@ select {
   font-size: 14px;
 }
 
-.primary-btn {
-  border: 1px solid #0f766e;
+.primary-btn,
+.secondary-btn,
+.seed-btn {
   border-radius: 8px;
   padding: 8px 12px;
-  background: #0f766e;
-  color: #ffffff;
   cursor: pointer;
+}
+
+.primary-btn {
+  border: 1px solid #0f766e;
+  background: #0f766e;
+  color: #fff;
 }
 
 .secondary-btn {
   border: 1px solid #1d4ed8;
-  border-radius: 8px;
-  padding: 8px 12px;
-  background: #ffffff;
+  background: #fff;
   color: #1d4ed8;
-  cursor: pointer;
 }
 
-.agent-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #475569;
-  cursor: pointer;
-  user-select: none;
-  padding: 6px 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #f8fafc;
-  transition:
-    border-color 0.2s,
-    background 0.2s;
-}
-
-.agent-toggle:has(input:checked) {
-  border-color: #7c3aed;
-  background: #f5f3ff;
-  color: #6d28d9;
-}
-
-.agent-toggle input[type="checkbox"] {
-  accent-color: #7c3aed;
-  cursor: pointer;
+.seed-btn {
+  border: 1px solid #7c3aed;
+  background: #fff;
+  color: #7c3aed;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(360px, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
-}
-
-.graph-panel {
-  min-height: 640px;
 }
 
 .panel-title-row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
   align-items: flex-start;
+  gap: 12px;
 }
 
 .muted {
   color: #64748b;
   font-size: 13px;
+  margin: 0;
+}
+
+.radar-canvas {
+  width: 100%;
+  height: 320px;
+}
+
+.graph-panel {
+  min-height: 420px;
 }
 
 .graph-canvas {
@@ -695,9 +839,11 @@ select {
     linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
 }
 
-.side-column {
+.detail-filters {
   display: grid;
-  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .detail-card {
@@ -706,18 +852,6 @@ select {
   padding: 12px;
   border-radius: 12px;
   background: #f8fafc;
-}
-
-.detail-card h4,
-.route-card header strong {
-  margin: 0;
-  color: #0f172a;
-}
-
-.detail-card p,
-.route-card p {
-  margin: 0;
-  color: #334155;
 }
 
 .detail-tag {
@@ -742,12 +876,12 @@ select {
   border: 1px solid #dbe4f0;
   border-radius: 12px;
   background: #f8fafc;
+  margin-bottom: 10px;
 }
 
 .route-card header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
 }
 
 .route-score {
@@ -755,38 +889,22 @@ select {
   font-weight: 600;
 }
 
-.route-steps {
-  margin: 0;
-  padding-left: 18px;
-  color: #334155;
-}
-
 .empty-text {
-  margin: 0;
   color: #64748b;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .toolbar {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
   }
 }
 
-@media (max-width: 720px) {
-  .page-header {
-    flex-direction: column;
-  }
-
-  .toolbar {
+@media (max-width: 900px) {
+  .layout {
     grid-template-columns: 1fr;
   }
-
-  .graph-canvas {
-    height: 440px;
+  .toolbar {
+    grid-template-columns: 1fr;
   }
 }
 </style>

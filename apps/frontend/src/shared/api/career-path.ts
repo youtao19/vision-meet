@@ -44,3 +44,9 @@ export async function generateCareerPathGraph(
     body: JSON.stringify(payload),
   });
 }
+
+export async function seedCareerPathUserData(): Promise<{ seeded: number }> {
+  return requestJson<{ seeded: number }>("/api/v2/job-portraits/manual/seed", {
+    method: "POST",
+  });
+}

@@ -2069,3 +2069,131 @@ test("generateCareerPathGraph: 应从 v2_manual_job_portraits 生成并写入图
   assert.ok(result.edges_written > 0);
   assert.ok(result.transition_edges + result.skill_migration_edges > 0);
 });
+
+test("generateCareerPathGraph: 岗位 ID 映射应优先使用岗位画像表中的 job_id", async () => {
+  let syncedNodeIds: string[] = [];
+
+  const repository: JobsIntelligenceRepository = {
+    async createPipelineTask() {
+      throw new Error("not used");
+    },
+    async getPipelineTask() {
+      return null;
+    },
+    async updatePipelineTask() {
+      throw new Error("not used");
+    },
+    async listPipelineJobs() {
+      return [
+        {
+          id: 11,
+          source_row_id: null,
+          normalized_source_key: null,
+          title: "前端开发工程师",
+          location: null,
+          salary_range: null,
+          company_name: null,
+          industry: "互联网",
+          company_size: null,
+          company_type: null,
+          job_code: null,
+          job_description: null,
+          company_intro: null,
+          raw_payload: {},
+          created_at: new Date().toISOString(),
+          normalized_title_hint: "前端开发工程师",
+          normalized_job_family_hint: "frontend_engineering",
+          normalization_confidence_hint: 0.9,
+        },
+      ];
+    },
+    async createJobFacts() {},
+    async listLatestJobFactsForCanonical() {
+      return [];
+    },
+    async listJobFacts() {
+      return { total: 0, items: [] };
+    },
+    async getLatestJobFactByJobId() {
+      return null;
+    },
+    async upsertCanonicalRoleProfile() {},
+    async listCanonicalRoles() {
+      return { total: 0, items: [] };
+    },
+    async getCanonicalRoleByKey() {
+      return null;
+    },
+    async listManualJobPortraitsFromTable() {
+      const now = new Date().toISOString();
+      return [
+        {
+          job_id: 8888,
+          job_name: "前端开发工程师",
+          category: "frontend_engineering",
+          skills: { level: 3, weight: 0.2, description: "typescript vue" },
+          certification: { level: 2, weight: 0.1, description: "前端工程化" },
+          innovation: { level: 3, weight: 0.14, description: "交互优化" },
+          learning: { level: 3, weight: 0.14, description: "技术学习" },
+          stress: { level: 3, weight: 0.14, description: "项目节奏" },
+          communication: { level: 3, weight: 0.14, description: "跨团队协作" },
+          experience: { level: 3, weight: 0.14, description: "中型项目经验" },
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          job_id: 9999,
+          job_name: "前端高级工程师",
+          category: "frontend_engineering",
+          skills: { level: 4, weight: 0.2, description: "typescript node 架构" },
+          certification: { level: 2, weight: 0.1, description: "性能优化" },
+          innovation: { level: 4, weight: 0.14, description: "架构演进" },
+          learning: { level: 3, weight: 0.14, description: "技术学习" },
+          stress: { level: 3, weight: 0.14, description: "项目节奏" },
+          communication: { level: 4, weight: 0.14, description: "跨团队协作" },
+          experience: { level: 4, weight: 0.14, description: "复杂项目经验" },
+          created_at: now,
+          updated_at: now,
+        },
+      ];
+    },
+    async getLatestProfileByJobId() {
+      return null;
+    },
+    async createJobProfile() {
+      throw new Error("not used");
+    },
+    async listLatestProfiles() {
+      return { total: 0, items: [] };
+    },
+    async listLatestProfilesForGraph() {
+      return [];
+    },
+    async listJobsByIds() {
+      return [];
+    },
+  };
+
+  const graphRepository: JobsIntelligenceGraphRepository = {
+    async syncGraph(snapshot) {
+      syncedNodeIds = snapshot.nodes.map((node) => node.id);
+      return { nodes_upserted: snapshot.nodes.length, edges_upserted: snapshot.edges.length };
+    },
+    async getSubgraphByJobId() {
+      return {
+        graph_version: "v2.1",
+        generated_at: new Date().toISOString(),
+        nodes: [],
+        edges: [],
+      };
+    },
+    async close() {},
+  };
+
+  await createJobsIntelligenceService(repository, graphRepository, buildEnv()).generateCareerPathGraph({
+    max_candidates_per_node: 20,
+  });
+
+  assert.ok(syncedNodeIds.includes("job-8888"));
+  assert.equal(syncedNodeIds.includes("job-11"), false);
+});

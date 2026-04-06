@@ -11,6 +11,7 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
+    "@antv/g6": "^5.1.0",
     "@career/contracts": "*",
     "echarts": "^6.0.0",
     "pinia": "^3.0.4",

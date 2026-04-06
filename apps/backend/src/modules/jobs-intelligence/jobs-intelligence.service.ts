@@ -53,6 +53,7 @@ import {
 } from "./jobs-intelligence.profile.js";
 import { buildCareerGraphFromManualPortraits } from "./jobs-intelligence.graph.manual.js";
 import { generateCareerGraphByAgent } from "./jobs-intelligence.graph.agent.js";
+import { MANUAL_JOB_PORTRAITS_SEED } from "./manual-job-portraits.seed.js";
 import type { JobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
 
@@ -769,6 +770,7 @@ export interface JobsIntelligenceService {
   listCanonicalRoles(params: CanonicalRolesListParams): Promise<CanonicalRolesListResponse>;
   getCanonicalRole(roleKey: string): Promise<CanonicalRoleRecord>;
   listManualJobPortraits(): Promise<ManualJobPortraitRecord[]>;
+  seedManualJobPortraits(): Promise<{ seeded: number }>;
   generateCareerPathGraph(
     options: CareerPathGenerateOptions,
   ): Promise<CareerPathV2GenerateResponse>;
@@ -1074,6 +1076,22 @@ export function createJobsIntelligenceService(
   }
 
   /**
+   * 作用：将“用户指定”的岗位画像种子数据直接写入人工画像表。
+   * 返回：本次写入条数，便于前端确认入库结果。
+   */
+  async function seedManualJobPortraits(): Promise<{ seeded: number }> {
+    if (typeof repository.replaceManualJobPortraits !== "function") {
+      throw new HttpError(
+        501,
+        "MANUAL_JOB_PORTRAITS_SEED_UNSUPPORTED",
+        "当前仓储未实现人工岗位画像写入",
+      );
+    }
+    await repository.replaceManualJobPortraits(MANUAL_JOB_PORTRAITS_SEED);
+    return { seeded: MANUAL_JOB_PORTRAITS_SEED.length };
+  }
+
+  /**
    * 作用：基于 v2_manual_job_portraits 重新生成职业图谱并写入图数据库。
    * 参数：
    *   - use_agent: 是否使用 Agent 推理生成图谱关系（含智能 reason），默认 false 走规则引擎。
@@ -1297,6 +1315,7 @@ export function createJobsIntelligenceService(
     listCanonicalRoles,
     getCanonicalRole,
     listManualJobPortraits,
+    seedManualJobPortraits,
     generateCareerPathGraph,
     getCareerPathGraph,
   };

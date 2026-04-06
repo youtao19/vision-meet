@@ -223,6 +223,14 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
     }
   });
 
+  router.post("/job-portraits/manual/seed", async (_req, res, next) => {
+    try {
+      return res.json(await service.seedManualJobPortraits());
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   router.get("/canonical-roles", async (req, res, next) => {
     const parsed = listCanonicalRolesSchema.safeParse(req.query);
     if (!parsed.success) {
