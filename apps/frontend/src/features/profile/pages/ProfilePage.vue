@@ -95,6 +95,7 @@ const manualCapability = reactive<CapabilityFormState>({
 const resumeFile = ref<File | null>(null);
 const resumePreviewVisible = ref(false);
 const resumePreviewHtml = ref("");
+const resumeBuilderExpanded = ref(false); // 简历生成器是否展开
 
 const uiState = reactive({
   error: "",

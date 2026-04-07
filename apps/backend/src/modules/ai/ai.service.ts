@@ -2,6 +2,8 @@ import type {
   AiTaskResponse,
   CreateAiTaskRequest,
   CreateResumeHtmlRequest,
+  CreateAiPolishRequest,
+  AiPolishResponse,
   ResumeHtmlListResponse,
   ResumeHtmlRecord,
   ResumeHtmlResponse,
@@ -46,6 +48,10 @@ export interface AiService {
     input: CreateResumeHtmlRequest,
     runtime: AiTaskRuntimeContext,
   ): Promise<ResumeHtmlResponse>;
+  polishText(
+    input: CreateAiPolishRequest,
+    runtime: AiTaskRuntimeContext,
+  ): Promise<AiPolishResponse>;
   listResumeHtmlRecords(offset: number, limit: number): Promise<ResumeHtmlListResponse>;
   getResumeHtmlRecordById(resumeId: number): Promise<ResumeHtmlRecord>;
   getTask(taskId: number): Promise<AiTaskResponse>;
@@ -97,6 +103,17 @@ export function createAiService(dependencies: AiServiceDependencies): AiService 
     },
     listResumeHtmlRecords: (offset, limit) =>
       dependencies.aiRepository.listResumeHtmlRecords({ offset, limit }),
+    polishText: async (input, runtime) => {
+      const { runPolishAgent } = await import("./runtime/ai-polish.runtime.js");
+      return runPolishAgent({
+        input,
+        traceId: runtime.traceId,
+        piAgentDir: dependencies.piAgentDir,
+        sessionStoreDir: dependencies.sessionStoreDir,
+        model: dependencies.model,
+        cwd: dependencies.cwd || process.cwd(),
+      });
+    },
     getResumeHtmlRecordById: async (resumeId) => {
       const record = await dependencies.aiRepository.getResumeHtmlRecordById(resumeId);
       if (!record) {

@@ -232,7 +232,7 @@ onMounted(async () => {
             <option value="">请选择</option>
             <option
               v-for="portrait in jobPortraits"
-              :key="portrait.job_id"
+              :key="portrait.job_id ?? `${portrait.job_name}-${portrait.category}`"
               :value="String(portrait.job_id)"
             >
               #{{ portrait.job_id }} {{ portrait.job_name }}
@@ -338,7 +338,7 @@ onMounted(async () => {
             <option value="">全部</option>
             <option
               v-for="portrait in jobPortraits"
-              :key="portrait.job_id"
+              :key="portrait.job_id ?? `${portrait.job_name}-${portrait.category}`"
               :value="String(portrait.job_id)"
             >
               #{{ portrait.job_id }} {{ portrait.job_name }}

@@ -40,6 +40,13 @@
             <span class="font-['Inter'] text-sm font-medium">数据处理中心</span>
           </RouterLink>
           <RouterLink
+            to="/profile"
+            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
+          >
+            <span class="material-symbols-outlined">person</span>
+            <span class="font-['Inter'] text-sm font-medium">学生画像中心</span>
+          </RouterLink>
+          <RouterLink
             to="/job-profiles"
             class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
           >
@@ -53,13 +60,7 @@
             <span class="material-symbols-outlined">route</span>
             <span class="font-['Inter'] text-sm font-medium">路径图谱中心</span>
           </RouterLink>
-          <RouterLink
-            to="/profile"
-            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
-          >
-            <span class="material-symbols-outlined">person</span>
-            <span class="font-['Inter'] text-sm font-medium">学生画像中心</span>
-          </RouterLink>
+
           <RouterLink
             to="/matching"
             class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
@@ -73,13 +74,6 @@
           >
             <span class="material-symbols-outlined">analytics</span>
             <span class="font-['Inter'] text-sm font-medium">职业报告中心</span>
-          </RouterLink>
-          <RouterLink
-            to="/agent"
-            class="text-slate-600 flex items-center gap-3 px-4 py-3 hover:text-slate-900 hover:bg-black/5 transition-all duration-200"
-          >
-            <span class="material-symbols-outlined">smart_toy</span>
-            <span class="font-['Inter'] text-sm font-medium">Pi Agent</span>
           </RouterLink>
         </nav>
       </aside>

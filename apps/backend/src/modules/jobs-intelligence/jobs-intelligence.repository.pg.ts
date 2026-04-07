@@ -174,8 +174,21 @@ function mapCanonicalRole(row: Record<string, unknown>): CanonicalRoleRecord {
 
 function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRecord {
   const payload = (row.payload as Record<string, unknown> | null) ?? {};
+  const fallbackId = row.fallback_job_id == null ? null : Number(row.fallback_job_id);
+  const resolvedId = row.job_id == null ? fallbackId : Number(row.job_id);
+  const stableId =
+    resolvedId ??
+    1_000_000_000 +
+      (Number.parseInt(
+        createHash("sha1")
+          .update(String(row.job_name ?? ""))
+          .digest("hex")
+          .slice(0, 8),
+        16,
+      ) %
+        900_000_000);
   return {
-    job_id: row.job_id == null ? null : Number(row.job_id),
+    job_id: stableId,
     job_name: String(row.job_name),
     category: String(row.category),
     skills: payload.skills as ManualJobPortraitRecord["skills"],
@@ -1234,42 +1247,6 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
 
   async function listManualJobPortraits(): Promise<ManualJobPortraitRecord[]> {
     await ensureSchema();
-    const latestAgentTaskResult = await pool.query(`
-      SELECT task_id
-      FROM v2_agent_job_portraits
-      ORDER BY created_at DESC
-      LIMIT 1
-    `);
-
-    if (latestAgentTaskResult.rowCount) {
-      const taskId = Number(latestAgentTaskResult.rows[0].task_id);
-      const agentRows = await pool.query(
-        `
-          SELECT
-            p.job_name,
-            p.category,
-            p.payload,
-            p.created_at,
-            p.updated_at,
-            (
-              SELECT j.id
-              FROM jobs j
-              WHERE lower(trim(j.title)) = lower(trim(p.job_name))
-              ORDER BY j.id DESC
-              LIMIT 1
-            ) AS job_id
-          FROM v2_agent_job_portraits p
-          WHERE task_id = $1
-          ORDER BY p.created_at ASC, p.job_name ASC
-        `,
-        [taskId],
-      );
-
-      if (agentRows.rowCount) {
-        return agentRows.rows.map((row) => mapManualJobPortrait(row));
-      }
-    }
-
     const result = await pool.query(`
       SELECT
         p.*,
@@ -1278,6 +1255,15 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
           FROM jobs j
           WHERE lower(trim(j.title)) = lower(trim(p.job_name))
           ORDER BY j.id DESC
+          LIMIT 1
+        ) AS fallback_job_id,
+        (
+          SELECT j2.id
+          FROM jobs j2
+          WHERE lower(trim(j2.title)) = lower(trim(p.job_name))
+            AND regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
+              regexp_replace(lower(trim(p.job_name)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g')
+          ORDER BY j2.id DESC
           LIMIT 1
         ) AS job_id
       FROM v2_manual_job_portraits p
@@ -1296,6 +1282,15 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
           FROM jobs j
           WHERE lower(trim(j.title)) = lower(trim(p.job_name))
           ORDER BY j.id DESC
+          LIMIT 1
+        ) AS fallback_job_id,
+        (
+          SELECT j2.id
+          FROM jobs j2
+          WHERE lower(trim(j2.title)) = lower(trim(p.job_name))
+            AND regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
+              regexp_replace(lower(trim(p.job_name)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g')
+          ORDER BY j2.id DESC
           LIMIT 1
         ) AS job_id
       FROM v2_manual_job_portraits p

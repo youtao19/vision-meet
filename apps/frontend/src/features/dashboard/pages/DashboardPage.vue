@@ -9,7 +9,6 @@
       <RouterLink to="/profile">学生画像中心</RouterLink>
       <RouterLink to="/matching">匹配分析中心</RouterLink>
       <RouterLink to="/report">职业报告中心</RouterLink>
-      <RouterLink to="/agent">Pi Agent</RouterLink>
     </nav>
   </section>
 </template>

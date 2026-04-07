@@ -1,19 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
 
-import type { JobPipelineTaskRecord } from "@career/contracts/types";
-
-import { ApiRequestError } from "@/shared/api/http";
-import { fetchJobPipelineTask, runJobPipeline } from "@/shared/api/job-pipeline";
-
 const loading = reactive({
   run: false,
-  refresh: false,
-});
-
-const form = reactive({
-  mode: "cleanse_agent_portraits" as const,
-  taskIdInput: "",
 });
 
 const uiState = reactive({
@@ -21,176 +10,77 @@ const uiState = reactive({
   success: "",
 });
 
-const currentTask = ref<JobPipelineTaskRecord | null>(null);
-let timer: number | null = null;
+type MockStage = "queued" | "cleaning" | "generating" | "packaging" | "done";
+
+const mockTaskId = ref<number | null>(null);
+const currentStage = ref<MockStage>("queued");
+const progress = ref(0);
+const isRunning = ref(false);
+const stageMessage = ref("待开始");
+const generatedPreviewCount = ref(0);
+const currentRoleHint = ref("");
+
+let simulationTimer: number | null = null;
 let heartbeatTimer: number | null = null;
 const heartbeatTick = ref(0);
 
-type PipelineStage =
-  | "queued"
-  | "cleaning"
-  | "generating"
-  | "succeeded"
-  | "failed"
-  | "degraded"
-  | "unknown";
+const previewRoles = [
+  "前端开发工程师",
+  "Java开发工程师",
+  "测试工程师",
+  "技术支持工程师",
+  "实施工程师",
+  "C/C++开发工程师",
+  "软件测试工程师",
+  "硬件测试工程师",
+  "网络工程师",
+  "产品专员/助理",
+];
 
-/**
- * 作用：根据任务状态与后端 message 识别当前阶段。
- * 设计意图：后端任务是长链路异步过程，前端通过阶段语义避免用户误以为“点击后无响应”。
- */
-function detectPipelineStage(task: JobPipelineTaskRecord | null): PipelineStage {
-  if (!task) {
-    return "unknown";
-  }
+const timelineSteps = computed(() => {
+  const stageOrder: MockStage[] = ["queued", "cleaning", "generating", "packaging", "done"];
+  const labels: Record<MockStage, string> = {
+    queued: "任务排队",
+    cleaning: "清洗岗位数据",
+    generating: "模拟 Agent 生成画像",
+    packaging: "汇总与结果整理",
+    done: "演示完成",
+  };
+  const currentIndex = stageOrder.indexOf(currentStage.value);
 
-  if (task.status === "queued") {
-    return "queued";
-  }
-  if (task.status === "success") {
-    return "succeeded";
-  }
-  if (task.status === "failed") {
-    return "failed";
-  }
-  if (task.status === "degraded") {
-    return "degraded";
-  }
-
-  const message = (task.message || "").toLowerCase();
-  const isGeneratingByMessage =
-    message.includes("agent") ||
-    message.includes("画像") ||
-    message.includes("portraits") ||
-    message.includes("generate");
-
-  if (isGeneratingByMessage) {
-    return "generating";
-  }
-
-  if (task.total_jobs > 0 && task.processed_jobs >= task.total_jobs) {
-    return "generating";
-  }
-
-  return "cleaning";
-}
-
-const isTaskRunning = computed(() => currentTask.value?.status === "running");
-
-const pipelineStage = computed<PipelineStage>(() => detectPipelineStage(currentTask.value));
-
-const pipelineStageLabel = computed(() => {
-  switch (pipelineStage.value) {
-    case "queued":
-      return "排队中";
-    case "cleaning":
-      return "清洗数据中";
-    case "generating":
-      return "Agent 生成岗位画像中";
-    case "succeeded":
-      return "已完成";
-    case "failed":
-      return "执行失败";
-    case "degraded":
-      return "降级完成";
-    default:
-      return "待开始";
-  }
+  return stageOrder.map((stage, index) => ({
+    label: labels[stage],
+    active: isRunning.value && index === currentIndex,
+    completed: index < currentIndex || (!isRunning.value && currentStage.value === "done"),
+  }));
 });
 
-const pipelineProgressPercent = computed(() => {
-  const task = currentTask.value;
-  if (!task) {
-    return 0;
-  }
-  if (task.status === "success" || task.status === "failed" || task.status === "degraded") {
-    return 100;
-  }
-  if (task.status === "queued") {
-    return 5;
-  }
+const stageDots = computed(() => ".".repeat((heartbeatTick.value % 3) + 1));
 
-  if (pipelineStage.value === "generating") {
-    return 90;
+const liveStageText = computed(() => {
+  if (!isRunning.value) {
+    return stageMessage.value;
   }
-
-  const total = Math.max(1, task.total_jobs);
-  const cleanedRatio = Math.min(1, Math.max(0, task.processed_jobs / total));
-  return Math.max(8, Math.round(cleanedRatio * 85));
+  return `${stageMessage.value}${stageDots.value}`;
 });
 
 const runButtonText = computed(() => {
   if (loading.run) {
     return "启动中...";
   }
-  if (isTaskRunning.value) {
-    return "任务执行中...";
+  if (isRunning.value) {
+    return "模拟生成中...";
   }
   return "开始生成画像";
 });
 
-const stageDots = computed(() => ".".repeat((heartbeatTick.value % 3) + 1));
-
-const liveStageText = computed(() => {
-  if (!isTaskRunning.value) {
-    return pipelineStageLabel.value;
-  }
-  return `${pipelineStageLabel.value}${stageDots.value}`;
-});
-
-const stageIndex = computed(() => {
-  switch (pipelineStage.value) {
-    case "queued":
-      return 0;
-    case "cleaning":
-      return 1;
-    case "generating":
-      return 2;
-    case "succeeded":
-      return 3;
-    case "degraded":
-      return 3;
-    case "failed":
-      return 3;
-    default:
-      return -1;
-  }
-});
-
-const timelineSteps = computed(() => {
-  const steps = ["任务排队", "清洗岗位数据", "Agent生成画像", "写入并完成"];
-  return steps.map((label, index) => {
-    const active = isTaskRunning.value && index === stageIndex.value;
-    const completed = stageIndex.value > index || pipelineStage.value === "succeeded";
-    const failed = pipelineStage.value === "failed" && index === 3;
-    return {
-      label,
-      active,
-      completed,
-      failed,
-    };
-  });
-});
-
-function formatApiError(error: unknown): string {
-  if (error instanceof ApiRequestError) {
-    return error.traceId ? `${error.message}（trace_id: ${error.traceId}）` : error.message;
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return "请求失败，请稍后重试";
-}
-
-function toPositiveInt(raw: string): number | undefined {
-  const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-function stopAutoRefresh(): void {
-  if (timer !== null) {
-    window.clearInterval(timer);
-    timer = null;
+/**
+ * 作用：结束演示定时器，避免组件销毁后仍有异步任务更新状态。
+ */
+function stopSimulation(): void {
+  if (simulationTimer !== null) {
+    window.clearInterval(simulationTimer);
+    simulationTimer = null;
   }
   if (heartbeatTimer !== null) {
     window.clearInterval(heartbeatTimer);
@@ -198,69 +88,80 @@ function stopAutoRefresh(): void {
   }
 }
 
-function tryStartAutoRefresh(): void {
-  if (!currentTask.value || currentTask.value.status !== "running") {
-    stopAutoRefresh();
+/**
+ * 作用：启动纯前端模拟流程，不发起后端请求、不写入数据库。
+ * 注意：该流程仅用于比赛演示“调用 Agent 生成画像”的动态效果。
+ */
+function startMockPipeline(): void {
+  if (isRunning.value) {
     return;
   }
-  if (timer !== null) {
-    return;
-  }
+
+  loading.run = true;
+  uiState.error = "";
+  uiState.success = "";
+
+  mockTaskId.value = Math.floor(Date.now() / 1000);
+  currentStage.value = "queued";
+  progress.value = 3;
+  generatedPreviewCount.value = 0;
+  currentRoleHint.value = "";
+  stageMessage.value = "任务排队中";
+  isRunning.value = true;
+  loading.run = false;
+
+  heartbeatTick.value = 0;
   if (heartbeatTimer === null) {
     heartbeatTimer = window.setInterval(() => {
       heartbeatTick.value += 1;
     }, 500);
   }
-  timer = window.setInterval(() => {
-    if (!currentTask.value) {
-      stopAutoRefresh();
+
+  let stepTick = 0;
+  simulationTimer = window.setInterval(() => {
+    stepTick += 1;
+
+    if (stepTick <= 2) {
+      currentStage.value = "queued";
+      stageMessage.value = "任务排队中";
+      progress.value = Math.min(8, progress.value + 2);
       return;
     }
-    void refreshTask(currentTask.value.id);
-  }, 3000);
-}
 
-async function refreshTask(taskId?: number): Promise<void> {
-  const resolvedTaskId = taskId ?? toPositiveInt(form.taskIdInput);
-  if (!resolvedTaskId) {
-    uiState.error = "请输入合法的任务 ID";
-    return;
-  }
+    if (stepTick <= 8) {
+      currentStage.value = "cleaning";
+      stageMessage.value = "正在清洗岗位数据";
+      progress.value = Math.min(42, progress.value + 6);
+      return;
+    }
 
-  loading.refresh = true;
-  uiState.error = "";
-  uiState.success = "";
-  try {
-    currentTask.value = await fetchJobPipelineTask(resolvedTaskId);
-    form.taskIdInput = String(resolvedTaskId);
-    tryStartAutoRefresh();
-  } catch (error) {
-    uiState.error = formatApiError(error);
-  } finally {
-    loading.refresh = false;
-  }
-}
+    if (stepTick <= 20) {
+      currentStage.value = "generating";
+      stageMessage.value = "模拟 Agent 生成岗位画像";
+      progress.value = Math.min(88, progress.value + 4);
 
-async function runPipelineNow(): Promise<void> {
-  loading.run = true;
-  uiState.error = "";
-  uiState.success = "";
+      const nextCount = Math.min(previewRoles.length, generatedPreviewCount.value + 1);
+      generatedPreviewCount.value = nextCount;
+      currentRoleHint.value = previewRoles[nextCount - 1] || "";
+      return;
+    }
 
-  try {
-    const task = await runJobPipeline({ mode: form.mode });
-    currentTask.value = task;
-    form.taskIdInput = String(task.id);
-    uiState.success = `流水线任务 #${task.id} 已启动`;
-    await refreshTask(task.id);
-  } catch (error) {
-    uiState.error = formatApiError(error);
-  } finally {
-    loading.run = false;
-  }
+    if (stepTick <= 24) {
+      currentStage.value = "packaging";
+      stageMessage.value = "正在汇总画像结果";
+      progress.value = Math.min(98, progress.value + 2);
+      return;
+    }
+
+    currentStage.value = "done";
+    progress.value = 100;
+    isRunning.value = false;
+    stopSimulation();
+  }, 700);
 }
 
 onBeforeUnmount(() => {
-  stopAutoRefresh();
+  stopSimulation();
 });
 </script>
 
@@ -268,90 +169,68 @@ onBeforeUnmount(() => {
   <section class="pipeline-page">
     <header class="page-header">
       <h2>岗位画像生产中心</h2>
-      <p>手动触发“清洗入库 + Agent 生成画像”流程，并实时查看动态进度。</p>
     </header>
 
     <p v-if="uiState.error" class="notice notice-error">{{ uiState.error }}</p>
     <p v-if="uiState.success" class="notice notice-success">{{ uiState.success }}</p>
 
     <section class="panel">
-      <h3>启动生产任务</h3>
       <div class="row">
         <label>
           执行方案
-          <select v-model="form.mode" :disabled="loading.run || isTaskRunning">
-            <option value="cleanse_agent_portraits">清洗数据入库 + Agent 生成 10 条岗位画像</option>
+          <select disabled>
+            <option>Agent 生成 10 条岗位画像</option>
           </select>
         </label>
-        <button
-          class="primary-btn"
-          :disabled="loading.run || isTaskRunning"
-          @click="runPipelineNow"
-        >
+        <button class="primary-btn" :disabled="isRunning || loading.run" @click="startMockPipeline">
           {{ runButtonText }}
         </button>
       </div>
-      <p v-if="isTaskRunning" class="stage-hint">
-        <span class="pulse-dot" /> 当前阶段：{{ liveStageText }}（页面每 3 秒自动刷新）
+      <p v-if="isRunning" class="stage-hint">
+        <span class="pulse-dot" /> 当前阶段：{{ liveStageText }}
       </p>
     </section>
 
     <section class="panel">
       <h3>任务追踪</h3>
-      <div class="row">
-        <label>
-          任务 ID
-          <input v-model="form.taskIdInput" type="text" placeholder="例如 12" />
-        </label>
-        <button class="ghost-btn" :disabled="loading.refresh" @click="refreshTask()">
-          {{ loading.refresh ? "刷新中..." : "查询任务" }}
-        </button>
-      </div>
 
-      <article v-if="currentTask" class="task-card">
+      <article v-if="mockTaskId" class="task-card">
         <p>
-          <strong>任务 #{{ currentTask.id }}</strong>
-          · 方案：清洗入库 + Agent 画像 · 状态码：{{ currentTask.status }}
+          <strong>任务 #{{ mockTaskId }}</strong>
         </p>
         <p class="stage-line">
           <span class="stage-chip">{{ liveStageText }}</span>
-          <span v-if="currentTask.status === 'running'" class="refresh-tip">自动轮询中</span>
         </p>
-        <div class="timeline" aria-label="流水线阶段时间线">
+
+        <div class="timeline" aria-label="演示阶段时间线">
           <div
             v-for="step in timelineSteps"
             :key="step.label"
             class="timeline-step"
-            :class="{
-              'is-active': step.active,
-              'is-completed': step.completed,
-              'is-failed': step.failed,
-            }"
+            :class="{ 'is-active': step.active, 'is-completed': step.completed }"
           >
             <span class="timeline-dot" />
             <span class="timeline-label">{{ step.label }}</span>
           </div>
         </div>
+
         <div
           class="progress-wrap"
           role="progressbar"
-          :aria-valuenow="pipelineProgressPercent"
+          :aria-valuenow="progress"
           aria-valuemin="0"
           aria-valuemax="100"
         >
-          <div class="progress-bar" :style="{ width: `${pipelineProgressPercent}%` }" />
+          <div class="progress-bar" :style="{ width: `${progress}%` }" />
         </div>
-        <p class="progress-text">当前进度：{{ pipelineProgressPercent }}%</p>
-        <p>清洗目标：{{ currentTask.total_jobs }}，已清洗：{{ currentTask.processed_jobs }}</p>
-        <p>
-          画像产出：{{ currentTask.success_profiles }}，失败任务：{{ currentTask.failed_profiles }}
-        </p>
-        <p>当前画像数量：{{ currentTask.family_count }}</p>
-        <p v-if="currentTask.message">进度日志：{{ currentTask.message }}</p>
-        <p v-if="currentTask.error_message" class="error-text">
-          失败原因：{{ currentTask.error_message }}
-        </p>
+        <p class="progress-text">当前进度：{{ progress }}%</p>
+
+        <p>模拟生成数量：{{ generatedPreviewCount }} / 10</p>
+        <p v-if="currentRoleHint">当前生成岗位：{{ currentRoleHint }}</p>
+        <p class="db-safe-tip">数据库状态：本次演示不会写入任何数据。</p>
       </article>
+
+      <p v-else class="empty-text">请点击“开始生成画像”启动演示任务。</p>
     </section>
   </section>
 </template>
@@ -410,30 +289,24 @@ label {
   color: #334155;
 }
 
-input,
 select {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 8px 10px;
 }
 
-.primary-btn,
-.ghost-btn {
+.primary-btn {
   border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
-}
-
-.primary-btn {
   border: 1px solid #0f766e;
   background: #0f766e;
   color: #ffffff;
 }
 
-.ghost-btn {
-  border: 1px solid #94a3b8;
-  background: #f8fafc;
-  color: #111827;
+.primary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .task-card {
@@ -446,6 +319,11 @@ select {
 
 .task-card p {
   margin: 4px 0;
+}
+
+.empty-text {
+  margin: 10px 0 0;
+  color: #64748b;
 }
 
 .stage-hint {
@@ -556,22 +434,14 @@ select {
   animation: pulse 1.2s ease-in-out infinite;
 }
 
-.timeline-step.is-failed {
-  color: #b91c1c;
-}
-
-.timeline-step.is-failed .timeline-dot {
-  border-color: #b91c1c;
-  background: #fee2e2;
-}
-
 .progress-text {
   font-size: 12px;
   color: #334155;
 }
 
-.error-text {
-  color: #b91c1c;
+.db-safe-tip {
+  color: #0f766e;
+  font-weight: 600;
 }
 
 @keyframes pulse {

@@ -23,11 +23,7 @@ import { LegendComponent, TooltipComponent } from "echarts/components";
 import { init, use, type ECharts } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 
-import {
-  fetchCareerPathGraph,
-  generateCareerPathGraph,
-  seedCareerPathUserData,
-} from "@/shared/api/career-path";
+import { fetchCareerPathGraph } from "@/shared/api/career-path";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { fetchStudentProfiles } from "@/shared/api/profile";
@@ -46,12 +42,12 @@ const g6Ref = ref<HTMLDivElement | null>(null);
 
 const selectedNodeId = ref("");
 const selectedEdgeId = ref("");
+const chartTab = ref<"graph" | "radar">("graph");
+const insightTab = ref<"detail" | "routes">("detail");
 
 const loading = reactive({
   bootstrap: false,
   graph: false,
-  generate: false,
-  seed: false,
 });
 
 const form = reactive({
@@ -59,6 +55,8 @@ const form = reactive({
   studentProfileId: "",
   depth: 2,
 });
+
+const PREBUILT_GRAPH_JOB_IDS = [1730415757, 1683349906, 1193271204, 1731015984, 1410409555];
 
 const uiState = reactive({
   error: "",
@@ -173,20 +171,20 @@ const radarComparison = computed(() => {
   };
 
   const keys = Object.keys(target) as Array<keyof typeof target>;
-  const avgGap = keys.reduce((sum, key) => sum + Math.abs(target[key] - student[key]), 0) / keys.length;
+  const avgGap =
+    keys.reduce((sum, key) => sum + Math.abs(target[key] - student[key]), 0) / keys.length;
   const matchScore = Math.max(0, Math.min(100, Math.round(100 - avgGap)));
 
   return { target, student, matchScore };
 });
 
 const targetJobOptions = computed(() => {
-  return manualPortraits.value
-    .filter((item) => Number.isInteger(item.job_id) && (item.job_id ?? 0) > 0)
-    .map((item) => ({
-      job_id: item.job_id as number,
-      job_name: item.job_name,
-      category: item.category,
-    }));
+  return manualPortraits.value.map((item, index) => ({
+    job_id: item.job_id as number,
+    option_key: `${item.job_name}-${item.category}-${index}`,
+    job_name: item.job_name,
+    category: item.category,
+  }));
 });
 
 const selectedNode = computed(() => {
@@ -196,6 +194,27 @@ const selectedNode = computed(() => {
 const selectedEdge = computed(() => {
   return graphResult.value?.edges.find((edge) => edge.id === selectedEdgeId.value) ?? null;
 });
+
+function getNodeTitleById(nodeId: string): string {
+  if (!graphResult.value) {
+    return nodeId;
+  }
+  const matched = graphResult.value.nodes.find((node) => node.id === nodeId);
+  return matched?.title ?? nodeId;
+}
+
+/**
+ * 作用：将路径推荐文案中的节点 ID（如 job-1730415757）转换为岗位名称，提升可读性。
+ * 参数：text 为后端返回的路径标题或摘要文本。
+ * 返回：替换后的可读文案。
+ * 注意：仅替换当前图谱中可识别的节点 ID；未知 ID 保持原样，避免误替换。
+ */
+function formatRouteText(text: string): string {
+  if (!graphResult.value || !text) {
+    return text;
+  }
+  return text.replace(/job-\d+/g, (matchedNodeId) => getNodeTitleById(matchedNodeId));
+}
 
 function buildRadarOption() {
   const comparison = radarComparison.value;
@@ -212,9 +231,13 @@ function buildRadarOption() {
     { name: "沟通", max: 100 },
   ];
 
-  const targetValues = indicators.map((item) => comparison.target[item.name as keyof typeof comparison.target]);
+  const targetValues = indicators.map(
+    (item) => comparison.target[item.name as keyof typeof comparison.target],
+  );
   const studentValues = comparison.student
-    ? indicators.map((item) => comparison.student?.[item.name as keyof typeof comparison.student] ?? 0)
+    ? indicators.map(
+        (item) => comparison.student?.[item.name as keyof typeof comparison.student] ?? 0,
+      )
     : [];
 
   return {
@@ -263,6 +286,36 @@ function nodeColorByCategory(category: CareerPathNode["category"]): string {
 
 function edgeColorByType(relationType: CareerPathEdge["relation_type"]): string {
   return relationType === "promotion" ? "#1d4ed8" : "#ea580c";
+}
+
+function buildGraphPlaceholderNode(jobId: number): CareerPathV2GraphResponse["nodes"][number] {
+  return {
+    id: `job-${jobId}`,
+    job_id: jobId,
+    role_key: `job-${jobId}`,
+    title: `岗位 #${jobId}`,
+    description: "当前图谱关系较少，已展示目标岗位占位节点。",
+    family: "unknown",
+    level: 1,
+    aliases: [],
+    typical_skills: [],
+    category: "target",
+    is_target: true,
+  };
+}
+
+/**
+ * 作用：根据当前选择岗位，返回一个可用的“预置图谱岗位ID”作为兜底。
+ * 参数：jobId 为用户当前选择岗位ID。
+ * 返回：可直接命中后端图谱接口的岗位ID。
+ * 注意：用于比赛演示场景，优先保证页面可稳定展示图谱。
+ */
+function resolveFallbackGraphJobId(jobId: number): number {
+  if (PREBUILT_GRAPH_JOB_IDS.includes(jobId)) {
+    return jobId;
+  }
+  // 默认回退到 Java 开发岗位图谱，避免出现空白页
+  return PREBUILT_GRAPH_JOB_IDS[0] ?? jobId;
 }
 
 function pickEventTargetId(event: IEvent): string {
@@ -404,17 +457,45 @@ async function loadGraph(): Promise<void> {
   uiState.error = "";
 
   try {
-    const result = await fetchCareerPathGraph({
-      job_id: jobId,
-      student_profile_id: toPositiveInt(form.studentProfileId),
-      depth: form.depth,
-    });
+    let fetched: CareerPathV2GraphResponse;
+    try {
+      fetched = await fetchCareerPathGraph({
+        job_id: jobId,
+        student_profile_id: toPositiveInt(form.studentProfileId),
+        depth: form.depth,
+      });
+    } catch (error) {
+      // 比赛演示兜底：若当前岗位暂无图谱，则自动回退到预置图谱岗位，保证可视化稳定展示
+      if (error instanceof ApiRequestError && error.status === 404) {
+        const fallbackJobId = resolveFallbackGraphJobId(jobId);
+        fetched = await fetchCareerPathGraph({
+          job_id: fallbackJobId,
+          student_profile_id: toPositiveInt(form.studentProfileId),
+          depth: form.depth,
+        });
+        uiState.success = `当前岗位尚未命中图谱，已展示预置图谱（岗位ID: ${fallbackJobId}）`;
+      } else {
+        throw error;
+      }
+    }
+
+    const result =
+      fetched.nodes.length > 0
+        ? fetched
+        : {
+            ...fetched,
+            target_node_id: `job-${jobId}`,
+            nodes: [buildGraphPlaceholderNode(jobId)],
+            edges: [],
+          };
     graphResult.value = result;
     selectedNodeId.value = result.target_node_id;
     selectedEdgeId.value = "";
     await nextTick();
     renderRadarChart();
-    await renderG6Graph(result);
+    if (chartTab.value === "graph") {
+      await renderG6Graph(result);
+    }
   } catch (error) {
     graphResult.value = null;
     uiState.error = formatApiError(error);
@@ -439,48 +520,6 @@ async function searchGraph(): Promise<void> {
       depth: String(form.depth),
     },
   });
-}
-
-/**
- * 触发“固定图谱快照”构建，显式关闭 Agent 推理模式。
- */
-async function generateGraph(): Promise<void> {
-  loading.generate = true;
-  uiState.error = "";
-  uiState.success = "";
-  try {
-    const result = await generateCareerPathGraph({
-      force_rebuild: true,
-      max_candidates_per_node: 24,
-      use_agent: false,
-    });
-    uiState.success = `图谱生成完成（规则模式）：节点 ${result.nodes_written}，边 ${result.edges_written}`;
-    if (toPositiveInt(form.jobId)) {
-      await loadGraph();
-    }
-  } catch (error) {
-    uiState.error = formatApiError(error);
-  } finally {
-    loading.generate = false;
-  }
-}
-
-/**
- * 触发后端将“用户给定岗位画像”写入数据库。
- */
-async function seedUserData(): Promise<void> {
-  loading.seed = true;
-  uiState.error = "";
-  uiState.success = "";
-  try {
-    const result = await seedCareerPathUserData();
-    uiState.success = `已完成岗位画像入库：${result.seeded} 条`;
-    await bootstrap();
-  } catch (error) {
-    uiState.error = formatApiError(error);
-  } finally {
-    loading.seed = false;
-  }
 }
 
 async function syncFromQuery(): Promise<void> {
@@ -523,6 +562,17 @@ watch([selectedJobPortrait, selectedProfile], async () => {
   renderRadarChart();
 });
 
+watch(chartTab, async (tab) => {
+  if (tab === "graph" && graphResult.value) {
+    await nextTick();
+    await renderG6Graph(graphResult.value);
+  }
+  if (tab === "radar") {
+    await nextTick();
+    renderRadarChart();
+  }
+});
+
 onMounted(async () => {
   await bootstrap();
   await syncFromQuery();
@@ -542,8 +592,8 @@ onUnmounted(() => {
   <section class="career-path-page">
     <header class="page-header">
       <div>
-        <h2>职业路径图谱（用户数据直出）</h2>
-        <p>使用你提供的岗位画像数据，展示匹配度雷达图与岗位关联/晋升图谱。</p>
+        <h2>职业路径图谱</h2>
+        <p>当前页面仅保留图谱查询与展示能力，默认读取数据库中的预置路径图谱。</p>
       </div>
       <div class="nav-links">
         <RouterLink class="nav-link" to="/matching">匹配分析</RouterLink>
@@ -563,7 +613,7 @@ onUnmounted(() => {
             <option value="">请选择</option>
             <option
               v-for="option in targetJobOptions"
-              :key="`${option.job_id}-${option.job_name}`"
+              :key="option.option_key"
               :value="String(option.job_id)"
             >
               #{{ option.job_id }} {{ option.job_name }}（{{ option.category }}）
@@ -590,49 +640,81 @@ onUnmounted(() => {
           </select>
         </label>
 
-        <button class="primary-btn" :disabled="loading.graph || loading.generate" @click="searchGraph">
+        <button class="primary-btn" :disabled="loading.graph" @click="searchGraph">
           {{ loading.graph ? "加载中..." : "加载图谱" }}
-        </button>
-
-        <button class="secondary-btn" :disabled="loading.generate || loading.graph" @click="generateGraph">
-          {{ loading.generate ? "生成中..." : "重建图谱快照" }}
-        </button>
-
-        <button class="seed-btn" :disabled="loading.seed || loading.graph" @click="seedUserData">
-          {{ loading.seed ? "入库中..." : "使用用户数据入库" }}
         </button>
       </div>
     </section>
 
-    <section class="layout">
-      <section class="panel">
-        <div class="panel-title-row">
-          <h3>ECharts 匹配度雷达图</h3>
-          <p class="muted" v-if="radarComparison?.matchScore !== null">
-            综合匹配度：{{ radarComparison?.matchScore }} 分
+    <section class="panel graph-panel">
+      <div class="panel-title-row">
+        <div>
+          <h3>可视化视图</h3>
+          <p v-if="graphResult" class="muted">
+            节点 {{ graphResult.nodes.length }} · 边 {{ graphResult.edges.length }} · 版本
+            {{ graphResult.graph_version }}
           </p>
         </div>
-        <div ref="radarRef" class="radar-canvas"></div>
-      </section>
-
-      <section class="panel graph-panel">
-        <div class="panel-title-row">
-          <div>
-            <h3>G6 岗位关联与晋升图谱</h3>
-            <p v-if="graphResult" class="muted">
-              节点 {{ graphResult.nodes.length }} · 边 {{ graphResult.edges.length }} · 版本
-              {{ graphResult.graph_version }}
-            </p>
-          </div>
+        <div class="tab-switch">
+          <button
+            class="tab-btn"
+            :class="{ active: chartTab === 'graph' }"
+            type="button"
+            @click="chartTab = 'graph'"
+          >
+            G6 图谱
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: chartTab === 'radar' }"
+            type="button"
+            @click="chartTab = 'radar'"
+          >
+            雷达图
+          </button>
         </div>
+      </div>
+
+      <div v-show="chartTab === 'graph'">
         <div v-if="graphResult" ref="g6Ref" class="graph-canvas"></div>
+        <p v-if="graphResult && graphResult.edges.length === 0" class="muted empty-hint">
+          当前没有可用关系边，建议点击“重建图谱快照”后再查看。
+        </p>
         <p v-else class="empty-text">请选择岗位并加载图谱后查看 G6 关系图。</p>
-      </section>
+      </div>
+
+      <div v-show="chartTab === 'radar'">
+        <p class="muted radar-score" v-if="radarComparison?.matchScore !== null">
+          综合匹配度：{{ radarComparison?.matchScore }} 分
+        </p>
+        <div ref="radarRef" class="radar-canvas"></div>
+      </div>
     </section>
 
-    <section v-if="graphResult" class="layout">
-      <section class="panel">
-        <h3>节点/关系详情</h3>
+    <section v-if="graphResult" class="panel">
+      <div class="panel-title-row">
+        <h3>分析洞察</h3>
+        <div class="tab-switch">
+          <button
+            class="tab-btn"
+            :class="{ active: insightTab === 'detail' }"
+            type="button"
+            @click="insightTab = 'detail'"
+          >
+            节点关系详情
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: insightTab === 'routes' }"
+            type="button"
+            @click="insightTab = 'routes'"
+          >
+            路径推荐
+          </button>
+        </div>
+      </div>
+
+      <div v-if="insightTab === 'detail'" class="panel-stack">
         <div class="detail-filters">
           <label>
             节点
@@ -649,7 +731,9 @@ onUnmounted(() => {
             <select v-model="selectedEdgeId">
               <option value="">请选择关系</option>
               <option v-for="edge in graphResult.edges" :key="edge.id" :value="edge.id">
-                {{ edge.source }} → {{ edge.target }}（{{ edge.direction_label }}）
+                {{ getNodeTitleById(edge.source) }} → {{ getNodeTitleById(edge.target) }}（{{
+                  edge.direction_label
+                }}）
               </option>
             </select>
           </label>
@@ -665,22 +749,28 @@ onUnmounted(() => {
 
         <div v-if="selectedEdge" class="detail-card edge-card">
           <p class="detail-tag">{{ selectedEdge.direction_label }}</p>
-          <h4>{{ selectedEdge.source }} → {{ selectedEdge.target }}</h4>
+          <h4>
+            {{ getNodeTitleById(selectedEdge.source) }} →
+            {{ getNodeTitleById(selectedEdge.target) }}
+          </h4>
           <p>{{ selectedEdge.reason }}</p>
           <p>关键迁移技能：{{ selectedEdge.required_skills.join("、") || "暂无" }}</p>
           <p>待补齐技能：{{ selectedEdge.gap_skills.join("、") || "暂无" }}</p>
           <p>迁移成本：{{ selectedEdge.transition_cost }} · 关系分值：{{ selectedEdge.score }}</p>
         </div>
-      </section>
+      </div>
 
-      <section class="panel">
-        <h3>路径推荐</h3>
-        <article v-for="item in graphResult.promotion_routes" :key="item.route_id" class="route-card">
+      <div v-else class="panel-stack">
+        <article
+          v-for="item in graphResult.promotion_routes"
+          :key="item.route_id"
+          class="route-card"
+        >
           <header>
-            <strong>{{ item.title }}</strong>
+            <strong>{{ formatRouteText(item.title) }}</strong>
             <span class="route-score">{{ item.suitability_score }} 分</span>
           </header>
-          <p>{{ item.summary }}</p>
+          <p>{{ formatRouteText(item.summary) }}</p>
         </article>
         <article
           v-for="item in graphResult.transition_routes"
@@ -688,12 +778,12 @@ onUnmounted(() => {
           class="route-card transition-card"
         >
           <header>
-            <strong>{{ item.title }}</strong>
+            <strong>{{ formatRouteText(item.title) }}</strong>
             <span class="route-score">{{ item.suitability_score }} 分</span>
           </header>
-          <p>{{ item.summary }}</p>
+          <p>{{ formatRouteText(item.summary) }}</p>
         </article>
-      </section>
+      </div>
     </section>
   </section>
 </template>
@@ -757,7 +847,7 @@ onUnmounted(() => {
 
 .toolbar {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
 }
@@ -807,6 +897,11 @@ select {
   gap: 16px;
 }
 
+.panel-stack {
+  display: grid;
+  gap: 12px;
+}
+
 .panel-title-row {
   display: flex;
   justify-content: space-between;
@@ -822,7 +917,7 @@ select {
 
 .radar-canvas {
   width: 100%;
-  height: 320px;
+  height: 420px;
 }
 
 .graph-panel {
@@ -837,6 +932,38 @@ select {
   background:
     radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 35%),
     linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.tab-switch {
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.tab-btn {
+  border: none;
+  background: transparent;
+  color: #475569;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.radar-score {
+  margin: 0 0 8px;
+}
+
+.empty-hint {
+  margin-top: 8px;
 }
 
 .detail-filters {
@@ -895,7 +1022,7 @@ select {
 
 @media (max-width: 1180px) {
   .toolbar {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
 

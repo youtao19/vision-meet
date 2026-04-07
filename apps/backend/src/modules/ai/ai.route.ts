@@ -8,6 +8,7 @@ import {
   aiResumeHtmlCreateSchema,
   aiTaskCreateSchema,
   aiTaskIdParamsSchema,
+  aiPolishCreateSchema,
 } from "./ai.schemas.js";
 import type { AiService } from "./ai.service.js";
 
@@ -38,6 +39,24 @@ export function createAiRouter(service: AiService): Router {
   }
 
   router.post("/tasks", handleCreateTask);
+  router.post("/polish", async (req, res, next) => {
+    const parsed = aiPolishCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return next(
+        new HttpError(400, "AI_POLISH_INPUT_INVALID", "润色参数不合法", parsed.error.flatten()),
+      );
+    }
+
+    try {
+      const traceId = (res.locals.trace_id as string | undefined) || "";
+      const result = await service.polishText(parsed.data, {
+        traceId,
+      });
+      return res.status(200).json(result);
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   router.post("/resume-html", async (req, res, next) => {
     const parsed = aiResumeHtmlCreateSchema.safeParse(req.body);

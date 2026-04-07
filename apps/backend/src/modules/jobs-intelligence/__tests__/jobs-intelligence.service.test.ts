@@ -2190,7 +2190,11 @@ test("generateCareerPathGraph: 岗位 ID 映射应优先使用岗位画像表中
     async close() {},
   };
 
-  await createJobsIntelligenceService(repository, graphRepository, buildEnv()).generateCareerPathGraph({
+  await createJobsIntelligenceService(
+    repository,
+    graphRepository,
+    buildEnv(),
+  ).generateCareerPathGraph({
     max_candidates_per_node: 20,
   });
 

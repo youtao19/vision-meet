@@ -888,4 +888,13 @@ export type AiResumeHtmlResponse = ResumeHtmlResponse;
 export type AiChatRequest = CreateAiTaskRequest;
 export type AiChatResponse = AiTaskResponse;
 
+export type CreateAiPolishRequest = {
+  content: string;
+  section_key?: string;
+  section_title?: string;
+};
+export type AiPolishResponse = {
+  polished_content: string;
+};
+
 export type ApiErrorResponse = StructuredApiError;

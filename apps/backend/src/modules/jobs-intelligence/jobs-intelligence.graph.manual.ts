@@ -350,6 +350,72 @@ function supplementTransitionCoverage(params: {
   return extraEdges;
 }
 
+function nodeHasEdge(nodeId: string, edges: CareerGraphEdgeRecord[]): boolean {
+  return edges.some((edge) => edge.source === nodeId || edge.target === nodeId);
+}
+
+/**
+ * 兜底策略：当某些岗位在规则判定后仍是孤立点时，按“同族优先、级别接近优先”补至少一条关系，
+ * 防止前端只显示单节点，保证图谱具备基本可读性。
+ */
+function supplementIsolatedNodes(params: {
+  nodes: ManualGraphNode[];
+  edges: CareerGraphEdgeRecord[];
+}): CareerGraphEdgeRecord[] {
+  const fallbackEdges: CareerGraphEdgeRecord[] = [];
+
+  for (const source of params.nodes) {
+    if (nodeHasEdge(source.id, [...params.edges, ...fallbackEdges])) {
+      continue;
+    }
+
+    const candidates = params.nodes
+      .filter((target) => target.id !== source.id)
+      .map((target) => {
+        const similarity = compareSkills(source.skills, target.skills);
+        const sameFamily = source.family === target.family;
+        const levelDiff = target.level - source.level;
+        const score =
+          (sameFamily ? 0.45 : 0.2) +
+          similarity.jaccard * 0.4 +
+          Math.max(0, 0.2 - Math.abs(levelDiff) * 0.06);
+        return {
+          target,
+          similarity,
+          sameFamily,
+          levelDiff,
+          score,
+        };
+      })
+      .sort((left, right) => right.score - left.score);
+
+    const best = candidates[0];
+    if (!best) {
+      continue;
+    }
+
+    const relationType: CareerGraphEdgeRecord["relation_type"] =
+      best.sameFamily && best.levelDiff >= 0 ? "promotion" : "transition";
+
+    fallbackEdges.push({
+      id: `fallback-${relationType}-${source.job_id}-${best.target.job_id}`,
+      source: source.id,
+      target: best.target.id,
+      relation_type: relationType,
+      reason: best.sameFamily
+        ? "兜底补边：同岗位族能力相近，补充可视化晋升关系。"
+        : "兜底补边：跨岗位族存在能力迁移潜力，补充可视化转岗关系。",
+      required_skills: uniqueLimited(best.target.skills, 8),
+      gap_skills: uniqueLimited(best.similarity.gapSkills, 8),
+      transition_cost: resolveTransitionCost(best.similarity.gapSkills.length),
+      direction_label: relationLabel(relationType),
+      score: Math.max(42, Math.round(45 + best.score * 25)),
+    });
+  }
+
+  return fallbackEdges;
+}
+
 export function buildCareerGraphFromManualPortraits(params: {
   portraits: ManualJobPortraitRecord[];
   jobIdByTitle: Map<string, number>;
@@ -386,7 +452,16 @@ export function buildCareerGraphFromManualPortraits(params: {
     targetTransitionJobCount: params.options.targetTransitionJobCount,
   });
 
-  const dedupedEdges = keepBestEdges([...edgesFromAgent, ...supplemented]);
+  const isolationSupplemented = supplementIsolatedNodes({
+    nodes,
+    edges: [...edgesFromAgent, ...supplemented],
+  });
+
+  const dedupedEdges = keepBestEdges([
+    ...edgesFromAgent,
+    ...supplemented,
+    ...isolationSupplemented,
+  ]);
   const transitionCountMap = countTransitionPaths(dedupedEdges);
 
   return {

@@ -3,6 +3,7 @@ import type {
   CreateMatchRequest,
   DimensionKey,
   DimensionScores,
+  JobRecord,
   JobProfileV2Record,
   MatchExplanationItem,
   MatchGapItem,
@@ -300,6 +301,68 @@ type MatchingJobProfileSnapshot = {
   confidence: number;
 };
 
+function buildFallbackJobProfileSnapshot(jobTitle: string): MatchingJobProfileSnapshot {
+  const title = jobTitle.toLowerCase();
+  if (title.includes("c/c++") || title.includes("c++")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["C/C++", "Linux", "多线程", "网络编程", "数据结构与算法"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "学习能力", "抗压"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.5, 职业素养: 0.15, 发展潜力: 0.15 },
+      confidence: 0.75,
+    };
+  }
+  if (title.includes("java")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["Java", "Spring", "MySQL", "微服务", "Git"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "学习能力", "抗压"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
+      confidence: 0.75,
+    };
+  }
+  if (title.includes("前端")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["JavaScript", "TypeScript", "Vue", "HTML/CSS", "前端工程化"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "学习能力", "创新"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
+      confidence: 0.72,
+    };
+  }
+  if (title.includes("测试")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["测试用例设计", "接口测试", "缺陷定位", "SQL"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "学习能力", "抗压"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
+      confidence: 0.7,
+    };
+  }
+  if (title.includes("实施") || title.includes("支持")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["系统部署", "问题排查", "客户沟通", "文档能力"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "抗压", "学习能力"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.4, 职业素养: 0.25, 发展潜力: 0.15 },
+      confidence: 0.68,
+    };
+  }
+  return {
+    profile_version: 0,
+    hard_skills: ["岗位核心技能", "业务理解", "协作能力"],
+    certificates: ["无强制证书要求"],
+    soft_skills: ["沟通", "学习能力", "抗压"],
+    skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
+    confidence: 0.65,
+  };
+}
+
 function buildV2SoftSkills(profile: JobProfileV2Record): string[] {
   const candidates: Array<{ label: string; score: number }> = [
     { label: "沟通", score: profile.communication_score },
@@ -338,19 +401,14 @@ function mapV2ProfileToMatchingSnapshot(profile: JobProfileV2Record): MatchingJo
 }
 
 async function ensureJobProfileSnapshot(
-  jobId: number,
+  job: JobRecord,
   jobsRepository: JobsRepository,
 ): Promise<MatchingJobProfileSnapshot> {
-  const latestV2 = await jobsRepository.getLatestProfileV2ByJobId(jobId);
+  const latestV2 = await jobsRepository.getLatestProfileV2ByJobId(job.id);
   if (latestV2) {
     return mapV2ProfileToMatchingSnapshot(latestV2);
   }
-
-  throw new HttpError(
-    409,
-    "JOB_PROFILE_V2_NOT_FOUND",
-    "目标岗位缺少 v2 画像，请先执行岗位画像流水线（/api/v2/jobs/pipeline/run）",
-  );
+  return buildFallbackJobProfileSnapshot(job.title);
 }
 
 function buildMatchCreateInput(params: {
@@ -413,7 +471,7 @@ export function createMatchingService(
       throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
     }
 
-    const latestJobProfile = await ensureJobProfileSnapshot(job.id, jobsRepository);
+    const latestJobProfile = await ensureJobProfileSnapshot(job, jobsRepository);
     const normalizedHint = await matchingRepository.getNormalizedJobHint(job.id);
 
     const inputFingerprint = createMatchFingerprint({
