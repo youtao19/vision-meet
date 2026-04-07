@@ -55,7 +55,11 @@ const uiState = reactive({
 });
 const isEditMode = ref(false);
 
+
+const isAnyPolishing = computed(() => Object.values(loading.polish).some((val) => val));
+
 function formatApiError(error: unknown): string {
+
   if (error instanceof ApiRequestError) {
     return error.traceId ? `${error.message}（trace_id: ${error.traceId}）` : error.message;
   }
@@ -90,8 +94,14 @@ function triggerDownload(downloadPath: string): void {
   document.body.removeChild(anchor);
 }
 
+function renderMarkdown(content: string): string {
+  if (!content) return "<p>暂无内容</p>";
+  return DOMPurify.sanitize(marked.parse(content, { async: false, breaks: true }) as string);
+}
+
 function formatSectionContent(content: string): string[] {
   const lines = content
+
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
@@ -223,7 +233,23 @@ async function handlePolishSection(section: CareerReportSection): Promise<void> 
   }
 }
 
+
+async function handlePolishAll(): Promise<void> {
+  const sectionsToPolish = editableSections.value.filter(s => s.content.trim().length > 0);
+  if (sectionsToPolish.length === 0) {
+    uiState.error = "没有可润色的内容";
+    return;
+  }
+  
+  for (const section of sectionsToPolish) {
+    // Only continue if not interrupted (bonus: could add a cancel mechanism, but sequential is fine for now)
+    await handlePolishSection(section);
+  }
+  uiState.success = "全文所有章节已顺序润色完成！";
+}
+
 async function searchByMatchId(): Promise<void> {
+
   const matchId = toPositiveInt(form.matchId);
   if (!matchId) {
     uiState.error = "请输入合法的匹配结果 ID";
@@ -701,39 +727,50 @@ onMounted(async () => {
           </div>
 
           <!-- Sections Content -->
-          <div class="sections-container">
-            <article v-for="section in editableSections" :key="section.key" class="section-block">
-              <div class="section-header">
-                <div class="title-group">
-                  <span class="section-label">{{ section.key }}</span>
-                  <h3 class="section-title">{{ section.title }}</h3>
-                </div>
-                <button
-                  v-if="section.key === 'career_path'"
-                  class="btn btn-text text-primary"
-                  @click="openCareerPath"
+          <div class="sections-container" :class="{ 'preview-mode': !isEditMode }">
+            <template v-if="!isEditMode">
+              <div class="continuous-report paper-style">
+                <div
+                  v-for="section in editableSections"
+                  :key="section.key"
+                  class="report-section markdown-body"
                 >
-                  查看可视化图谱 →
-                </button>
-              </div>
-
-              <div class="section-body">
-                <template v-if="!isEditMode">
-                  <div class="prose-content">
-                    <p
-                      v-for="(line, lineIndex) in formatSectionContent(section.content)"
-                      :key="`${section.key}-${lineIndex}`"
+                  <div class="section-preview-header">
+                    <h3 class="preview-title">{{ section.title }}</h3>
+                    <button
+                      v-if="section.key === 'career_path'"
+                      class="btn btn-text text-primary"
+                      @click="openCareerPath"
                     >
-                      {{ line }}
-                    </p>
+                      查看可视化图谱 →
+                    </button>
                   </div>
-                </template>
-                <template v-else>
+                  <div class="markdown-content" v-html="renderMarkdown(section.content)"></div>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <article v-for="section in editableSections" :key="section.key" class="section-block">
+                <div class="section-header">
+                  <div class="title-group">
+                    <span class="section-label">{{ section.key }}</span>
+                    <h3 class="section-title">{{ section.title }}</h3>
+                  </div>
+                  <button
+                    v-if="section.key === 'career_path'"
+                    class="btn btn-text text-primary"
+                    @click="openCareerPath"
+                  >
+                    查看可视化图谱 →
+                  </button>
+                </div>
+
+                <div class="section-body">
                   <div style="display: flex; justify-content: flex-end; margin-bottom: 8px">
                     <button
                       class="btn btn-outline"
                       style="padding: 4px 10px; font-size: 13px"
-                      :disabled="loading.save || loading.polish[section.key]"
+                      :disabled="loading.save || isAnyPolishing"
                       @click="handlePolishSection(section)"
                     >
                       <svg
@@ -758,13 +795,13 @@ onMounted(async () => {
                   <textarea
                     v-model="section.content"
                     class="rich-textarea"
-                    rows="6"
-                    :disabled="loading.save || loading.polish[section.key]"
+                    rows="8"
+                    :disabled="loading.save || isAnyPolishing"
                     placeholder="请输入该章节的具体分析与反馈内容..."
                   ></textarea>
-                </template>
-              </div>
-            </article>
+                </div>
+              </article>
+            </template>
           </div>
         </template>
 
@@ -1625,5 +1662,108 @@ onMounted(async () => {
     width: 100%;
     justify-content: space-between;
   }
+}
+
+/* markdown report continuous reading style */
+.sections-container.preview-mode {
+  gap: 0;
+}
+
+.continuous-report.paper-style {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.report-section {
+  position: relative;
+}
+
+.report-section + .report-section::before {
+  content: "";
+  position: absolute;
+  top: -16px;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--border);
+}
+
+.section-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.preview-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+  position: relative;
+  padding-left: 12px;
+}
+
+.preview-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 4px;
+  background-color: var(--primary);
+  border-radius: 2px;
+}
+
+.markdown-content {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #334155;
+  white-space: normal;
+}
+
+.markdown-content :deep(p) {
+  margin: 0 0 16px;
+}
+.markdown-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-content :deep(ul),
+.markdown-content :deep(ol) {
+  margin: 0 0 16px;
+  padding-left: 24px;
+}
+
+.markdown-content :deep(li) {
+  margin-bottom: 8px;
+}
+
+.markdown-content :deep(strong) {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.markdown-content :deep(a) {
+  color: var(--primary);
+  text-decoration: none;
+}
+.markdown-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-content :deep(blockquote) {
+  border-left: 4px solid #cbd5e1;
+  padding-left: 16px;
+  margin: 0 0 16px;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 0 8px 8px 0;
 }
 </style>

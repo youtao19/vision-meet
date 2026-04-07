@@ -1,0 +1,139 @@
+import re
+
+with open("apps/frontend/src/features/report/pages/ReportPage.vue", "r") as f:
+    text = f.read()
+
+template_old = """          <!-- Sections Content -->
+          <div class="sections-container">
+            <article v-for="section in editableSections" :key="section.key" class="section-block">
+              <div class="section-header">
+                <div class="title-group">
+                  <span class="section-label">{{ section.key }}</span>
+                  <h3 class="section-title">{{ section.title }}</h3>
+                </div>
+                <button
+                  v-if="section.key === 'career_path'"
+                  class="btn btn-text text-primary"
+                  @click="openCareerPath"
+                >
+                  查看可视化图谱 →
+                </button>
+              </div>
+
+              <div class="section-body">
+                <template v-if="!isEditMode">
+                  <div class="prose-content">
+                    <p
+                      v-for="(line, lineIndex) in formatSectionContent(section.content)"
+                      :key="`${section.key}-${lineIndex}`"
+                    >
+                      {{ line }}
+                    </p>
+                  </div>
+                </template>
+                <template v-else>
+                  <div style="display: flex; justify-content: flex-end; margin-bottom: 8px">
+                    <button
+                      class="btn btn-outline"
+                      style="padding: 4px 10px; font-size: 13px"
+                      :disabled="loading.save || loading.polish[section.key]"
+                      @click="handlePolishSection(section)"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        style="margin-right: 4px"
+                      >
+                        <path
+                          d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+                        ></path>
+                      </svg>
+                      {{ loading.polish[section.key] ? "AI 润色中..." : "AI 润色" }}
+                    </button>
+                  </div>
+                  <textarea
+                    v-model="section.content"
+                    class="rich-textarea"
+                    rows="6"
+                    :disabled="loading.save || loading.polish[section.key]"
+                    placeholder="请输入该章节的具体分析与反馈内容..."
+                  ></textarea>
+                </template>
+              </div>
+            </article>
+          </div>"""
+
+template_new = """          <!-- Sections Content -->
+          <div class="sections-container" :class="{ 'preview-mode': !isEditMode }">
+            <template v-if="!isEditMode">
+              <div class="continuous-report paper-style">
+                <div v-for="section in editableSections" :key="section.key" class="report-section markdown-body">
+                  <div class="section-preview-header">
+                    <h3 class="preview-title">{{ section.title }}</h3>
+                    <button
+                      v-if="section.key === 'career_path'"
+                      class="btn btn-text text-primary"
+                      @click="openCareerPath"
+                    >
+                      查看可视化图谱 →
+                    </button>
+                  </div>
+                  <div class="markdown-content" v-html="renderMarkdown(section.content)"></div>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <article v-for="section in editableSections" :key="section.key" class="section-block">
+                <div class="section-header">
+                  <div class="title-group">
+                    <span class="section-label">{{ section.key }}</span>
+                    <h3 class="section-title">{{ section.title }}</h3>
+                  </div>
+                  <button
+                    v-if="section.key === 'career_path'"
+                    class="btn btn-text text-primary"
+                    @click="openCareerPath"
+                  >
+                    查看可视化图谱 →
+                  </button>
+                </div>
+
+                <div class="section-body">
+                  <div style="display: flex; justify-content: flex-end; margin-bottom: 8px">
+                    <button
+                      class="btn btn-outline"
+                      style="padding: 4px 10px; font-size: 13px"
+                      :disabled="loading.save || loading.polish[section.key]"
+                      @click="handlePolishSection(section)"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                      {{ loading.polish[section.key] ? "AI 润色中..." : "AI 润色" }}
+                    </button>
+                  </div>
+                  <textarea
+                    v-model="section.content"
+                    class="rich-textarea"
+                    rows="8"
+                    :disabled="loading.save || loading.polish[section.key]"
+                    placeholder="请输入该章节的具体分析与反馈内容..."
+                  ></textarea>
+                </div>
+              </article>
+            </template>
+          </div>"""
+
+if template_old in text:
+    print("Found old template, replacing")
+    text = text.replace(template_old, template_new)
+else:
+    print("WARNING: Old template not found exactly!")
+
+with open("apps/frontend/src/features/report/pages/ReportPage.vue", "w") as f:
+    f.write(text)
