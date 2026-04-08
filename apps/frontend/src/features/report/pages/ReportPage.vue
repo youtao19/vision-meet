@@ -5,6 +5,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 
 import type {
+  CareerReportExportFormat,
   CareerReportExportRecord,
   CareerReportRecord,
   CareerReportSection,
@@ -322,6 +323,16 @@ async function saveCurrentReport(): Promise<void> {
 }
 
 async function exportCurrentReport(): Promise<void> {
+  await exportCurrentReportByFormat("pdf");
+}
+
+/**
+ * 作用：按指定格式导出当前选中报告并触发下载。
+ * 参数：format 支持 pdf 与 markdown。
+ * 返回：无。
+ * 注意：导出前必须先选中报告版本。
+ */
+async function exportCurrentReportByFormat(format: CareerReportExportFormat): Promise<void> {
   if (!selectedReport.value) {
     uiState.error = "请先选择需要导出的报告版本";
     return;
@@ -333,10 +344,10 @@ async function exportCurrentReport(): Promise<void> {
 
   try {
     const exported = await createReportExport(selectedReport.value.id, {
-      format: "pdf",
+      format,
     });
 
-    uiState.success = `PDF 导出指令已下发：${exported.file_name}`;
+    uiState.success = `${format === "pdf" ? "PDF" : "Markdown"} 导出指令已下发：${exported.file_name}`;
     await loadReportExports(selectedReport.value.id);
     triggerDownload(exported.download_path);
   } catch (error) {
@@ -344,6 +355,10 @@ async function exportCurrentReport(): Promise<void> {
   } finally {
     loading.export = false;
   }
+}
+
+function formatExportTag(format: CareerReportExportFormat): string {
+  return format === "pdf" ? "PDF" : "MD";
 }
 
 const canCreate = computed(() => toPositiveInt(form.matchId) !== undefined);
@@ -639,6 +654,28 @@ onMounted(async () => {
                 {{ loading.export ? "生成中..." : "导出 PDF" }}
               </button>
               <button
+                class="btn btn-outline"
+                :disabled="loading.export"
+                @click="exportCurrentReportByFormat('markdown')"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+                {{ loading.export ? "生成中..." : "导出 Markdown" }}
+              </button>
+              <button
                 v-if="isEditMode"
                 class="btn btn-primary shadow"
                 :disabled="loading.save"
@@ -846,7 +883,7 @@ onMounted(async () => {
           class="export-file-card"
           @click="triggerDownload(item.download_path)"
         >
-          <div class="file-icon">PDF</div>
+          <div class="file-icon">{{ formatExportTag(item.format) }}</div>
           <div class="file-info">
             <strong class="file-name" :title="item.file_name">{{ item.file_name }}</strong>
             <div class="file-meta">
@@ -877,7 +914,7 @@ onMounted(async () => {
           v-if="!loading.exportList && exportsList.length === 0"
           class="empty-state mini horizontal"
         >
-          <p>当前报告版本暂无 PDF 导出记录，点击上方「导出 PDF」生成。</p>
+          <p>当前报告版本暂无导出记录，点击上方导出按钮生成 PDF 或 Markdown。</p>
         </div>
         <div v-if="loading.exportList" class="loading-state">
           <span class="spinner"></span> 数据加载中...

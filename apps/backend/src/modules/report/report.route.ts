@@ -152,7 +152,9 @@ export function createReportExportDownloadRouter(service: ReportService): Router
       const { record, absoluteFilePath } = await service.resolveReportExportDownload(
         parsed.data.export_id,
       );
-      res.setHeader("Content-Type", "application/pdf");
+      const contentType =
+        record.format === "markdown" ? "text/markdown; charset=utf-8" : "application/pdf";
+      res.setHeader("Content-Type", contentType);
       res.setHeader(
         "Content-Disposition",
         `attachment; filename="${encodeURIComponent(record.file_name)}"`,

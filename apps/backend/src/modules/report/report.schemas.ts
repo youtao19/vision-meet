@@ -34,7 +34,7 @@ export const updateReportSchema = z.object({
 });
 
 export const createReportExportSchema = z.object({
-  format: z.literal("pdf"),
+  format: z.enum(["pdf", "markdown"]),
 });
 
 export const exportIdParamsSchema = z.object({

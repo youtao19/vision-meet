@@ -498,7 +498,7 @@ export type ReportListResponse = {
   items: CareerReportSummary[];
 };
 
-export type CareerReportExportFormat = "pdf";
+export type CareerReportExportFormat = "pdf" | "markdown";
 
 export type CareerReportExportRecord = {
   id: number;

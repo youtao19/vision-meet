@@ -471,149 +471,166 @@ onMounted(async () => {
     </header>
 
     <section class="panel">
-      <h3>简历生成（用于学生画像构建）</h3>
+      <div class="section-head">
+        <h3>简历生成（用于学生画像构建）</h3>
+        <button class="ghost-btn" type="button" @click="resumeBuilderExpanded = !resumeBuilderExpanded">
+          {{ resumeBuilderExpanded ? "收起简历生成" : "展开简历生成" }}
+        </button>
+      </div>
       <p class="section-desc">先生成标准化简历文本，后续可用于上传解析或人工补录画像。</p>
 
-      <p v-if="uiState.resumeError" class="notice notice-error">{{ uiState.resumeError }}</p>
-      <p v-if="uiState.resumeSuccess" class="notice notice-success">{{ uiState.resumeSuccess }}</p>
+      <p v-if="!resumeBuilderExpanded" class="mode-subtitle">默认收起，点击“展开简历生成”后可填写并生成。</p>
 
-      <div class="grid two-col">
+      <div v-if="resumeBuilderExpanded">
+        <p v-if="uiState.resumeError" class="notice notice-error">{{ uiState.resumeError }}</p>
+        <p v-if="uiState.resumeSuccess" class="notice notice-success">{{ uiState.resumeSuccess }}</p>
+
+        <div class="grid two-col">
+          <label>
+            姓名
+            <input v-model="resumeBuilder.basic.name" type="text" placeholder="例如：张三" />
+          </label>
+          <label>
+            目标岗位
+            <input
+              v-model="resumeBuilder.basic.targetPosition"
+              type="text"
+              placeholder="例如：Java 开发工程师"
+            />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            电话
+            <input v-model="resumeBuilder.basic.phone" type="text" placeholder="例如：138xxxx1234" />
+          </label>
+          <label>
+            邮箱
+            <input
+              v-model="resumeBuilder.basic.email"
+              type="email"
+              placeholder="例如：name@email.com"
+            />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            学校
+            <input
+              v-model="resumeBuilder.education.school"
+              type="text"
+              placeholder="例如：华中科技大学"
+            />
+          </label>
+          <label>
+            专业
+            <input v-model="resumeBuilder.education.major" type="text" placeholder="例如：软件工程" />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            学历
+            <input v-model="resumeBuilder.education.degree" type="text" placeholder="例如：本科" />
+          </label>
+          <label>
+            教育时间
+            <input
+              v-model="resumeBuilder.education.period"
+              type="text"
+              placeholder="例如：2018.09 - 2022.06"
+            />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            公司/项目
+            <input
+              v-model="resumeBuilder.experience.organization"
+              type="text"
+              placeholder="例如：XX 科技"
+            />
+          </label>
+          <label>
+            岗位
+            <input
+              v-model="resumeBuilder.experience.role"
+              type="text"
+              placeholder="例如：后端开发工程师"
+            />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            经历时间
+            <input
+              v-model="resumeBuilder.experience.period"
+              type="text"
+              placeholder="例如：2022.07 - 2025.03"
+            />
+          </label>
+          <label>
+            专业技能
+            <input
+              v-model="resumeBuilder.skills"
+              type="text"
+              placeholder="例如：Java Spring PostgreSQL"
+            />
+          </label>
+        </div>
+
         <label>
-          姓名
-          <input v-model="resumeBuilder.basic.name" type="text" placeholder="例如：张三" />
-        </label>
-        <label>
-          目标岗位
-          <input
-            v-model="resumeBuilder.basic.targetPosition"
-            type="text"
-            placeholder="例如：Java 开发工程师"
+          主要职责
+          <textarea
+            v-model="resumeBuilder.experience.responsibilities"
+            rows="3"
+            placeholder="例如：负责核心服务开发与性能优化"
           />
         </label>
+
+        <label>
+          工作成果
+          <textarea
+            v-model="resumeBuilder.experience.achievements"
+            rows="3"
+            placeholder="例如：将核心接口响应从 300ms 优化到 90ms"
+          />
+        </label>
+
+        <label>
+          个人总结（可选）
+          <textarea
+            v-model="resumeBuilder.summary"
+            rows="3"
+            placeholder="例如：3 年后端经验，具备微服务拆分与高并发治理实践"
+          />
+        </label>
+
+        <div class="action-row">
+          <button
+            class="primary-btn"
+            :disabled="loading.resumeGenerate"
+            @click="generateResumeWithAgent"
+          >
+            {{ loading.resumeGenerate ? "简历生成中..." : "生成简历" }}
+          </button>
+          <button class="ghost-btn" :disabled="loading.resumeHistory" @click="loadResumeHistory">
+            {{ loading.resumeHistory ? "刷新中..." : "刷新简历历史" }}
+          </button>
+        </div>
+
       </div>
 
-      <div class="grid two-col">
-        <label>
-          电话
-          <input v-model="resumeBuilder.basic.phone" type="text" placeholder="例如：138xxxx1234" />
-        </label>
-        <label>
-          邮箱
-          <input
-            v-model="resumeBuilder.basic.email"
-            type="email"
-            placeholder="例如：name@email.com"
-          />
-        </label>
-      </div>
-
-      <div class="grid two-col">
-        <label>
-          学校
-          <input
-            v-model="resumeBuilder.education.school"
-            type="text"
-            placeholder="例如：华中科技大学"
-          />
-        </label>
-        <label>
-          专业
-          <input v-model="resumeBuilder.education.major" type="text" placeholder="例如：软件工程" />
-        </label>
-      </div>
-
-      <div class="grid two-col">
-        <label>
-          学历
-          <input v-model="resumeBuilder.education.degree" type="text" placeholder="例如：本科" />
-        </label>
-        <label>
-          教育时间
-          <input
-            v-model="resumeBuilder.education.period"
-            type="text"
-            placeholder="例如：2018.09 - 2022.06"
-          />
-        </label>
-      </div>
-
-      <div class="grid two-col">
-        <label>
-          公司/项目
-          <input
-            v-model="resumeBuilder.experience.organization"
-            type="text"
-            placeholder="例如：XX 科技"
-          />
-        </label>
-        <label>
-          岗位
-          <input
-            v-model="resumeBuilder.experience.role"
-            type="text"
-            placeholder="例如：后端开发工程师"
-          />
-        </label>
-      </div>
-
-      <div class="grid two-col">
-        <label>
-          经历时间
-          <input
-            v-model="resumeBuilder.experience.period"
-            type="text"
-            placeholder="例如：2022.07 - 2025.03"
-          />
-        </label>
-        <label>
-          专业技能
-          <input
-            v-model="resumeBuilder.skills"
-            type="text"
-            placeholder="例如：Java Spring PostgreSQL"
-          />
-        </label>
-      </div>
-
-      <label>
-        主要职责
-        <textarea
-          v-model="resumeBuilder.experience.responsibilities"
-          rows="3"
-          placeholder="例如：负责核心服务开发与性能优化"
-        />
-      </label>
-
-      <label>
-        工作成果
-        <textarea
-          v-model="resumeBuilder.experience.achievements"
-          rows="3"
-          placeholder="例如：将核心接口响应从 300ms 优化到 90ms"
-        />
-      </label>
-
-      <label>
-        个人总结（可选）
-        <textarea
-          v-model="resumeBuilder.summary"
-          rows="3"
-          placeholder="例如：3 年后端经验，具备微服务拆分与高并发治理实践"
-        />
-      </label>
-
-      <div class="action-row">
-        <button
-          class="primary-btn"
-          :disabled="loading.resumeGenerate"
-          @click="generateResumeWithAgent"
-        >
-          {{ loading.resumeGenerate ? "简历生成中..." : "生成简历" }}
-        </button>
-        <button class="ghost-btn" :disabled="loading.resumeHistory" @click="loadResumeHistory">
-          {{ loading.resumeHistory ? "刷新中..." : "刷新简历历史" }}
-        </button>
-      </div>
+      <p v-if="!resumeBuilderExpanded && uiState.resumeError" class="notice notice-error">
+        {{ uiState.resumeError }}
+      </p>
+      <p v-if="!resumeBuilderExpanded && uiState.resumeSuccess" class="notice notice-success">
+        {{ uiState.resumeSuccess }}
+      </p>
 
       <div v-if="resumePreviewVisible" class="resume-preview">
         <div class="resume-preview-header">
@@ -981,6 +998,17 @@ onMounted(async () => {
 .section-desc {
   margin: 8px 0 12px;
   color: #475569;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-head h3 {
+  margin: 0;
 }
 
 .mode-selector {

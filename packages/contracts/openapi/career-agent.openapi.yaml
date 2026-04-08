@@ -2551,7 +2551,7 @@ components:
       properties:
         format:
           type: string
-          enum: [pdf]
+          enum: [pdf, markdown]
 
     CareerReportExportRecord:
       type: object
@@ -2563,7 +2563,7 @@ components:
           type: integer
         format:
           type: string
-          enum: [pdf]
+          enum: [pdf, markdown]
         file_name:
           type: string
         file_size_bytes:
