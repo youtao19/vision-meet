@@ -5,19 +5,13 @@
 
 import neo4j from "neo4j-driver";
 
-import {
-  createNeo4jDriver,
-  type Neo4jConnectionOptions,
-} from "../../shared/db/neo4j.js";
+import { createNeo4jDriver, type Neo4jConnectionOptions } from "../../shared/db/neo4j.js";
 import type {
   CareerPathGraphSnapshot,
   CareerPathRepository,
   CareerPathSeedGraph,
 } from "./career-path.repository.js";
-import type {
-  CanonicalCareerEdge,
-  CanonicalCareerRole,
-} from "./career-path.seed.js";
+import type { CanonicalCareerEdge, CanonicalCareerRole } from "./career-path.seed.js";
 
 function mapRole(node: unknown): CanonicalCareerRole {
   const properties = (node as { properties: Record<string, unknown> }).properties;
@@ -34,9 +28,7 @@ function mapRole(node: unknown): CanonicalCareerRole {
   };
 }
 
-function mapEdge(record: {
-  get(key: string): unknown;
-}): CanonicalCareerEdge {
+function mapEdge(record: { get(key: string): unknown }): CanonicalCareerEdge {
   const relation = record.get("rel") as { properties: Record<string, unknown> };
   const properties = relation.properties;
   return {

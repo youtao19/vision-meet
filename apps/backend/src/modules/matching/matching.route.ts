@@ -1,7 +1,11 @@
 import { Router } from "express";
 
 import { HttpError } from "../../shared/errors/http-error.js";
-import { createMatchSchema, listMatchesQuerySchema, matchIdParamsSchema } from "./matching.schemas.js";
+import {
+  createMatchSchema,
+  listMatchesQuerySchema,
+  matchIdParamsSchema,
+} from "./matching.schemas.js";
 import type { MatchingService } from "./matching.service.js";
 
 /**
@@ -13,7 +17,9 @@ export function createMatchingRouter(service: MatchingService): Router {
   router.post("", async (req, res, next) => {
     const parsed = createMatchSchema.safeParse(req.body);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "匹配创建参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "匹配创建参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -27,7 +33,9 @@ export function createMatchingRouter(service: MatchingService): Router {
   router.get("", async (req, res, next) => {
     const parsed = listMatchesQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "匹配查询参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "匹配查询参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {
@@ -40,7 +48,9 @@ export function createMatchingRouter(service: MatchingService): Router {
   router.get("/:match_id", async (req, res, next) => {
     const parsed = matchIdParamsSchema.safeParse(req.params);
     if (!parsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "匹配详情参数不合法", parsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "匹配详情参数不合法", parsed.error.flatten()),
+      );
     }
 
     try {

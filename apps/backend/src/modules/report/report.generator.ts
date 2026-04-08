@@ -23,6 +23,11 @@ export type ReportGeneratorInput = {
 export type ReportGeneratorResult = {
   sections: CareerReportSection[];
   mode: "template";
+  evidence_refs: string[];
+  action_plan: {
+    short_term: string[];
+    mid_term: string[];
+  };
 };
 
 export interface ReportGenerator {

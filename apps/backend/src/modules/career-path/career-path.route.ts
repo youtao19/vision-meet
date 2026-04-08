@@ -1,10 +1,7 @@
 import { Router } from "express";
 
 import { HttpError } from "../../shared/errors/http-error.js";
-import {
-  careerPathParamsSchema,
-  careerPathQuerySchema,
-} from "./career-path.schemas.js";
+import { careerPathParamsSchema, careerPathQuerySchema } from "./career-path.schemas.js";
 import type { CareerPathService } from "./career-path.service.js";
 
 /**
@@ -17,12 +14,21 @@ export function createCareerPathRouter(service: CareerPathService): Router {
   router.get("/jobs/:job_id", async (req, res, next) => {
     const paramsParsed = careerPathParamsSchema.safeParse(req.params);
     if (!paramsParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "岗位路径参数不合法", paramsParsed.error.flatten()));
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "岗位路径参数不合法", paramsParsed.error.flatten()),
+      );
     }
 
     const queryParsed = careerPathQuerySchema.safeParse(req.query);
     if (!queryParsed.success) {
-      return next(new HttpError(400, "VALIDATION_ERROR", "岗位路径查询参数不合法", queryParsed.error.flatten()));
+      return next(
+        new HttpError(
+          400,
+          "VALIDATION_ERROR",
+          "岗位路径查询参数不合法",
+          queryParsed.error.flatten(),
+        ),
+      );
     }
 
     try {

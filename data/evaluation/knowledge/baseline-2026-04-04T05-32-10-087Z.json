@@ -1,0 +1,50 @@
+{
+  "generated_at": "2026-04-04T05:32:10.087Z",
+  "top_k": 5,
+  "results": [
+    {
+      "namespace": "career_runtime",
+      "top_k": 5,
+      "recall_at_k": 0,
+      "mrr": 0,
+      "cases": [
+        {
+          "query": "前端开发岗位通常需要哪些技能",
+          "expected_terms": ["vue", "typescript", "react"],
+          "hit": false,
+          "reciprocal_rank": 0,
+          "matched_chunk_ids": []
+        },
+        {
+          "query": "岗位描述里常见的后端技术要求有哪些",
+          "expected_terms": ["node", "java", "sql"],
+          "hit": false,
+          "reciprocal_rank": 0,
+          "matched_chunk_ids": []
+        }
+      ]
+    },
+    {
+      "namespace": "internal_project_docs",
+      "top_k": 5,
+      "recall_at_k": 0,
+      "mrr": 0,
+      "cases": [
+        {
+          "query": "项目要求使用什么数据库和向量检索方案",
+          "expected_terms": ["postgresql", "pgvector"],
+          "hit": false,
+          "reciprocal_rank": 0,
+          "matched_chunk_ids": []
+        },
+        {
+          "query": "大赛对人岗匹配准确率有什么要求",
+          "expected_terms": ["80%", "90%"],
+          "hit": false,
+          "reciprocal_rank": 0,
+          "matched_chunk_ids": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,10 @@
 import type {
+  CareerRouteRecommendation,
   CreateMatchRequest,
   DimensionKey,
   DimensionScores,
+  JobRecord,
+  JobProfileV2Record,
   MatchExplanationItem,
   MatchGapItem,
   MatchListParams,
@@ -10,7 +13,6 @@ import type {
   StudentProfileRecord,
 } from "@career/contracts/types";
 
-import { generateJobProfile } from "../jobs/jobs.profile.js";
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import { HttpError } from "../../shared/errors/http-error.js";
@@ -58,8 +60,10 @@ function resolveDimensionWeights(skillWeights: Record<string, number>): Dimensio
     ...DEFAULT_DIMENSION_WEIGHTS,
     base_requirements: skillWeights["基础要求"] ?? DEFAULT_DIMENSION_WEIGHTS.base_requirements,
     professional_skills: skillWeights["职业技能"] ?? DEFAULT_DIMENSION_WEIGHTS.professional_skills,
-    professional_quality: skillWeights["职业素养"] ?? DEFAULT_DIMENSION_WEIGHTS.professional_quality,
-    development_potential: skillWeights["发展潜力"] ?? DEFAULT_DIMENSION_WEIGHTS.development_potential,
+    professional_quality:
+      skillWeights["职业素养"] ?? DEFAULT_DIMENSION_WEIGHTS.professional_quality,
+    development_potential:
+      skillWeights["发展潜力"] ?? DEFAULT_DIMENSION_WEIGHTS.development_potential,
   };
 
   const total =
@@ -90,7 +94,10 @@ function buildTargetDimensions(params: {
 
   return {
     base_requirements: clampScore(
-      45 + params.certificatesCount * 7 + Math.min(params.hardSkillsCount, 5) * 4 + confidenceRatio * 10,
+      45 +
+        params.certificatesCount * 7 +
+        Math.min(params.hardSkillsCount, 5) * 4 +
+        confidenceRatio * 10,
     ),
     professional_skills: clampScore(40 + params.hardSkillsCount * 8 + confidenceRatio * 15),
     professional_quality: clampScore(45 + params.softSkillsCount * 7 + confidenceRatio * 10),
@@ -103,7 +110,9 @@ function buildMatchDimensionScores(
   targetScores: DimensionScores,
 ): DimensionScores {
   return {
-    base_requirements: clampScore(100 - Math.max(0, targetScores.base_requirements - studentScores.base_requirements)),
+    base_requirements: clampScore(
+      100 - Math.max(0, targetScores.base_requirements - studentScores.base_requirements),
+    ),
     professional_skills: clampScore(
       100 - Math.max(0, targetScores.professional_skills - studentScores.professional_skills),
     ),
@@ -182,6 +191,35 @@ function buildActionsByDimension(dimension: DimensionKey): string[] {
   }
 }
 
+/**
+ * 作用：把标准岗位提示写入匹配证据，确保报告端能引用“岗位族”这一结构化依据。
+ * 参数：hint 为岗位标准化结果，jobTitle 为岗位原始标题。
+ * 返回：可直接写入 evidence_refs 的证据片段。
+ */
+function buildNormalizedHintEvidence(
+  hint: {
+    normalized_title: string | null;
+    normalized_job_family: string | null;
+    confidence: number | null;
+  } | null,
+  jobTitle: string,
+): string[] {
+  if (!hint || !hint.normalized_job_family) {
+    return [];
+  }
+
+  const refs = [`岗位族归一：${hint.normalized_job_family}`];
+  if (hint.normalized_title) {
+    refs.push(`标准岗位标题：${hint.normalized_title}`);
+  } else {
+    refs.push(`标准岗位标题：${jobTitle}`);
+  }
+  if (hint.confidence != null) {
+    refs.push(`岗位归一置信度：${Math.round(hint.confidence * 100)}%`);
+  }
+  return refs;
+}
+
 function buildGapAndExplanation(params: {
   profile: StudentProfileRecord;
   hardSkills: string[];
@@ -191,6 +229,7 @@ function buildGapAndExplanation(params: {
   gaps: MatchGapItem[];
   explanations: MatchExplanationItem[];
   suggestions: string[];
+  evidenceRefs: string[];
 } {
   const profileSkillsLower = new Set(params.profile.skills.map((item) => item.toLowerCase()));
   const missingHardSkills = params.hardSkills.filter(
@@ -223,6 +262,7 @@ function buildGapAndExplanation(params: {
       dimension,
       reasoning: `该维度匹配分 ${params.matchScores[dimension]}，学生当前能力 ${currentScore}，岗位目标 ${targetScore}。`,
       improvement_actions: actions,
+      evidence_refs: evidence,
     });
   }
 
@@ -248,31 +288,127 @@ function buildGapAndExplanation(params: {
     gaps,
     explanations,
     suggestions: suggestions.length > 0 ? suggestions : ["继续保持当前能力结构并定期复测"],
+    evidenceRefs: Array.from(new Set(gaps.flatMap((item) => item.evidence))).slice(0, 12),
   };
 }
 
-async function ensureJobProfileSnapshot(jobId: number, jobsRepository: JobsRepository) {
-  const latest = await jobsRepository.getLatestProfileByJobId(jobId);
-  if (latest) {
-    return latest;
-  }
+type MatchingJobProfileSnapshot = {
+  profile_version: number;
+  hard_skills: string[];
+  certificates: string[];
+  soft_skills: string[];
+  skill_weights: Record<string, number>;
+  confidence: number;
+};
 
-  const job = await jobsRepository.getJobById(jobId);
-  if (!job) {
-    throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
+function buildFallbackJobProfileSnapshot(jobTitle: string): MatchingJobProfileSnapshot {
+  const title = jobTitle.toLowerCase();
+  if (title.includes("c/c++") || title.includes("c++")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["C/C++", "Linux", "多线程", "网络编程", "数据结构与算法"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "学习能力", "抗压"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.5, 职业素养: 0.15, 发展潜力: 0.15 },
+      confidence: 0.75,
+    };
   }
+  if (title.includes("java")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["Java", "Spring", "MySQL", "微服务", "Git"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "学习能力", "抗压"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
+      confidence: 0.75,
+    };
+  }
+  if (title.includes("前端")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["JavaScript", "TypeScript", "Vue", "HTML/CSS", "前端工程化"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "学习能力", "创新"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
+      confidence: 0.72,
+    };
+  }
+  if (title.includes("测试")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["测试用例设计", "接口测试", "缺陷定位", "SQL"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "学习能力", "抗压"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
+      confidence: 0.7,
+    };
+  }
+  if (title.includes("实施") || title.includes("支持")) {
+    return {
+      profile_version: 0,
+      hard_skills: ["系统部署", "问题排查", "客户沟通", "文档能力"],
+      certificates: ["无强制证书要求"],
+      soft_skills: ["沟通", "抗压", "学习能力"],
+      skill_weights: { 基础要求: 0.2, 职业技能: 0.4, 职业素养: 0.25, 发展潜力: 0.15 },
+      confidence: 0.68,
+    };
+  }
+  return {
+    profile_version: 0,
+    hard_skills: ["岗位核心技能", "业务理解", "协作能力"],
+    certificates: ["无强制证书要求"],
+    soft_skills: ["沟通", "学习能力", "抗压"],
+    skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
+    confidence: 0.65,
+  };
+}
 
-  const generated = generateJobProfile(job);
-  return jobsRepository.createJobProfile({
-    job_id: job.id,
-    profile_version: 1,
-    hard_skills: generated.hard_skills,
-    certificates: generated.certificates,
-    soft_skills: generated.soft_skills,
-    skill_weights: generated.skill_weights,
-    summary: generated.summary,
-    confidence: generated.confidence,
-  });
+function buildV2SoftSkills(profile: JobProfileV2Record): string[] {
+  const candidates: Array<{ label: string; score: number }> = [
+    { label: "沟通", score: profile.communication_score },
+    { label: "学习能力", score: profile.learning_score },
+    { label: "抗压", score: profile.stress_tolerance_score },
+    { label: "创新", score: profile.innovation_score },
+    { label: "实践", score: profile.internship_score },
+  ];
+
+  const selected = candidates
+    .filter((item) => item.score >= 55)
+    .sort((left, right) => right.score - left.score)
+    .map((item) => item.label);
+
+  if (selected.length > 0) {
+    return selected;
+  }
+  // 保底输出，避免后续目标分计算失真。
+  return ["沟通", "学习能力", "抗压"];
+}
+
+function mapV2ProfileToMatchingSnapshot(profile: JobProfileV2Record): MatchingJobProfileSnapshot {
+  return {
+    profile_version: profile.profile_version,
+    hard_skills: profile.professional_skills,
+    certificates: profile.certificate_requirements,
+    soft_skills: buildV2SoftSkills(profile),
+    skill_weights: {
+      基础要求: 0.2,
+      职业技能: 0.45,
+      职业素养: 0.2,
+      发展潜力: 0.15,
+    },
+    confidence: profile.confidence,
+  };
+}
+
+async function ensureJobProfileSnapshot(
+  job: JobRecord,
+  jobsRepository: JobsRepository,
+): Promise<MatchingJobProfileSnapshot> {
+  const latestV2 = await jobsRepository.getLatestProfileV2ByJobId(job.id);
+  if (latestV2) {
+    return mapV2ProfileToMatchingSnapshot(latestV2);
+  }
+  return buildFallbackJobProfileSnapshot(job.title);
 }
 
 function buildMatchCreateInput(params: {
@@ -285,6 +421,8 @@ function buildMatchCreateInput(params: {
   gaps: MatchGapItem[];
   explanations: MatchExplanationItem[];
   suggestions: string[];
+  pathRecommendations: CareerRouteRecommendation[];
+  evidenceRefs: string[];
   jobId: number;
 }): MatchResultCreateInput {
   return {
@@ -299,11 +437,21 @@ function buildMatchCreateInput(params: {
     gaps: params.gaps,
     explanations: params.explanations,
     suggestions: params.suggestions,
+    path_recommendations: params.pathRecommendations,
+    evidence_refs: params.evidenceRefs,
   };
 }
 
 export type MatchingServiceOptions = {
   scoringVersion: string;
+  careerPathResolver?: (input: {
+    job_id: number;
+    student_profile_id: number;
+    depth: number;
+  }) => Promise<{
+    promotion_routes: CareerRouteRecommendation[];
+    transition_routes: CareerRouteRecommendation[];
+  }>;
 };
 
 export function createMatchingService(
@@ -323,7 +471,8 @@ export function createMatchingService(
       throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
     }
 
-    const latestJobProfile = await ensureJobProfileSnapshot(job.id, jobsRepository);
+    const latestJobProfile = await ensureJobProfileSnapshot(job, jobsRepository);
+    const normalizedHint = await matchingRepository.getNormalizedJobHint(job.id);
 
     const inputFingerprint = createMatchFingerprint({
       student_profile_id: profile.id,
@@ -367,12 +516,30 @@ export function createMatchingService(
     const matchScores = buildMatchDimensionScores(profile.dimension_scores, targetScores);
     const weights = resolveDimensionWeights(latestJobProfile.skill_weights);
     const totalScore = calculateTotalScore(matchScores, weights);
-    const { gaps, explanations, suggestions } = buildGapAndExplanation({
+    const { gaps, explanations, suggestions, evidenceRefs } = buildGapAndExplanation({
       profile,
       hardSkills: latestJobProfile.hard_skills,
       targetScores,
       matchScores,
     });
+    const normalizedEvidenceRefs = buildNormalizedHintEvidence(normalizedHint, job.title);
+    const mergedEvidenceRefs = Array.from(new Set([...evidenceRefs, ...normalizedEvidenceRefs]));
+
+    let pathRecommendations: CareerRouteRecommendation[] = [];
+    if (options.careerPathResolver) {
+      try {
+        const graph = await options.careerPathResolver({
+          job_id: job.id,
+          student_profile_id: profile.id,
+          depth: 2,
+        });
+        pathRecommendations = [...graph.promotion_routes, ...graph.transition_routes]
+          .sort((left, right) => right.suitability_score - left.suitability_score)
+          .slice(0, 4);
+      } catch {
+        pathRecommendations = [];
+      }
+    }
 
     return matchingRepository.createMatchResult(
       buildMatchCreateInput({
@@ -385,6 +552,8 @@ export function createMatchingService(
         gaps,
         explanations,
         suggestions,
+        pathRecommendations,
+        evidenceRefs: mergedEvidenceRefs,
         jobId: job.id,
       }),
     );

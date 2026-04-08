@@ -5,10 +5,7 @@
 
 import type { Driver } from "neo4j-driver";
 
-import type {
-  CanonicalCareerEdge,
-  CanonicalCareerRole,
-} from "./career-path.seed.js";
+import type { CanonicalCareerEdge, CanonicalCareerRole } from "./career-path.seed.js";
 
 export type CareerPathSeedGraph = {
   roles: CanonicalCareerRole[];
@@ -21,7 +18,9 @@ export type CareerPathGraphSnapshot = {
 };
 
 export interface CareerPathRepository {
-  syncSeedGraph(seedGraph: CareerPathSeedGraph): Promise<{ nodes_upserted: number; edges_upserted: number }>;
+  syncSeedGraph(
+    seedGraph: CareerPathSeedGraph,
+  ): Promise<{ nodes_upserted: number; edges_upserted: number }>;
   getSubgraph(roleKey: string, depth: number): Promise<CareerPathGraphSnapshot>;
   close(): Promise<void>;
   readonly driver: Driver;

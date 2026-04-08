@@ -1,0 +1,50 @@
+{
+  "generated_at": "2026-04-04T05:36:52.380Z",
+  "top_k": 5,
+  "results": [
+    {
+      "namespace": "career_runtime",
+      "top_k": 5,
+      "recall_at_k": 0.5,
+      "mrr": 0.5,
+      "cases": [
+        {
+          "query": "岗位信息里通常包含哪些字段",
+          "expected_terms": ["岗位名称", "公司名称", "薪资", "薪资范围"],
+          "hit": true,
+          "reciprocal_rank": 1,
+          "matched_chunk_ids": [8381, 370, 5663, 2452, 931]
+        },
+        {
+          "query": "岗位描述和公司简介信息一般在哪里",
+          "expected_terms": ["岗位描述", "公司简介", "岗位职责"],
+          "hit": false,
+          "reciprocal_rank": 0,
+          "matched_chunk_ids": []
+        }
+      ]
+    },
+    {
+      "namespace": "internal_project_docs",
+      "top_k": 5,
+      "recall_at_k": 1,
+      "mrr": 0.225,
+      "cases": [
+        {
+          "query": "RAG 优化方案的核心目标是什么",
+          "expected_terms": ["检索召回质量", "证据引用", "可解释性", "多阶段任务"],
+          "hit": true,
+          "reciprocal_rank": 0.25,
+          "matched_chunk_ids": [10076]
+        },
+        {
+          "query": "Pi 作为系统 AI 中枢实施清单里会话策略关注哪些要点",
+          "expected_terms": ["会话", "session", "生命周期", "策略", "存储"],
+          "hit": true,
+          "reciprocal_rank": 0.2,
+          "matched_chunk_ids": [10083]
+        }
+      ]
+    }
+  ]
+}

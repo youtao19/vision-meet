@@ -84,7 +84,10 @@ function parseArgs(repoRoot: string): EvaluationCliOptions {
   }
 
   return {
-    matchFile: path.resolve(repoRoot, options["match-file"] || "data/evaluation/match.manual-samples.jsonl"),
+    matchFile: path.resolve(
+      repoRoot,
+      options["match-file"] || "data/evaluation/match.manual-samples.jsonl",
+    ),
     profileFile: path.resolve(
       repoRoot,
       options["profile-file"] || "data/evaluation/profile.manual-samples.jsonl",
@@ -172,8 +175,12 @@ function buildMarkdownReport(input: {
   lines.push("");
   lines.push("## 3. 指标结果");
   lines.push("");
-  lines.push(`- match_accuracy：${input.matchAccuracy}（${input.matchPassed ? "通过" : "未通过"}）`);
-  lines.push(`- profile_accuracy：${input.profileAccuracy}（${input.profilePassed ? "通过" : "未通过"}）`);
+  lines.push(
+    `- match_accuracy：${input.matchAccuracy}（${input.matchPassed ? "通过" : "未通过"}）`,
+  );
+  lines.push(
+    `- profile_accuracy：${input.profileAccuracy}（${input.profilePassed ? "通过" : "未通过"}）`,
+  );
   lines.push(`- 综合判定：${input.overallPassed ? "通过" : "未通过"}`);
   lines.push("");
   lines.push("## 4. 未通过样本清单");
@@ -225,7 +232,9 @@ function buildMarkdownReport(input: {
   lines.push("## 6. 数据来源");
   lines.push("");
   lines.push(`- match 文件：${path.relative(resolveRepositoryRoot(), input.options.matchFile)}`);
-  lines.push(`- profile 文件：${path.relative(resolveRepositoryRoot(), input.options.profileFile)}`);
+  lines.push(
+    `- profile 文件：${path.relative(resolveRepositoryRoot(), input.options.profileFile)}`,
+  );
 
   return lines.join("\n");
 }

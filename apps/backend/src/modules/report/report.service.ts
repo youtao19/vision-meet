@@ -72,7 +72,10 @@ export interface ReportService {
    * 返回：创建完成的报告详情。
    * 注意：同一 match_id 每次调用都生成新版本，不覆盖历史版本。
    */
-  createReport(input: CreateReportRequest, context?: ReportCreateContext): Promise<CareerReportRecord>;
+  createReport(
+    input: CreateReportRequest,
+    context?: ReportCreateContext,
+  ): Promise<CareerReportRecord>;
 
   /**
    * 作用：生成报告并返回内部生成元信息，供 agent 编排层判断是否发生模型降级。
@@ -115,7 +118,10 @@ export interface ReportService {
    * 返回：导出记录，包含下载路径和文件元数据。
    * 注意：每次导出都会生成新的文件与记录，不覆盖历史产物。
    */
-  createReportExport(reportId: number, input: CreateReportExportRequest): Promise<CareerReportExportRecord>;
+  createReportExport(
+    reportId: number,
+    input: CreateReportExportRequest,
+  ): Promise<CareerReportExportRecord>;
 
   /**
    * 作用：查询某个报告版本的历史导出记录。
@@ -169,8 +175,7 @@ export function createReportService(
   careerPathService?: CareerPathService,
   options: ReportServiceOptions = {},
 ): ReportService {
-  const exportDir =
-    options.exportDir || path.join(process.cwd(), "storage", "exports", "reports");
+  const exportDir = options.exportDir || path.join(process.cwd(), "storage", "exports", "reports");
 
   async function ensureMatchExists(matchId: number) {
     const match = await matchingRepository.getMatchResultById(matchId);
@@ -230,6 +235,9 @@ export function createReportService(
         job_id: match.job_id,
         total_score: match.total_score,
         sections: normalizeSectionOrder(generated.sections),
+        generator_mode: generated.mode,
+        evidence_refs: generated.evidence_refs,
+        action_plan: generated.action_plan,
       }),
       generator_mode: generated.mode,
     };
@@ -264,11 +272,17 @@ export function createReportService(
     return record;
   }
 
-  async function updateReport(reportId: number, input: UpdateReportRequest): Promise<CareerReportRecord> {
+  async function updateReport(
+    reportId: number,
+    input: UpdateReportRequest,
+  ): Promise<CareerReportRecord> {
     const existing = await getReport(reportId);
     assertValidSectionSet(input.sections);
 
-    const updated = await reportRepository.updateReport(existing.id, normalizeSectionOrder(input.sections));
+    const updated = await reportRepository.updateReport(
+      existing.id,
+      normalizeSectionOrder(input.sections),
+    );
     if (!updated) {
       throw new HttpError(404, "REPORT_NOT_FOUND", "报告不存在");
     }
@@ -310,7 +324,7 @@ export function createReportService(
         format: input.format,
         file_name: fileName,
         file_size_bytes: exported.bytes.byteLength,
-        download_path: `/api/v1/report-exports/${exportId}/download`,
+        download_path: `/api/v2/report-exports/${exportId}/download`,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "报告导出失败";

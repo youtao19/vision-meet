@@ -5,10 +5,7 @@
 
 import type { Pool } from "pg";
 
-import type {
-  CareerReportExportRecord,
-  ReportExportListResponse,
-} from "@career/contracts/types";
+import type { CareerReportExportRecord, ReportExportListResponse } from "@career/contracts/types";
 
 import type {
   CareerReportExportCreateInput,

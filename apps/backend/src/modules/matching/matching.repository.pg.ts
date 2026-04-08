@@ -16,6 +16,7 @@ import type {
   MatchResultCreateInput,
   MatchResultUniqueKey,
   MatchingRepository,
+  NormalizedJobHint,
 } from "./matching.repository.js";
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 
@@ -33,6 +34,9 @@ function mapMatchResultDetail(row: Record<string, unknown>): MatchResultDetail {
     gaps: (row.gaps as MatchResultDetail["gaps"]) ?? [],
     suggestions: (row.suggestions as string[]) ?? [],
     explanations: (row.explanations as MatchResultDetail["explanations"]) ?? [],
+    path_recommendations:
+      (row.path_recommendations as MatchResultDetail["path_recommendations"]) ?? [],
+    evidence_refs: Array.isArray(row.evidence_refs) ? (row.evidence_refs as string[]) : [],
     created_at: new Date(String(row.created_at)).toISOString(),
   };
 }
@@ -73,8 +77,18 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
             gaps JSONB NOT NULL DEFAULT '[]'::jsonb,
             suggestions JSONB NOT NULL DEFAULT '[]'::jsonb,
             explanations JSONB NOT NULL DEFAULT '[]'::jsonb,
+            path_recommendations JSONB NOT NULL DEFAULT '[]'::jsonb,
+            evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           )
+        `);
+        await pool.query(`
+          ALTER TABLE match_results
+          ADD COLUMN IF NOT EXISTS path_recommendations JSONB NOT NULL DEFAULT '[]'::jsonb
+        `);
+        await pool.query(`
+          ALTER TABLE match_results
+          ADD COLUMN IF NOT EXISTS evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]
         `);
         await pool.query(`
           CREATE INDEX IF NOT EXISTS match_results_list_idx
@@ -111,9 +125,11 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
           total_score,
           gaps,
           suggestions,
-          explanations
+          explanations,
+          path_recommendations,
+          evidence_refs
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, $10::jsonb, $11::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, $13::text[])
         RETURNING *
       `,
       [
@@ -128,6 +144,8 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
         JSON.stringify(input.gaps),
         JSON.stringify(input.suggestions),
         JSON.stringify(input.explanations),
+        JSON.stringify(input.path_recommendations ?? []),
+        input.evidence_refs ?? [],
       ],
     );
 
@@ -187,7 +205,9 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
     };
   }
 
-  async function findReusableResult(uniqueKey: MatchResultUniqueKey): Promise<MatchResultDetail | null> {
+  async function findReusableResult(
+    uniqueKey: MatchResultUniqueKey,
+  ): Promise<MatchResultDetail | null> {
     await ensureSchema();
     const result = await pool.query(
       `
@@ -214,10 +234,58 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
     return result.rowCount ? mapMatchResultDetail(result.rows[0]) : null;
   }
 
+  async function getNormalizedJobHint(jobId: number): Promise<NormalizedJobHint | null> {
+    await ensureSchema();
+    const result = await pool.query(
+      `
+        SELECT
+          n.normalized_title,
+          n.normalized_job_family,
+          n.confidence
+        FROM jobs j
+        LEFT JOIN LATERAL (
+          SELECT normalized_title, normalized_job_family, confidence
+          FROM job_normalized
+          WHERE
+            (
+              j.normalized_source_key IS NOT NULL
+              AND (
+                dedup_key = j.normalized_source_key
+                OR normalized_payload ->> 'source_row_id' = j.normalized_source_key
+                OR normalized_payload ->> 'source_job_code' = j.normalized_source_key
+              )
+            )
+            OR normalized_title = j.title
+            OR (
+              j.source_row_id IS NOT NULL
+              AND normalized_payload ->> 'source_row_id' = j.source_row_id
+            )
+          ORDER BY confidence DESC, updated_at DESC
+          LIMIT 1
+        ) n ON true
+        WHERE j.id = $1
+        LIMIT 1
+      `,
+      [jobId],
+    );
+
+    if (!result.rowCount) {
+      return null;
+    }
+
+    const row = result.rows[0] as Record<string, unknown>;
+    return {
+      normalized_title: (row.normalized_title as string | null) ?? null,
+      normalized_job_family: (row.normalized_job_family as string | null) ?? null,
+      confidence: row.confidence == null ? null : Number(row.confidence),
+    };
+  }
+
   return {
     createMatchResult,
     getMatchResultById,
     listMatchResults,
     findReusableResult,
+    getNormalizedJobHint,
   };
 }

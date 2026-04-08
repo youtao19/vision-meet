@@ -18,6 +18,7 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
       CREATE TABLE IF NOT EXISTS jobs (
         id BIGSERIAL PRIMARY KEY,
         source_row_id TEXT,
+        normalized_source_key TEXT,
         title TEXT NOT NULL,
         location TEXT,
         salary_range TEXT,
@@ -31,6 +32,114 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
         raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
+    `);
+    await pool.query(`
+      ALTER TABLE jobs
+      ADD COLUMN IF NOT EXISTS normalized_source_key TEXT
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS raw_job_posts (
+        id BIGSERIAL PRIMARY KEY,
+        import_batch_id TEXT NOT NULL,
+        source_name TEXT NOT NULL,
+        source_row_id TEXT,
+        title TEXT NOT NULL,
+        location TEXT,
+        salary_range TEXT,
+        company_name TEXT,
+        industry TEXT,
+        company_size TEXT,
+        company_type TEXT,
+        job_code TEXT,
+        job_description TEXT,
+        company_intro TEXT,
+        raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        data_quality_score DOUBLE PRECISION NOT NULL DEFAULT 1,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS job_categories (
+        id BIGSERIAL PRIMARY KEY,
+        category_code TEXT NOT NULL UNIQUE,
+        category_name TEXT NOT NULL,
+        parent_code TEXT,
+        description TEXT,
+        aliases TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS job_normalized (
+        id BIGSERIAL PRIMARY KEY,
+        raw_job_post_id BIGINT REFERENCES raw_job_posts(id) ON DELETE SET NULL,
+        canonical_title TEXT NOT NULL,
+        normalized_title TEXT NOT NULL,
+        normalized_job_family TEXT NOT NULL,
+        category_code TEXT REFERENCES job_categories(category_code) ON DELETE SET NULL,
+        city_code TEXT,
+        salary_min_k DOUBLE PRECISION,
+        salary_max_k DOUBLE PRECISION,
+        parse_version TEXT NOT NULL DEFAULT 'v1',
+        confidence DOUBLE PRECISION NOT NULL DEFAULT 0.7,
+        dedup_key TEXT,
+        normalized_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS career_nodes (
+        id BIGSERIAL PRIMARY KEY,
+        node_key TEXT NOT NULL UNIQUE,
+        node_type TEXT NOT NULL,
+        node_name TEXT NOT NULL,
+        node_level INTEGER,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS career_edges (
+        id BIGSERIAL PRIMARY KEY,
+        source_node_key TEXT NOT NULL REFERENCES career_nodes(node_key) ON DELETE CASCADE,
+        target_node_key TEXT NOT NULL REFERENCES career_nodes(node_key) ON DELETE CASCADE,
+        relation_type TEXT NOT NULL,
+        weight DOUBLE PRECISION NOT NULL DEFAULT 0,
+        skill_gap TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+        evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(source_node_key, target_node_key, relation_type)
+      )
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS raw_job_posts_batch_idx
+      ON raw_job_posts (import_batch_id, id DESC)
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS job_normalized_family_idx
+      ON job_normalized (normalized_job_family, confidence DESC)
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS job_normalized_category_idx
+      ON job_normalized (category_code, normalized_title)
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS career_edges_source_idx
+      ON career_edges (source_node_key, relation_type)
     `);
 
     await pool.query(`
@@ -58,22 +167,6 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
     `);
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS job_profiles (
-        id BIGSERIAL PRIMARY KEY,
-        job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-        profile_version INTEGER NOT NULL,
-        hard_skills TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-        certificates TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-        soft_skills TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-        skill_weights JSONB NOT NULL DEFAULT '{}'::jsonb,
-        summary TEXT NOT NULL,
-        confidence DOUBLE PRECISION NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        UNIQUE(job_id, profile_version)
-      )
-    `);
-
-    await pool.query(`
       CREATE TABLE IF NOT EXISTS match_results (
         id BIGSERIAL PRIMARY KEY,
         student_profile_id BIGINT NOT NULL REFERENCES student_profiles(id) ON DELETE CASCADE,
@@ -87,6 +180,8 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
         gaps JSONB NOT NULL DEFAULT '[]'::jsonb,
         suggestions JSONB NOT NULL DEFAULT '[]'::jsonb,
         explanations JSONB NOT NULL DEFAULT '[]'::jsonb,
+        path_recommendations JSONB NOT NULL DEFAULT '[]'::jsonb,
+        evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
@@ -100,6 +195,9 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
         job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
         total_score DOUBLE PRECISION NOT NULL,
         sections JSONB NOT NULL DEFAULT '[]'::jsonb,
+        generator_mode TEXT NOT NULL DEFAULT 'template',
+        evidence_refs TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+        action_plan JSONB NOT NULL DEFAULT '{}'::jsonb,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE(match_id, version)
@@ -138,6 +236,25 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
         created_at TIMESTAMPTZ NOT NULL,
         finished_at TIMESTAMPTZ NOT NULL
       )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_resume_html_records (
+        id BIGSERIAL PRIMARY KEY,
+        trace_id TEXT NOT NULL,
+        model TEXT,
+        basic_name TEXT NOT NULL,
+        target_position TEXT NOT NULL,
+        summary TEXT,
+        input_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        html TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS ai_resume_html_records_created_idx
+      ON ai_resume_html_records (created_at DESC)
     `);
   })();
 

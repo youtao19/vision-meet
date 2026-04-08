@@ -4,10 +4,7 @@
  * 避免直接从原始岗位标题自动建图导致结构抖动或解释不一致。
  */
 
-import type {
-  CareerPathRelationType,
-  CareerPathTransitionCost,
-} from "@career/contracts/types";
+import type { CareerPathRelationType, CareerPathTransitionCost } from "@career/contracts/types";
 
 export type CanonicalCareerRole = {
   key: string;
@@ -46,7 +43,16 @@ export const CANONICAL_CAREER_ROLES: CanonicalCareerRole[] = [
     description: "负责服务端业务逻辑、接口设计、存储和稳定性建设。",
     family: "engineering",
     level: 1,
-    aliases: ["后端开发", "后端开发工程师", "java", "java开发", "golang开发", "python开发", "c/c++", "后端工程师"],
+    aliases: [
+      "后端开发",
+      "后端开发工程师",
+      "java",
+      "java开发",
+      "golang开发",
+      "python开发",
+      "c/c++",
+      "后端工程师",
+    ],
     typical_skills: ["Java", "Python", "SQL", "Redis", "系统设计"],
   },
   {

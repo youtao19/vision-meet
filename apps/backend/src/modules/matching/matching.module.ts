@@ -1,5 +1,6 @@
 import type { Router } from "express";
 import type { Pool } from "pg";
+import type { CareerRouteRecommendation } from "@career/contracts/types";
 
 import { createPgJobsRepository } from "../jobs/jobs.repository.pg.js";
 import type { JobsRepository } from "../jobs/jobs.repository.js";
@@ -19,10 +20,19 @@ export type MatchingServiceDependencies = {
   matchingRepository: MatchingRepository;
   profileRepository: ProfileRepository;
   jobsRepository: JobsRepository;
+  careerPathResolver?: (input: {
+    job_id: number;
+    student_profile_id: number;
+    depth: number;
+  }) => Promise<{
+    promotion_routes: CareerRouteRecommendation[];
+    transition_routes: CareerRouteRecommendation[];
+  }>;
 };
 
 export type MatchingServiceFactoryOptions = {
   scoringVersion: string;
+  careerPathResolver?: MatchingServiceDependencies["careerPathResolver"];
 };
 
 export function createMatchingServiceFromDependencies(
@@ -35,6 +45,7 @@ export function createMatchingServiceFromDependencies(
     dependencies.jobsRepository,
     {
       scoringVersion: options.scoringVersion,
+      careerPathResolver: options.careerPathResolver ?? dependencies.careerPathResolver,
     },
   );
 }

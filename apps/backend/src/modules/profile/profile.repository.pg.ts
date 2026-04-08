@@ -5,10 +5,7 @@
 
 import type { Pool } from "pg";
 
-import type {
-  ListStudentProfilesResponse,
-  StudentProfileRecord,
-} from "@career/contracts/types";
+import type { ListStudentProfilesResponse, StudentProfileRecord } from "@career/contracts/types";
 
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 import type { ProfileRepository, StudentProfileCreateInput } from "./profile.repository.js";
@@ -67,7 +64,7 @@ export function createPgProfileRepository(pool: Pool): ProfileRepository {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           )
         `);
-          await pool.query(`
+        await pool.query(`
             CREATE INDEX IF NOT EXISTS student_profiles_target_role_idx
             ON student_profiles (target_role, id DESC)
           `);
@@ -106,7 +103,9 @@ export function createPgProfileRepository(pool: Pool): ProfileRepository {
     return result.rowCount ? mapStudentProfileRecord(result.rows[0]) : null;
   }
 
-  async function createStudentProfile(input: StudentProfileCreateInput): Promise<StudentProfileRecord> {
+  async function createStudentProfile(
+    input: StudentProfileCreateInput,
+  ): Promise<StudentProfileRecord> {
     await ensureSchema();
     const result = await pool.query(
       `

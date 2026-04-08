@@ -3,10 +3,15 @@ import { randomUUID } from "node:crypto";
 import cors from "cors";
 import express from "express";
 
+import { createAiModule } from "./modules/ai/ai.module.js";
 import { createAgentModule } from "./modules/agent/agent.module.js";
 import { createCareerPathModule } from "./modules/career-path/career-path.module.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createPgJobsRepository } from "./modules/jobs/jobs.repository.pg.js";
+import { createJobsIntelligenceModule } from "./modules/jobs-intelligence/jobs-intelligence.module.js";
+import { createNeo4jJobsIntelligenceGraphRepository } from "./modules/jobs-intelligence/jobs-intelligence.repository.neo4j.js";
+import { createPgJobsIntelligenceRepository } from "./modules/jobs-intelligence/jobs-intelligence.repository.pg.js";
+import { createJobsIntelligenceService } from "./modules/jobs-intelligence/jobs-intelligence.service.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
 import { createMatchingRouter } from "./modules/matching/matching.route.js";
 import { createPgMatchingRepository } from "./modules/matching/matching.repository.pg.js";
@@ -14,7 +19,10 @@ import { createMatchingServiceFromDependencies } from "./modules/matching/matchi
 import { createProfileModule } from "./modules/profile/profile.module.js";
 import { createPgProfileRepository } from "./modules/profile/profile.repository.pg.js";
 import { createPgReportExportRepository } from "./modules/report/report-export.repository.pg.js";
-import { createReportExportDownloadRouter, createReportRouter } from "./modules/report/report.route.js";
+import {
+  createReportExportDownloadRouter,
+  createReportRouter,
+} from "./modules/report/report.route.js";
 import { createPgReportRepository } from "./modules/report/report.repository.pg.js";
 import { createReportServiceFromDependencies } from "./modules/report/report.module.js";
 import { appEnv } from "./shared/config/env.js";
@@ -56,11 +64,27 @@ export function createApp(): express.Express {
     defaultTopK: appEnv.KNOWLEDGE_TOP_K,
     reindexBatchSize: appEnv.KNOWLEDGE_REINDEX_BATCH_SIZE,
   });
+  const jobsIntelligenceService = createJobsIntelligenceService(
+    createPgJobsIntelligenceRepository(appDataPool),
+    createNeo4jJobsIntelligenceGraphRepository({
+      uri: appEnv.NEO4J_URI,
+      username: appEnv.NEO4J_USERNAME,
+      password: appEnv.NEO4J_PASSWORD,
+    }),
+    appEnv,
+  );
   const matchingService = createMatchingServiceFromDependencies(
     {
       matchingRepository,
       profileRepository,
       jobsRepository,
+      careerPathResolver: async ({ job_id, depth }) => {
+        const graph = await jobsIntelligenceService.getCareerPathGraph(job_id, depth);
+        return {
+          promotion_routes: graph.promotion_routes,
+          transition_routes: graph.transition_routes,
+        };
+      },
     },
     {
       scoringVersion: appEnv.MATCH_SCORING_VERSION,
@@ -129,6 +153,42 @@ export function createApp(): express.Express {
   app.use("/api/v1/reports", createReportRouter(reportService));
   app.use("/api/v1/report-exports", createReportExportDownloadRouter(reportService));
   app.use(
+    "/api/v2",
+    createJobsIntelligenceModule({
+      pool: appDataPool,
+      neo4j: {
+        uri: appEnv.NEO4J_URI,
+        username: appEnv.NEO4J_USERNAME,
+        password: appEnv.NEO4J_PASSWORD,
+      },
+      env: appEnv,
+    }),
+  );
+  app.use("/api/v2/matches", createMatchingRouter(matchingService));
+  app.use("/api/v2/reports", createReportRouter(reportService));
+  app.use("/api/v2/report-exports", createReportExportDownloadRouter(reportService));
+  app.use(
+    "/api/v2/ai",
+    createAiModule(
+      {
+        profileRepository,
+        jobsRepository,
+        knowledgeService: knowledgeModule.service,
+        matchingService,
+        reportService,
+      },
+      {
+        pool: appDataPool,
+        piAgentDir: appEnv.AGENT_PI_DIR,
+        sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
+        model: appEnv.AGENT_MODEL,
+        thinkingLevel: appEnv.AGENT_THINKING_LEVEL,
+        resumeTimeoutMs: appEnv.AGENT_RESUME_TIMEOUT_MS,
+        cwd: process.cwd(),
+      },
+    ),
+  );
+  app.use(
     "/api/v1/agent",
     createAgentModule(
       {
@@ -152,6 +212,10 @@ export function createApp(): express.Express {
   app.use(
     (error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       const traceId = (res.locals.trace_id as string | undefined) || randomUUID();
+      const message = error instanceof Error ? error.message : "internal error";
+      // 统一打印错误日志，避免出现“前端报错但后端没有任何输出”的排障盲区。
+      console.error(`[http-error] trace_id=${traceId} message=${message}`);
+
       if (error instanceof HttpError) {
         return res.status(error.status).json({
           code: error.code,
@@ -161,7 +225,6 @@ export function createApp(): express.Express {
         });
       }
 
-      const message = error instanceof Error ? error.message : "internal error";
       return res.status(500).json({
         code: "INTERNAL_ERROR",
         message,

@@ -35,6 +35,7 @@ const rawEnvSchema = z.object({
   MOONSHOT_MODEL: z.string().trim().min(1).optional(),
   KIMI_BASE_URL: z.string().trim().url().optional(),
   KIMI_API_KEY: z.string().trim().min(1).optional(),
+  KIMICODE_API_KEY: z.string().trim().min(1).optional(),
   KIMI_MODEL: z.string().trim().min(1).optional(),
   AGENT_PI_DIR: z.string().optional(),
   AGENT_SESSION_STORE_DIR: z.string().optional(),
@@ -42,6 +43,11 @@ const rawEnvSchema = z.object({
   AGENT_THINKING_LEVEL: z
     .enum(["off", "minimal", "low", "medium", "high", "xhigh"])
     .default("medium"),
+  AGENT_RESUME_TIMEOUT_MS: z.coerce.number().int().min(10000).max(300000).default(120000),
+  JOBS_PIPELINE_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(3),
+  JOBS_PIPELINE_RETRY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(8).default(3),
+  JOBS_PIPELINE_RETRY_BASE_MS: z.coerce.number().int().min(100).max(10000).default(500),
+  JOBS_PIPELINE_RETRY_MAX_MS: z.coerce.number().int().min(500).max(60000).default(8000),
 });
 
 const envSchema = rawEnvSchema.transform((env) => {
@@ -50,8 +56,11 @@ const envSchema = rawEnvSchema.transform((env) => {
     AGENT_PI_DIR: env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"),
     AGENT_SESSION_STORE_DIR:
       env.AGENT_SESSION_STORE_DIR ||
-      path.join(env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"), "sessions"),
-    AGENT_MODEL: env.AGENT_MODEL || env.MOONSHOT_MODEL || env.KIMI_MODEL,
+      path.join(
+        env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"),
+        "sessions",
+      ),
+    AGENT_MODEL: env.AGENT_MODEL || env.KIMI_MODEL || env.MOONSHOT_MODEL,
   };
 });
 

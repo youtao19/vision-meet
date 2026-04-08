@@ -210,7 +210,10 @@ function deriveTaskStatus(input: {
  * 整体思路：由 Pi 决定工具调用顺序，后端只负责装配业务工具、持久化步骤轨迹和收敛最终产物。
  */
 export interface AgentService {
-  createTask(input: CreateAgentTaskRequest, runtime: TaskRuntimeContext): Promise<AgentTaskResponse>;
+  createTask(
+    input: CreateAgentTaskRequest,
+    runtime: TaskRuntimeContext,
+  ): Promise<AgentTaskResponse>;
   getTask(taskId: number): Promise<AgentTaskResponse>;
 }
 

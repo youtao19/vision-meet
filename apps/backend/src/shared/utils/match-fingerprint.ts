@@ -16,7 +16,12 @@ type JsonLike =
     };
 
 function sortValue(value: unknown): JsonLike {
-  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
     return value;
   }
 
@@ -25,7 +30,9 @@ function sortValue(value: unknown): JsonLike {
   }
 
   if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
     return entries.reduce<Record<string, JsonLike>>((acc, [key, nested]) => {
       acc[key] = sortValue(nested);
       return acc;

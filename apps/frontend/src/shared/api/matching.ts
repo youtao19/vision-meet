@@ -8,7 +8,7 @@ import type {
 import { requestJson } from "./http";
 
 export async function createMatch(payload: CreateMatchRequest): Promise<MatchResultDetail> {
-  return requestJson<MatchResultDetail>("/api/v1/matches", {
+  return requestJson<MatchResultDetail>("/api/v2/matches", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -30,9 +30,9 @@ export async function fetchMatchList(params: MatchListParams): Promise<MatchResu
     query.set("job_id", String(params.job_id));
   }
 
-  return requestJson<MatchResultListResponse>(`/api/v1/matches?${query.toString()}`);
+  return requestJson<MatchResultListResponse>(`/api/v2/matches?${query.toString()}`);
 }
 
 export async function fetchMatchDetail(matchId: number): Promise<MatchResultDetail> {
-  return requestJson<MatchResultDetail>(`/api/v1/matches/${matchId}`);
+  return requestJson<MatchResultDetail>(`/api/v2/matches/${matchId}`);
 }

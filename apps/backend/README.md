@@ -56,7 +56,6 @@ cp apps/backend/.env.example apps/backend/.env
 - `GET /healthz`
 - `POST /api/v1/jobs/import`
 - `GET /api/v1/jobs`
-- `POST /api/v1/jobs/profile/generate`
 - `GET /api/v1/profile`
 - `POST /api/v1/profile`
 - `POST /api/v1/profile/resume`

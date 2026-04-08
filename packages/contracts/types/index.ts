@@ -26,6 +26,7 @@ export type StructuredApiError = {
 export type JobRecord = {
   id: number;
   source_row_id: string | null;
+  normalized_source_key: string | null;
   title: string;
   location: string | null;
   salary_range: string | null;
@@ -40,17 +41,275 @@ export type JobRecord = {
   created_at: string;
 };
 
-export type JobProfileRecord = {
+export type JobPipelineMode = "cleanse_agent_portraits";
+
+export type JobPipelineTaskStatus = "queued" | "running" | "success" | "degraded" | "failed";
+
+export type JobProfileGenerationMode = "agent" | "heuristic";
+
+export type JobProfileV2Record = {
   id: number;
   job_id: number;
   profile_version: number;
-  hard_skills: string[];
-  certificates: string[];
-  soft_skills: string[];
-  skill_weights: Record<string, number>;
+  normalized_title: string;
+  job_family: string;
+  job_level: number;
+  professional_skills: string[];
+  certificate_requirements: string[];
+  innovation_score: number;
+  learning_score: number;
+  stress_tolerance_score: number;
+  communication_score: number;
+  internship_score: number;
   summary: string;
   confidence: number;
+  generation_model: string | null;
+  generation_mode: JobProfileGenerationMode;
+  extracted_features: Record<string, unknown>;
   created_at: string;
+};
+
+export type JobProfilesV2ListParams = {
+  keyword?: string;
+  job_family?: string;
+  offset: number;
+  limit: number;
+};
+
+export type JobProfilesV2ListResponse = {
+  total: number;
+  items: JobProfileV2Record[];
+};
+
+export type CanonicalRoleRecord = {
+  role_key: string;
+  canonical_version: number;
+  content_hash: string;
+  normalized_title: string;
+  job_family: string;
+  level_band: string;
+  sample_size: number;
+  core_required_skills: string[];
+  common_required_skills: string[];
+  bonus_required_skills: string[];
+  core_tools: string[];
+  soft_skills: string[];
+  representative_responsibilities: string[];
+  summary_version: "v1";
+  summary: CanonicalRoleSummary;
+  confidence: number;
+  updated_at: string;
+};
+
+export type CanonicalRoleSummary = {
+  role_overview: string;
+  core_responsibilities: string[];
+  core_requirements: string[];
+  bonus_items: string[];
+  entry_path: string[];
+  development_directions: string[];
+};
+
+export type CanonicalRoleProfileDraft = Omit<CanonicalRoleRecord, "updated_at">;
+
+export type CanonicalRoleVersionRecord = {
+  role_key: string;
+  canonical_version: number;
+  content_hash: string;
+  payload: CanonicalRoleProfileDraft;
+  created_at: string;
+};
+
+export type CanonicalRolesListParams = {
+  keyword?: string;
+  job_family?: string;
+  level_band?: string;
+  offset: number;
+  limit: number;
+};
+
+export type CanonicalRolesListResponse = {
+  total: number;
+  items: CanonicalRoleRecord[];
+};
+
+export type ManualJobPortraitDimension = {
+  level: number;
+  weight: number;
+  description: string;
+};
+
+export type ManualJobPortraitRecord = {
+  job_id?: number | null;
+  job_name: string;
+  category: string;
+  skills: ManualJobPortraitDimension;
+  certification: ManualJobPortraitDimension;
+  innovation: ManualJobPortraitDimension;
+  learning: ManualJobPortraitDimension;
+  stress: ManualJobPortraitDimension;
+  communication: ManualJobPortraitDimension;
+  experience: ManualJobPortraitDimension;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ManualJobPortraitListResponse = {
+  total: number;
+  items: ManualJobPortraitRecord[];
+};
+
+export type PostingEvidenceRecord = {
+  field:
+    | "required_skills"
+    | "preferred_skills"
+    | "tools"
+    | "certificates"
+    | "education_requirement"
+    | "experience_requirement"
+    | "soft_skills";
+  text: string;
+  source: "job_description" | "title" | "company_intro";
+};
+
+export type PostingEvidenceField = PostingEvidenceRecord["field"];
+
+export type JobFactRecord = {
+  job_id: number;
+  normalized_title: string;
+  job_family: string;
+  job_level: number;
+  responsibilities: string[];
+  required_skills: string[];
+  preferred_skills: string[];
+  tools: string[];
+  certificates: string[];
+  education_requirement: string;
+  experience_requirement: string;
+  soft_skills: string[];
+  industry_context: string[];
+  evidence: PostingEvidenceRecord[];
+  confidence: number;
+};
+
+export type PostingProfileFacts = JobFactRecord;
+
+export type CareerGraphNodeRecord = {
+  id: string;
+  job_id: number;
+  title: string;
+  family: string;
+  level: number;
+  skills: string[];
+  summary: string;
+};
+
+export type CareerGraphEdgeRecord = {
+  id: string;
+  source: string;
+  target: string;
+  relation_type: "promotion" | "transition" | "skill_migration";
+  reason: string;
+  required_skills: string[];
+  gap_skills: string[];
+  transition_cost: "low" | "medium" | "high";
+  direction_label: string;
+  score: number;
+};
+
+export type CareerGraphSnapshot = {
+  graph_version: string;
+  generated_at: string;
+  nodes: CareerGraphNodeRecord[];
+  edges: CareerGraphEdgeRecord[];
+};
+
+export type JobFactsListParams = {
+  keyword?: string;
+  job_family?: string;
+  offset: number;
+  limit: number;
+};
+
+export type JobFactsListResponse = {
+  total: number;
+  items: JobFactRecord[];
+};
+
+export type JobPipelineRunRequest = {
+  mode?: JobPipelineMode;
+};
+
+export type JobPipelineTaskRecord = {
+  id: number;
+  mode: JobPipelineMode;
+  status: JobPipelineTaskStatus;
+  total_jobs: number;
+  processed_jobs: number;
+  success_profiles: number;
+  failed_profiles: number;
+  graph_nodes: number;
+  graph_edges: number;
+  graph_covered_jobs: number;
+  graph_isolated_ratio: number;
+  family_count: number;
+  message: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type JobPipelineFailureRecord = {
+  id: number;
+  task_id: number;
+  job_id: number;
+  stage: string;
+  error_code: string;
+  error_message: string;
+  attempts: number;
+  retryable: boolean;
+  created_at: string;
+};
+
+export type JobPipelineFailureListResponse = {
+  total: number;
+  items: JobPipelineFailureRecord[];
+};
+
+export type JobPipelineRetryQueueRecord = {
+  id: number;
+  task_id: number;
+  job_id: number;
+  stage: string;
+  status: "pending" | "processing" | "done" | "failed";
+  attempts: number;
+  next_run_at: string;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type JobPipelineRetryQueueSummary = {
+  pending: number;
+  processing: number;
+  done: number;
+  failed: number;
+  latest_errors: string[];
+};
+
+export type JobPipelineRetryQueueListResponse = {
+  total: number;
+  items: JobPipelineRetryQueueRecord[];
+  summary: JobPipelineRetryQueueSummary;
+};
+
+export type JobPipelineRetryProcessResult = {
+  claimed: number;
+  done: number;
+  failed: number;
+  rescheduled: number;
 };
 
 export type JobsListParams = {
@@ -69,15 +328,6 @@ export type JobImportResponse = {
   imported: number;
   skipped: number;
   message: string;
-};
-
-export type JobProfileGenerateRequest = {
-  job_id: number;
-  force_regenerate: boolean;
-};
-
-export type JobProfileGenerateResponse = JobProfileRecord & {
-  cached: boolean;
 };
 
 export type StudentProfileExperience = {
@@ -153,6 +403,7 @@ export type MatchExplanationItem = {
   dimension: DimensionKey;
   reasoning: string;
   improvement_actions: string[];
+  evidence_refs: string[];
 };
 
 export type CreateMatchRequest = {
@@ -178,6 +429,8 @@ export type MatchResultDetail = MatchResultSummary & {
   gaps: MatchGapItem[];
   suggestions: string[];
   explanations: MatchExplanationItem[];
+  path_recommendations: CareerRouteRecommendation[];
+  evidence_refs: string[];
 };
 
 export type MatchListParams = {
@@ -220,6 +473,12 @@ export type CareerReportSummary = {
 
 export type CareerReportRecord = CareerReportSummary & {
   sections: CareerReportSection[];
+  generator_mode: "template";
+  evidence_refs: string[];
+  action_plan: {
+    short_term: string[];
+    mid_term: string[];
+  };
 };
 
 export type CreateReportRequest = {
@@ -260,7 +519,7 @@ export type ReportExportListResponse = {
   items: CareerReportExportRecord[];
 };
 
-export type CareerPathRelationType = "promotion" | "transition";
+export type CareerPathRelationType = "promotion" | "transition" | "skill_migration";
 
 export type CareerPathTransitionCost = "low" | "medium" | "high";
 
@@ -268,6 +527,7 @@ export type CareerPathNodeCategory = "target" | "promotion" | "transition";
 
 export type CareerPathNode = {
   id: string;
+  job_id: number | null;
   role_key: string;
   title: string;
   description: string;
@@ -286,8 +546,10 @@ export type CareerPathEdge = {
   relation_type: CareerPathRelationType;
   reason: string;
   required_skills: string[];
+  gap_skills: string[];
   transition_cost: CareerPathTransitionCost;
   direction_label: string;
+  score: number;
 };
 
 export type CareerRouteStep = {
@@ -323,6 +585,53 @@ export type CareerPathGraphResponse = {
   edges: CareerPathEdge[];
   promotion_routes: CareerRouteRecommendation[];
   transition_routes: CareerRouteRecommendation[];
+};
+
+export type CareerPathV2GraphResponse = {
+  job_id: number;
+  job_title: string;
+  depth: number;
+  target_node_id: string;
+  graph_version: string;
+  graph_generated_at: string;
+  graph_stats: {
+    node_count: number;
+    edge_count: number;
+    promotion_edge_count: number;
+    transition_edge_count: number;
+    isolated_node_count: number;
+    isolated_node_ratio: number;
+  };
+  nodes: CareerPathNode[];
+  edges: CareerPathEdge[];
+  promotion_routes: CareerRouteRecommendation[];
+  transition_routes: CareerRouteRecommendation[];
+};
+
+export type CareerPathV2GenerateRequest = {
+  force_rebuild?: boolean;
+  max_candidates_per_node?: number;
+  /** 是否使用 Agent 推理生成图谱关系，默认 false 走规则引擎 */
+  use_agent?: boolean;
+};
+
+export type CareerPathV2GenerateResponse = {
+  graph_version: string;
+  generated_at: string;
+  /** 生成模式：agent 为 AI 推理，rule 为规则引擎 */
+  generation_mode: "agent" | "rule";
+  nodes_written: number;
+  edges_written: number;
+  candidate_pairs: number;
+  validated_pairs: number;
+  promotion_edges: number;
+  transition_edges: number;
+  skill_migration_edges: number;
+  transition_path_coverage: {
+    jobs_with_paths: number;
+    min_paths_required: number;
+    target_job_count: number;
+  };
 };
 
 export type KnowledgeSourceKind = "job_dataset" | "resume_text" | "project_doc";
@@ -502,6 +811,63 @@ export type AgentTaskResponse = {
   finished_at: string;
 };
 
+export type ResumeBasicInfoInput = {
+  name: string;
+  phone: string;
+  email: string;
+  target_position: string;
+};
+
+export type ResumeEducationInput = {
+  school: string;
+  major: string;
+  degree: string;
+  period: string;
+};
+
+export type ResumeExperienceInput = {
+  organization: string;
+  role: string;
+  period: string;
+  responsibilities: string;
+  achievements: string;
+};
+
+export type CreateResumeHtmlRequest = {
+  basic: ResumeBasicInfoInput;
+  summary?: string;
+  educations: ResumeEducationInput[];
+  experiences: ResumeExperienceInput[];
+  skills: string;
+};
+
+export type ResumeHtmlResponse = {
+  resume_id: number;
+  trace_id: string;
+  model: string | null;
+  html: string;
+  generated_at: string;
+};
+
+export type ResumeHtmlRecord = {
+  id: number;
+  trace_id: string;
+  model: string | null;
+  basic_name: string;
+  target_position: string;
+  summary: string | null;
+  input_payload: CreateResumeHtmlRequest;
+  html: string;
+  created_at: string;
+};
+
+export type ResumeHtmlListItem = Omit<ResumeHtmlRecord, "html" | "input_payload">;
+
+export type ResumeHtmlListResponse = {
+  total: number;
+  items: ResumeHtmlListItem[];
+};
+
 /**
  * 文件作用：为旧命名保留兼容别名，避免前后端在本轮重构期间出现大面积断裂。
  * 注意：新代码应优先使用 Task / Step 语义，而不是 Analyze / ToolTrace 语义。
@@ -513,5 +879,22 @@ export type AgentChatRequest = CreateAgentTaskRequest;
 export type AgentChatResponse = AgentTaskResponse;
 export type AgentAnalyzeRequest = CreateAgentTaskRequest;
 export type AgentAnalyzeResponse = AgentTaskResponse;
+export type AiTaskStatus = AgentTaskStatus;
+export type CreateAiTaskRequest = CreateAgentTaskRequest;
+export type AiTaskResult = AgentTaskResult;
+export type AiTaskResponse = AgentTaskResponse;
+export type CreateAiResumeHtmlRequest = CreateResumeHtmlRequest;
+export type AiResumeHtmlResponse = ResumeHtmlResponse;
+export type AiChatRequest = CreateAiTaskRequest;
+export type AiChatResponse = AiTaskResponse;
+
+export type CreateAiPolishRequest = {
+  content: string;
+  section_key?: string;
+  section_title?: string;
+};
+export type AiPolishResponse = {
+  polished_content: string;
+};
 
 export type ApiErrorResponse = StructuredApiError;

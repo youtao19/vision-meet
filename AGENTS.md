@@ -83,6 +83,7 @@
 - 记录规范与示例见 `docs/问题记录规范.md`。
 
 ## 进度同步
+
 - 每次实现一个需求之后，需要同步修改进度文件`实现跟踪.md`.
 
 ## 高质量中文注释规范（默认生效）
@@ -153,12 +154,12 @@
 4. 禁止省略关键逻辑注释。
 
 ## Active Technologies
+
 - TypeScript 5.x（Node.js 20+、Vue 3） + Express、multer、zod、Vue Router、Pinia、Fetch API (001-student-profile-matching)
 - 当前 JSON adapter（学生画像 + 匹配结果）；演进目标 PostgreSQL + pgvector + Neo4j (001-student-profile-matching)
 
 ## Recent Changes
+
 - 001-student-profile-matching: Added TypeScript 5.x（Node.js 20+、Vue 3） + Express、multer、zod、Vue Router、Pinia、Fetch API
-
-
 
 Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
