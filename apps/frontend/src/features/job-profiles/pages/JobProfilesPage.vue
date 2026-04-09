@@ -183,23 +183,23 @@ onMounted(loadProfiles);
 <style scoped>
 /* 引入现代设计变量 */
 .job-profiles-container {
-  --primary-color: #4f46e5;
-  --primary-hover: #4338ca;
-  --primary-light: #e0e7ff;
-  --bg-color: #f8fafc;
-  --surface-color: #ffffff;
-  --border-color: #e2e8f0;
-  --text-main: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-float: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --primary-color: var(--glass-primary);
+  --primary-hover: var(--glass-primary-strong);
+  --primary-light: rgba(217, 241, 255, 0.6);
+  --bg-color: rgba(255, 255, 255, 0.3);
+  --surface-color: rgba(255, 255, 255, 0.7);
+  --border-color: rgba(255, 255, 255, 0.56);
+  --text-main: var(--glass-title);
+  --text-secondary: var(--glass-muted);
+  --text-muted: rgba(77, 101, 139, 0.58);
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  --shadow-md: 0 18px 34px rgba(48, 78, 134, 0.12);
+  --shadow-float: 0 22px 42px rgba(40, 69, 124, 0.14);
 
   max-width: 1200px;
-  margin: 32px auto;
+  margin: 24px auto;
   padding: 0 20px;
   display: flex;
   flex-direction: column;
@@ -213,16 +213,17 @@ onMounted(loadProfiles);
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.46);
+  padding-bottom: 18px;
 }
 
 .header-titles h2 {
   margin: 0 0 8px 0;
   color: var(--text-main);
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
 }
 
 .header-titles p {
@@ -236,12 +237,12 @@ onMounted(loadProfiles);
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background-color: var(--surface-color);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.36));
   color: var(--text-main);
   border: 1px solid var(--border-color);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-weight: 500;
+  padding: 10px 18px;
+  border-radius: 16px;
+  font-weight: 700;
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -249,8 +250,9 @@ onMounted(loadProfiles);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--bg-color);
-  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  border-color: rgba(109, 194, 255, 0.88);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-primary:disabled {
@@ -270,9 +272,9 @@ onMounted(loadProfiles);
 }
 
 .notice-error {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+  background: linear-gradient(135deg, rgba(255, 232, 236, 0.82), rgba(255, 244, 245, 0.52));
+  color: #8c2343;
+  border: 1px solid rgba(255, 214, 224, 0.78);
 }
 
 /* 布局网格 */
@@ -285,10 +287,14 @@ onMounted(loadProfiles);
 
 /* 通用卡片样式 */
 .card {
-  background: var(--surface-color);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.28));
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 36px rgba(44, 73, 127, 0.1);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
   overflow: hidden;
 }
 
@@ -301,8 +307,8 @@ onMounted(loadProfiles);
 
 .filter-section {
   padding: 16px;
-  border-bottom: 1px solid var(--border-color);
-  background: #f8fafc;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .filter-label {
@@ -322,11 +328,11 @@ onMounted(loadProfiles);
 .select-wrapper select {
   width: 100%;
   appearance: none;
-  background: var(--surface-color)
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.42))
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")
     no-repeat right 12px center/16px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 16px;
   padding: 10px 36px 10px 12px;
   font-size: 0.95rem;
   color: var(--text-main);
@@ -365,21 +371,23 @@ onMounted(loadProfiles);
 
 .profile-item {
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: 16px;
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: var(--surface-color);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .profile-item:hover {
-  background: var(--bg-color);
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.44);
 }
 
 .profile-item.active {
-  background: var(--primary-light);
-  border-color: #c7d2fe;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(219, 241, 255, 0.42));
+  border-color: rgba(107, 194, 255, 0.88);
   position: relative;
+  box-shadow: 0 14px 28px rgba(53, 92, 161, 0.14);
 }
 
 .profile-item.active::before {
@@ -415,7 +423,7 @@ onMounted(loadProfiles);
 .item-badge {
   font-size: 0.75rem;
   padding: 2px 8px;
-  background: var(--bg-color);
+  background: rgba(255, 255, 255, 0.54);
   color: var(--text-secondary);
   border-radius: 12px;
   white-space: nowrap;
@@ -431,7 +439,7 @@ onMounted(loadProfiles);
 .detail-header {
   margin-bottom: 32px;
   padding-bottom: 24px;
-  border-bottom: 1px dashed var(--border-color);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.44);
 }
 
 .category-tag {
@@ -439,10 +447,11 @@ onMounted(loadProfiles);
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--primary-color);
-  background: var(--primary-light);
-  padding: 4px 12px;
-  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(223, 242, 255, 0.54));
+  padding: 5px 12px;
+  border-radius: 999px;
   margin-bottom: 12px;
+  border: 1px solid rgba(134, 214, 255, 0.78);
 }
 
 .job-title {
@@ -461,7 +470,7 @@ onMounted(loadProfiles);
 }
 
 .dimension-card {
-  background: var(--bg-color);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.32));
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 20px;
@@ -473,7 +482,7 @@ onMounted(loadProfiles);
 .dimension-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  background: var(--surface-color);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(239, 248, 255, 0.4));
 }
 
 .dim-header {
@@ -512,15 +521,15 @@ onMounted(loadProfiles);
 }
 
 .stat-badge.level {
-  background: #ecfdf5;
+  background: rgba(235, 255, 245, 0.82);
   color: #059669;
-  border: 1px solid #a7f3d0;
+  border: 1px solid rgba(167, 243, 208, 0.78);
 }
 
 .stat-badge.weight {
-  background: #fef2f2;
+  background: rgba(255, 240, 243, 0.82);
   color: #dc2626;
-  border: 1px solid #fecaca;
+  border: 1px solid rgba(254, 202, 202, 0.78);
 }
 
 .dim-desc {

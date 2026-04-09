@@ -11,5 +11,6 @@ export interface JobsRepository {
   addJobs(rows: JobCreateInput[]): Promise<{ imported: number; insertedJobs: JobRecord[] }>;
   listJobs(params: JobsListParams): Promise<JobsListResponse>;
   getJobById(jobId: number): Promise<JobRecord | null>;
+  findBestJobByTargetRole(targetRole: string): Promise<JobRecord | null>;
   getLatestProfileV2ByJobId(jobId: number): Promise<JobProfileV2Record | null>;
 }

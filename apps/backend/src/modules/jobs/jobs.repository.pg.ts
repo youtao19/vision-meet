@@ -217,6 +217,75 @@ export function createPgJobsRepository(pool: Pool): JobsRepository {
   }
 
   /**
+   * 作用：根据目标岗位候选词从数据库里挑选最接近的一条岗位记录。
+   * 设计说明：简历上传链路只保存字符串目标岗位，因此这里优先做“精确命中 -> 标准岗位命中 -> 模糊命中”的排序，
+   * 避免把“待定岗位”或简历里的口语化岗位名直接写入学生画像。
+   */
+  async function findBestJobByTargetRole(targetRole: string): Promise<JobRecord | null> {
+    await ensureSchema();
+
+    const normalizedTargetRole = targetRole.trim();
+    if (!normalizedTargetRole) {
+      return null;
+    }
+
+    const fuzzyKeyword = `%${normalizedTargetRole.toLowerCase()}%`;
+    const result = await pool.query(
+      `
+        SELECT ranked.*
+        FROM (
+          SELECT
+            j.*,
+            n.normalized_title,
+            n.confidence AS normalized_confidence,
+            CASE
+              WHEN LOWER(j.title) = LOWER($1) THEN 0
+              WHEN LOWER(COALESCE(n.normalized_title, '')) = LOWER($1) THEN 1
+              WHEN LOWER(j.title) LIKE $2 THEN 2
+              WHEN LOWER(COALESCE(n.normalized_title, '')) LIKE $2 THEN 3
+              ELSE 9
+            END AS match_rank
+          FROM jobs j
+          LEFT JOIN LATERAL (
+            SELECT normalized_title, confidence
+            FROM job_normalized
+            WHERE
+              (
+                j.normalized_source_key IS NOT NULL
+                AND (
+                  dedup_key = j.normalized_source_key
+                  OR normalized_payload ->> 'source_row_id' = j.normalized_source_key
+                  OR normalized_payload ->> 'source_job_code' = j.normalized_source_key
+                )
+              )
+              OR normalized_title = j.title
+              OR (
+                j.source_row_id IS NOT NULL
+                AND normalized_payload ->> 'source_row_id' = j.source_row_id
+              )
+            ORDER BY confidence DESC, updated_at DESC
+            LIMIT 1
+          ) n ON true
+          WHERE
+            LOWER(j.title) = LOWER($1)
+            OR LOWER(COALESCE(n.normalized_title, '')) = LOWER($1)
+            OR LOWER(j.title) LIKE $2
+            OR LOWER(COALESCE(n.normalized_title, '')) LIKE $2
+        ) ranked
+        ORDER BY
+          ranked.match_rank ASC,
+          ABS(CHAR_LENGTH(COALESCE(ranked.normalized_title, ranked.title)) - CHAR_LENGTH($1)) ASC,
+          ranked.normalized_confidence DESC NULLS LAST,
+          ranked.id DESC
+        LIMIT 1
+      `,
+      [normalizedTargetRole, fuzzyKeyword],
+    );
+
+    return result.rowCount ? mapJobRecord(result.rows[0]) : null;
+  }
+
+  /**
    * 作用：读取 v2 岗位画像最新版本。
    * 注意：若尚未初始化 v2 表（例如尚未运行 jobs-intelligence 模块），返回 null 而不是抛错。
    */
@@ -247,6 +316,7 @@ export function createPgJobsRepository(pool: Pool): JobsRepository {
     addJobs,
     listJobs,
     getJobById,
+    findBestJobByTargetRole,
     getLatestProfileV2ByJobId,
   };
 }

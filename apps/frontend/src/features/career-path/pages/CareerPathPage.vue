@@ -304,12 +304,6 @@ function buildGraphPlaceholderNode(jobId: number): CareerPathV2GraphResponse["no
   };
 }
 
-/**
- * 作用：根据当前选择岗位，返回一个可用的“预置图谱岗位ID”作为兜底。
- * 参数：jobId 为用户当前选择岗位ID。
- * 返回：可直接命中后端图谱接口的岗位ID。
- * 注意：用于比赛演示场景，优先保证页面可稳定展示图谱。
- */
 function resolveFallbackGraphJobId(jobId: number): number {
   if (PREBUILT_GRAPH_JOB_IDS.includes(jobId)) {
     return jobId;
@@ -465,7 +459,7 @@ async function loadGraph(): Promise<void> {
         depth: form.depth,
       });
     } catch (error) {
-      // 比赛演示兜底：若当前岗位暂无图谱，则自动回退到预置图谱岗位，保证可视化稳定展示
+      // 兜底：若当前岗位暂无图谱，则自动回退到预置图谱岗位，保证可视化稳定展示
       if (error instanceof ApiRequestError && error.status === 404) {
         const fallbackJobId = resolveFallbackGraphJobId(jobId);
         fetched = await fetchCareerPathGraph({
@@ -790,10 +784,16 @@ onUnmounted(() => {
 
 <style scoped>
 .career-path-page {
+  --page-panel: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.26));
+  --page-panel-strong: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.84),
+    rgba(225, 244, 255, 0.34)
+  );
   max-width: 1320px;
   margin: 24px auto;
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .page-header {
@@ -804,12 +804,16 @@ onUnmounted(() => {
 
 .page-header h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--glass-title);
+  font-size: 32px;
+  letter-spacing: -0.03em;
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
 }
 
 .page-header p {
-  margin: 8px 0 0;
-  color: #475569;
+  margin: 10px 0 0;
+  color: var(--glass-muted);
+  line-height: 1.8;
 }
 
 .nav-links {
@@ -818,31 +822,38 @@ onUnmounted(() => {
 }
 
 .nav-link {
-  color: #0f766e;
+  color: var(--glass-primary);
   text-decoration: none;
 }
 
 .notice {
   margin: 0;
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  backdrop-filter: blur(18px);
 }
 
 .notice-error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: linear-gradient(135deg, rgba(255, 232, 236, 0.82), rgba(255, 244, 245, 0.52));
+  color: #8c2343;
 }
 
 .notice-success {
-  background: #dcfce7;
-  color: #166534;
+  background: linear-gradient(135deg, rgba(227, 255, 244, 0.82), rgba(241, 255, 251, 0.48));
+  color: #0b6b54;
 }
 
 .panel {
-  padding: 16px;
-  border: 1px solid #dbe4f0;
-  border-radius: 14px;
-  background: #ffffff;
+  padding: 20px;
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  background: var(--page-panel);
+  backdrop-filter: blur(24px) saturate(175%);
+  -webkit-backdrop-filter: blur(24px) saturate(175%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 36px rgba(44, 73, 127, 0.1);
 }
 
 .toolbar {
@@ -854,41 +865,61 @@ onUnmounted(() => {
 
 label {
   display: grid;
-  gap: 6px;
-  color: #334155;
+  gap: 8px;
+  color: rgba(28, 48, 82, 0.84);
+  font-weight: 600;
 }
 
 select {
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  border-radius: 16px;
+  padding: 10px 12px;
   font-size: 14px;
+  color: #16304e;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.34));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 10px 22px rgba(61, 90, 152, 0.06);
 }
 
 .primary-btn,
 .secondary-btn,
 .seed-btn {
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 16px;
+  padding: 10px 14px;
   cursor: pointer;
+  font-weight: 700;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
 }
 
 .primary-btn {
-  border: 1px solid #0f766e;
-  background: #0f766e;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, rgba(73, 182, 223, 0.92), rgba(64, 105, 236, 0.92));
   color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 16px 28px rgba(45, 99, 203, 0.22);
 }
 
 .secondary-btn {
-  border: 1px solid #1d4ed8;
-  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(226, 239, 255, 0.36));
   color: #1d4ed8;
 }
 
 .seed-btn {
-  border: 1px solid #7c3aed;
-  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(242, 230, 255, 0.38));
   color: #7c3aed;
+}
+
+.primary-btn:hover,
+.secondary-btn:hover,
+.seed-btn:hover {
+  transform: translateY(-1px);
 }
 
 .layout {
@@ -910,7 +941,7 @@ select {
 }
 
 .muted {
-  color: #64748b;
+  color: rgba(56, 80, 116, 0.72);
   font-size: 13px;
   margin: 0;
 }
@@ -928,19 +959,21 @@ select {
   width: 100%;
   height: 560px;
   margin-top: 12px;
-  border-radius: 12px;
+  border-radius: 20px;
   background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 35%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+    radial-gradient(circle at top left, rgba(111, 209, 255, 0.18), transparent 35%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(233, 244, 255, 0.48) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
 }
 
 .tab-switch {
   display: inline-flex;
   gap: 8px;
   padding: 4px;
-  border: 1px solid #dbe4f0;
-  border-radius: 10px;
-  background: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.32);
 }
 
 .tab-btn {
@@ -953,9 +986,9 @@ select {
 }
 
 .tab-btn.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(227, 243, 255, 0.4));
+  color: var(--glass-title);
+  box-shadow: 0 10px 20px rgba(53, 92, 161, 0.1);
 }
 
 .radar-score {
@@ -976,9 +1009,10 @@ select {
 .detail-card {
   display: grid;
   gap: 8px;
-  padding: 12px;
-  border-radius: 12px;
-  background: #f8fafc;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--page-panel-strong);
+  border: 1px solid rgba(255, 255, 255, 0.56);
 }
 
 .detail-tag {
@@ -999,10 +1033,10 @@ select {
 .route-card {
   display: grid;
   gap: 8px;
-  padding: 12px;
-  border: 1px solid #dbe4f0;
-  border-radius: 12px;
-  background: #f8fafc;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  border-radius: 18px;
+  background: var(--page-panel-strong);
   margin-bottom: 10px;
 }
 
@@ -1017,7 +1051,7 @@ select {
 }
 
 .empty-text {
-  color: #64748b;
+  color: rgba(56, 80, 116, 0.74);
 }
 
 @media (max-width: 1180px) {
