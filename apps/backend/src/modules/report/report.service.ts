@@ -62,6 +62,72 @@ function normalizeSectionOrder(sections: CareerReportSection[]): CareerReportSec
 }
 
 /**
+ * 作用：把结构化报告内容拼接为 Markdown 文本。
+ * 设计说明：Markdown 导出不依赖浏览器渲染，直接由 service 侧根据章节结构生成，保证导出链路轻量可控。
+ */
+function renderReportMarkdown(input: {
+  report: CareerReportRecord;
+  profile: { name: string };
+  job: { title: string };
+}): string {
+  const lines: string[] = [
+    "# 职业规划报告",
+    "",
+    `- 报告编号：#${input.report.id}`,
+    `- 报告版本：V${input.report.version}`,
+    `- 学生姓名：${input.profile.name}`,
+    `- 目标岗位：${input.job.title}`,
+    `- 综合匹配分：${input.report.total_score} 分`,
+    `- 导出时间：${new Date().toLocaleString("zh-CN", { hour12: false })}`,
+    "",
+    "## 决策依据",
+    "",
+  ];
+
+  if (input.report.evidence_refs.length > 0) {
+    input.report.evidence_refs.forEach((item) => {
+      lines.push(`- ${item}`);
+    });
+  } else {
+    lines.push("- 暂无");
+  }
+
+  lines.push("", "## 行动计划", "", "### 短期计划", "");
+  if (input.report.action_plan.short_term.length > 0) {
+    input.report.action_plan.short_term.forEach((item) => {
+      lines.push(`- ${item}`);
+    });
+  } else {
+    lines.push("- 暂无");
+  }
+
+  lines.push("", "### 中期计划", "");
+  if (input.report.action_plan.mid_term.length > 0) {
+    input.report.action_plan.mid_term.forEach((item) => {
+      lines.push(`- ${item}`);
+    });
+  } else {
+    lines.push("- 暂无");
+  }
+
+  for (const section of input.report.sections) {
+    lines.push("", `## ${section.title}`, "");
+    const contentLines = section.content
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (contentLines.length === 0) {
+      lines.push("暂无内容");
+      continue;
+    }
+    lines.push(...contentLines);
+  }
+
+  lines.push("");
+  return lines.join("\n");
+}
+
+/**
  * 文件作用：承载职业报告的生成、查询和编辑保存逻辑。
  * 关键约束：报告必须绑定既有 match_id，并基于匹配结果生成可追溯的多版本记录。
  */
@@ -114,7 +180,7 @@ export interface ReportService {
 
   /**
    * 作用：为指定报告版本生成一份新的导出产物并落盘登记。
-   * 参数：reportId 为目标报告主键；input.format 当前固定为 pdf。
+   * 参数：reportId 为目标报告主键；input.format 支持 pdf 与 markdown。
    * 返回：导出记录，包含下载路径和文件元数据。
    * 注意：每次导出都会生成新的文件与记录，不覆盖历史产物。
    */
@@ -306,11 +372,18 @@ export function createReportService(
     }
 
     try {
-      const exported = await exporter.export({
-        report,
-        profile,
-        job,
-      });
+      const exported =
+        input.format === "markdown"
+          ? {
+              format: "markdown" as const,
+              bytes: Buffer.from(renderReportMarkdown({ report, profile, job }), "utf-8"),
+              fileExtension: "md",
+            }
+          : await exporter.export({
+              report,
+              profile,
+              job,
+            });
 
       const exportId = await reportExportRepository.reserveNextExportId();
       const fileName = `report-${report.id}-v${report.version}-${exportId}.${exported.fileExtension}`;

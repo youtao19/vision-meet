@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import type {
   CreateResumeHtmlRequest,
@@ -9,6 +9,7 @@ import type {
 
 import { createResumeHtml, getResumeHtmlRecord, listResumeHtmlRecords } from "@/shared/api/agent";
 import { ApiRequestError } from "@/shared/api/http";
+import { fetchJobs } from "@/shared/api/jobs";
 import {
   createStudentProfile,
   createStudentProfileFromResume,
@@ -40,6 +41,7 @@ interface CapabilityEntry {
 const mode = ref<InputMode>("manual");
 const profileRecords = ref<StudentProfileRecord[]>([]);
 const resumeHistory = ref<ResumeHtmlListItem[]>([]);
+const selectedProfileId = ref<number | null>(null);
 
 const loading = reactive({
   profileBootstrap: false,
@@ -48,6 +50,7 @@ const loading = reactive({
   resumeGenerate: false,
   resumeHistory: false,
   resumePreviewLoad: false,
+  resumeTargetRoleSearch: false,
 });
 
 const manualForm = reactive({
@@ -83,6 +86,11 @@ const resumeBuilder = reactive({
   skills: "",
 });
 
+const resumeUpload = reactive({
+  targetRole: "",
+  targetRoleOptions: [] as string[],
+});
+
 const manualCapability = reactive<CapabilityFormState>({
   certificates: "",
   innovationAbility: "",
@@ -104,7 +112,12 @@ const uiState = reactive({
   resumeSuccess: "",
 });
 
-const latestProfile = computed(() => profileRecords.value[0] ?? null);
+const latestProfile = computed(() => {
+  if (selectedProfileId.value !== null) {
+    return profileRecords.value.find((item) => item.id === selectedProfileId.value) ?? null;
+  }
+  return profileRecords.value[0] ?? null;
+});
 const capabilityLevelOptions = [
   { value: 1, label: "1 - 待提升" },
   { value: 2, label: "2 - 一般" },
@@ -182,6 +195,37 @@ function normalizeCapabilityLevel(value: number | "", fallback = 3): number {
   return typeof value === "number" ? value : fallback;
 }
 
+function selectProfile(profileId: number): void {
+  selectedProfileId.value = profileId;
+}
+
+/**
+ * 作用：按用户输入的关键字拉取岗位建议。
+ * 注意：建议列表只是辅助输入，不应阻塞简历上传主流程，因此失败时静默回退为空列表。
+ */
+async function loadResumeTargetRoleOptions(keyword: string): Promise<void> {
+  const normalizedKeyword = keyword.trim();
+  if (normalizedKeyword.length < 2) {
+    resumeUpload.targetRoleOptions = [];
+    return;
+  }
+
+  loading.resumeTargetRoleSearch = true;
+  try {
+    const response = await fetchJobs({
+      keyword: normalizedKeyword,
+      limit: 8,
+    });
+    resumeUpload.targetRoleOptions = Array.from(
+      new Set(response.items.map((item) => item.title.trim()).filter(Boolean)),
+    );
+  } catch {
+    resumeUpload.targetRoleOptions = [];
+  } finally {
+    loading.resumeTargetRoleSearch = false;
+  }
+}
+
 /**
  * 统一构建“画像维度展示”数据。
  * 说明：页面展示不直接暴露原始 JSON 结构，减少前端模板与后端字段耦合。
@@ -224,6 +268,9 @@ async function loadProfileHistory(): Promise<void> {
   try {
     const response = await fetchStudentProfiles();
     profileRecords.value = response.items;
+    if (!response.items.some((item) => item.id === selectedProfileId.value)) {
+      selectedProfileId.value = response.items[0]?.id ?? null;
+    }
   } catch (error) {
     uiState.error = formatApiError(error);
   } finally {
@@ -292,6 +339,7 @@ async function submitManualProfile(): Promise<void> {
     });
 
     profileRecords.value.unshift(created);
+    selectedProfileId.value = created.id;
     uiState.success = `画像已生成并写入数据库（ID: ${created.id}）。`;
 
     manualForm.name = "";
@@ -329,16 +377,19 @@ async function submitResumeProfile(): Promise<void> {
   try {
     const created = await createStudentProfileFromResume({
       file: resumeFile.value,
-      // 简历模式强调“零手填”，目标岗位使用兜底值。
-      targetRole: "待定岗位",
+      // 优先提交用户选定的数据库岗位；未填写时交给后端自动解析和归一。
+      targetRole: resumeUpload.targetRole.trim() || "待定岗位",
       name: undefined,
       parseMode: "tolerant",
     });
 
     profileRecords.value.unshift(created);
+    selectedProfileId.value = created.id;
     uiState.success = `简历解析完成，画像已写入数据库（ID: ${created.id}）。`;
 
     resumeFile.value = null;
+    resumeUpload.targetRole = "";
+    resumeUpload.targetRoleOptions = [];
   } catch (error) {
     uiState.error = formatApiError(error);
   } finally {
@@ -458,6 +509,13 @@ function onResumeChange(event: Event): void {
 onMounted(async () => {
   await Promise.all([loadProfileHistory(), loadResumeHistory()]);
 });
+
+watch(
+  () => resumeUpload.targetRole,
+  (value) => {
+    void loadResumeTargetRoleOptions(value);
+  },
+);
 </script>
 
 <template>
@@ -471,149 +529,181 @@ onMounted(async () => {
     </header>
 
     <section class="panel">
-      <h3>简历生成（用于学生画像构建）</h3>
+      <div class="section-head">
+        <h3>简历生成（用于学生画像构建）</h3>
+        <button
+          class="ghost-btn"
+          type="button"
+          @click="resumeBuilderExpanded = !resumeBuilderExpanded"
+        >
+          {{ resumeBuilderExpanded ? "收起简历生成" : "展开简历生成" }}
+        </button>
+      </div>
       <p class="section-desc">先生成标准化简历文本，后续可用于上传解析或人工补录画像。</p>
 
-      <p v-if="uiState.resumeError" class="notice notice-error">{{ uiState.resumeError }}</p>
-      <p v-if="uiState.resumeSuccess" class="notice notice-success">{{ uiState.resumeSuccess }}</p>
+      <p v-if="!resumeBuilderExpanded" class="mode-subtitle">
+        默认收起，点击“展开简历生成”后可填写并生成。
+      </p>
 
-      <div class="grid two-col">
+      <div v-if="resumeBuilderExpanded">
+        <p v-if="uiState.resumeError" class="notice notice-error">{{ uiState.resumeError }}</p>
+        <p v-if="uiState.resumeSuccess" class="notice notice-success">
+          {{ uiState.resumeSuccess }}
+        </p>
+
+        <div class="grid two-col">
+          <label>
+            姓名
+            <input v-model="resumeBuilder.basic.name" type="text" placeholder="例如：张三" />
+          </label>
+          <label>
+            目标岗位
+            <input
+              v-model="resumeBuilder.basic.targetPosition"
+              type="text"
+              placeholder="例如：Java 开发工程师"
+            />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            电话
+            <input
+              v-model="resumeBuilder.basic.phone"
+              type="text"
+              placeholder="例如：138xxxx1234"
+            />
+          </label>
+          <label>
+            邮箱
+            <input
+              v-model="resumeBuilder.basic.email"
+              type="email"
+              placeholder="例如：name@email.com"
+            />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            学校
+            <input
+              v-model="resumeBuilder.education.school"
+              type="text"
+              placeholder="例如：华中科技大学"
+            />
+          </label>
+          <label>
+            专业
+            <input
+              v-model="resumeBuilder.education.major"
+              type="text"
+              placeholder="例如：软件工程"
+            />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            学历
+            <input v-model="resumeBuilder.education.degree" type="text" placeholder="例如：本科" />
+          </label>
+          <label>
+            教育时间
+            <input
+              v-model="resumeBuilder.education.period"
+              type="text"
+              placeholder="例如：2018.09 - 2022.06"
+            />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            公司/项目
+            <input
+              v-model="resumeBuilder.experience.organization"
+              type="text"
+              placeholder="例如：XX 科技"
+            />
+          </label>
+          <label>
+            岗位
+            <input
+              v-model="resumeBuilder.experience.role"
+              type="text"
+              placeholder="例如：后端开发工程师"
+            />
+          </label>
+        </div>
+
+        <div class="grid two-col">
+          <label>
+            经历时间
+            <input
+              v-model="resumeBuilder.experience.period"
+              type="text"
+              placeholder="例如：2022.07 - 2025.03"
+            />
+          </label>
+          <label>
+            专业技能
+            <input
+              v-model="resumeBuilder.skills"
+              type="text"
+              placeholder="例如：Java Spring PostgreSQL"
+            />
+          </label>
+        </div>
+
         <label>
-          姓名
-          <input v-model="resumeBuilder.basic.name" type="text" placeholder="例如：张三" />
-        </label>
-        <label>
-          目标岗位
-          <input
-            v-model="resumeBuilder.basic.targetPosition"
-            type="text"
-            placeholder="例如：Java 开发工程师"
+          主要职责
+          <textarea
+            v-model="resumeBuilder.experience.responsibilities"
+            rows="3"
+            placeholder="例如：负责核心服务开发与性能优化"
           />
         </label>
+
+        <label>
+          工作成果
+          <textarea
+            v-model="resumeBuilder.experience.achievements"
+            rows="3"
+            placeholder="例如：将核心接口响应从 300ms 优化到 90ms"
+          />
+        </label>
+
+        <label>
+          个人总结（可选）
+          <textarea
+            v-model="resumeBuilder.summary"
+            rows="3"
+            placeholder="例如：3 年后端经验，具备微服务拆分与高并发治理实践"
+          />
+        </label>
+
+        <div class="action-row">
+          <button
+            class="primary-btn"
+            :disabled="loading.resumeGenerate"
+            @click="generateResumeWithAgent"
+          >
+            {{ loading.resumeGenerate ? "简历生成中..." : "生成简历" }}
+          </button>
+          <button class="ghost-btn" :disabled="loading.resumeHistory" @click="loadResumeHistory">
+            {{ loading.resumeHistory ? "刷新中..." : "刷新简历历史" }}
+          </button>
+        </div>
       </div>
 
-      <div class="grid two-col">
-        <label>
-          电话
-          <input v-model="resumeBuilder.basic.phone" type="text" placeholder="例如：138xxxx1234" />
-        </label>
-        <label>
-          邮箱
-          <input
-            v-model="resumeBuilder.basic.email"
-            type="email"
-            placeholder="例如：name@email.com"
-          />
-        </label>
-      </div>
-
-      <div class="grid two-col">
-        <label>
-          学校
-          <input
-            v-model="resumeBuilder.education.school"
-            type="text"
-            placeholder="例如：华中科技大学"
-          />
-        </label>
-        <label>
-          专业
-          <input v-model="resumeBuilder.education.major" type="text" placeholder="例如：软件工程" />
-        </label>
-      </div>
-
-      <div class="grid two-col">
-        <label>
-          学历
-          <input v-model="resumeBuilder.education.degree" type="text" placeholder="例如：本科" />
-        </label>
-        <label>
-          教育时间
-          <input
-            v-model="resumeBuilder.education.period"
-            type="text"
-            placeholder="例如：2018.09 - 2022.06"
-          />
-        </label>
-      </div>
-
-      <div class="grid two-col">
-        <label>
-          公司/项目
-          <input
-            v-model="resumeBuilder.experience.organization"
-            type="text"
-            placeholder="例如：XX 科技"
-          />
-        </label>
-        <label>
-          岗位
-          <input
-            v-model="resumeBuilder.experience.role"
-            type="text"
-            placeholder="例如：后端开发工程师"
-          />
-        </label>
-      </div>
-
-      <div class="grid two-col">
-        <label>
-          经历时间
-          <input
-            v-model="resumeBuilder.experience.period"
-            type="text"
-            placeholder="例如：2022.07 - 2025.03"
-          />
-        </label>
-        <label>
-          专业技能
-          <input
-            v-model="resumeBuilder.skills"
-            type="text"
-            placeholder="例如：Java Spring PostgreSQL"
-          />
-        </label>
-      </div>
-
-      <label>
-        主要职责
-        <textarea
-          v-model="resumeBuilder.experience.responsibilities"
-          rows="3"
-          placeholder="例如：负责核心服务开发与性能优化"
-        />
-      </label>
-
-      <label>
-        工作成果
-        <textarea
-          v-model="resumeBuilder.experience.achievements"
-          rows="3"
-          placeholder="例如：将核心接口响应从 300ms 优化到 90ms"
-        />
-      </label>
-
-      <label>
-        个人总结（可选）
-        <textarea
-          v-model="resumeBuilder.summary"
-          rows="3"
-          placeholder="例如：3 年后端经验，具备微服务拆分与高并发治理实践"
-        />
-      </label>
-
-      <div class="action-row">
-        <button
-          class="primary-btn"
-          :disabled="loading.resumeGenerate"
-          @click="generateResumeWithAgent"
-        >
-          {{ loading.resumeGenerate ? "简历生成中..." : "生成简历" }}
-        </button>
-        <button class="ghost-btn" :disabled="loading.resumeHistory" @click="loadResumeHistory">
-          {{ loading.resumeHistory ? "刷新中..." : "刷新简历历史" }}
-        </button>
-      </div>
+      <p v-if="!resumeBuilderExpanded && uiState.resumeError" class="notice notice-error">
+        {{ uiState.resumeError }}
+      </p>
+      <p v-if="!resumeBuilderExpanded && uiState.resumeSuccess" class="notice notice-success">
+        {{ uiState.resumeSuccess }}
+      </p>
 
       <div v-if="resumePreviewVisible" class="resume-preview">
         <div class="resume-preview-header">
@@ -822,8 +912,22 @@ onMounted(async () => {
             <input type="file" accept=".pdf,.doc,.docx,.txt,.md" @change="onResumeChange" />
           </label>
 
+          <label>
+            目标岗位（建议选择数据库岗位）
+            <input
+              v-model="resumeUpload.targetRole"
+              type="text"
+              list="resume-target-role-options"
+              placeholder="例如：前端开发工程师"
+            />
+            <datalist id="resume-target-role-options">
+              <option v-for="item in resumeUpload.targetRoleOptions" :key="item" :value="item" />
+            </datalist>
+          </label>
+
           <p class="mode-hint">
-            简历模式下无需额外填写信息，系统会从简历中自动提取姓名、技能与经历来生成画像。
+            系统会优先使用你选择的数据库岗位；若留空，则会尝试从简历中自动解析并映射到数据库岗位。
+            <span v-if="loading.resumeTargetRoleSearch">岗位建议加载中...</span>
           </p>
 
           <button class="primary-btn" :disabled="loading.resumeSubmit" @click="submitResumeProfile">
@@ -885,7 +989,11 @@ onMounted(async () => {
       </div>
 
       <ul class="history-list">
-        <li v-for="item in profileRecords" :key="item.id">
+        <li
+          v-for="item in profileRecords"
+          :key="item.id"
+          :class="{ active: latestProfile?.id === item.id }"
+        >
           <div>
             <p class="history-title">#{{ item.id }} {{ item.name }} · {{ item.target_role }}</p>
             <p class="history-meta">
@@ -893,12 +1001,18 @@ onMounted(async () => {
               竞争力 {{ item.competitiveness_score }} ｜ {{ formatDate(item.created_at) }}
             </p>
           </div>
-          <button
-            class="ghost-btn"
-            @click="mode = item.source_type === 'manual' ? 'manual' : 'resume'"
-          >
-            切换到对应入口
-          </button>
+          <div class="history-actions">
+            <button class="ghost-btn" @click="selectProfile(item.id)">查看预览</button>
+            <button
+              class="ghost-btn"
+              @click="
+                selectProfile(item.id);
+                mode = item.source_type === 'manual' ? 'manual' : 'resume';
+              "
+            >
+              切换到对应入口
+            </button>
+          </div>
         </li>
         <li v-if="profileRecords.length === 0" class="empty">暂无记录</li>
       </ul>
@@ -908,148 +1022,263 @@ onMounted(async () => {
 
 <style scoped>
 .profile-page {
-  --profile-bg: radial-gradient(circle at 10% 10%, #fff0dc 0%, #f6f8fc 35%, #eef3fb 100%);
-  --profile-card: rgba(255, 255, 255, 0.84);
-  --profile-border: rgba(15, 23, 42, 0.08);
-  --profile-title: #0f172a;
-  --profile-subtitle: #475569;
-  --profile-primary: #0f766e;
-  --profile-primary-strong: #115e59;
+  --profile-bg:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.88), transparent 28%),
+    radial-gradient(circle at 88% 14%, rgba(164, 243, 255, 0.46), transparent 26%),
+    radial-gradient(circle at 72% 86%, rgba(255, 206, 236, 0.42), transparent 24%),
+    linear-gradient(145deg, #dff4ff 0%, #edf4ff 34%, #f8f6ff 70%, #fff4ef 100%);
+  --profile-card: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.22));
+  --profile-card-strong: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.78),
+    rgba(255, 255, 255, 0.32)
+  );
+  --profile-border: rgba(255, 255, 255, 0.56);
+  --profile-title: #11233f;
+  --profile-subtitle: rgba(37, 55, 88, 0.74);
+  --profile-primary: #1587a5;
+  --profile-primary-strong: #2357d8;
+  --profile-shadow: 0 28px 64px rgba(34, 62, 110, 0.16);
   max-width: 1180px;
   margin: 24px auto;
-  padding: 24px;
-  border-radius: 24px;
+  padding: 28px;
+  border-radius: 34px;
   background: var(--profile-bg);
   display: grid;
-  gap: 16px;
-  animation: page-enter 360ms ease-out;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--profile-shadow);
+  isolation: isolate;
+  animation: page-enter 420ms ease-out;
+}
+
+.profile-page::before,
+.profile-page::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(12px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.profile-page::before {
+  width: 320px;
+  height: 320px;
+  top: -72px;
+  right: -56px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0) 72%);
+}
+
+.profile-page::after {
+  width: 280px;
+  height: 280px;
+  left: -80px;
+  bottom: 36px;
+  background: radial-gradient(circle, rgba(129, 212, 250, 0.34) 0%, rgba(129, 212, 250, 0) 76%);
 }
 
 .hero {
   border: 1px solid var(--profile-border);
-  border-radius: 20px;
-  padding: 24px;
-  backdrop-filter: blur(8px);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(255, 248, 231, 0.8));
+  border-radius: 28px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.18));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.22),
+    0 22px 46px rgba(36, 64, 118, 0.12);
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.48), transparent 42%),
+    radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.4), transparent 28%);
+  pointer-events: none;
 }
 
 .hero-tag {
   margin: 0;
-  color: #9a3412;
-  letter-spacing: 0.08em;
+  color: rgba(17, 35, 63, 0.58);
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .hero h2 {
   margin: 8px 0 0;
   color: var(--profile-title);
-  font-size: 30px;
+  font-size: 34px;
   line-height: 1.2;
+  letter-spacing: -0.03em;
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
 }
 
 .hero-desc {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   color: var(--profile-subtitle);
+  max-width: 760px;
+  line-height: 1.8;
 }
 
 .panel {
   border: 1px solid var(--profile-border);
-  border-radius: 18px;
-  padding: 16px;
+  border-radius: 24px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
   background: var(--profile-card);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.64),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.18),
+    0 18px 38px rgba(42, 71, 120, 0.1);
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 28%);
+  pointer-events: none;
 }
 
 .capability-intro h3 {
   margin: 0;
   color: var(--profile-title);
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
 }
 
 .capability-intro p {
   margin: 10px 0 0;
-  color: #334155;
+  color: rgba(31, 52, 86, 0.84);
   line-height: 1.7;
 }
 
 .capability-title {
-  font-weight: 600;
-  color: #0f172a;
+  font-weight: 700;
+  color: #122546;
 }
 
 .section-desc {
-  margin: 8px 0 12px;
-  color: #475569;
+  margin: 10px 0 14px;
+  color: var(--profile-subtitle);
+  line-height: 1.75;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-head h3 {
+  margin: 0;
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
+  color: var(--profile-title);
 }
 
 .mode-selector {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .mode-card {
   text-align: left;
-  border: 1px solid #dbe4f0;
-  border-radius: 14px;
-  padding: 14px;
-  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  border-radius: 20px;
+  padding: 18px;
+  background: var(--profile-card-strong);
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
   transition:
-    transform 180ms ease,
+    transform 220ms ease,
     border-color 180ms ease,
-    box-shadow 180ms ease;
+    box-shadow 220ms ease,
+    background 220ms ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.64);
+}
+
+.mode-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0.4), transparent 48%);
+  pointer-events: none;
 }
 
 .mode-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.68),
+    0 18px 36px rgba(46, 79, 138, 0.12);
 }
 
 .mode-card.active {
-  border-color: var(--profile-primary);
-  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.18);
+  border-color: rgba(113, 197, 255, 0.92);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(222, 241, 255, 0.34));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 0 0 1px rgba(99, 170, 255, 0.16),
+    0 20px 38px rgba(74, 118, 197, 0.16);
 }
 
 .mode-title {
   margin: 0;
   color: var(--profile-title);
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .mode-subtitle {
   margin: 6px 0 0;
   color: var(--profile-subtitle);
   font-size: 13px;
+  line-height: 1.65;
 }
 
 .notice {
   margin: 0;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .notice-error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: linear-gradient(135deg, rgba(255, 232, 236, 0.82), rgba(255, 244, 245, 0.5));
+  color: #8c2343;
 }
 
 .notice-success {
-  background: #dcfce7;
-  color: #166534;
+  background: linear-gradient(135deg, rgba(227, 255, 244, 0.78), rgba(241, 255, 251, 0.44));
+  color: #0b6b54;
 }
 
 .content-layout {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
-  gap: 16px;
+  gap: 18px;
 }
 
 .form-panel h3,
 .preview-panel h3,
 .history-panel h3 {
   margin: 0 0 12px;
+  color: var(--profile-title);
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
 }
 
 .grid {
@@ -1063,150 +1292,233 @@ onMounted(async () => {
 
 label {
   display: grid;
-  gap: 6px;
-  color: #334155;
+  gap: 8px;
+  color: rgba(28, 48, 82, 0.84);
   margin-bottom: 12px;
+  font-weight: 600;
 }
 
 input,
 textarea,
 select {
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  border-radius: 16px;
+  padding: 12px 14px;
   font-size: 14px;
-  font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  color: #16304e;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.34));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 10px 24px rgba(61, 90, 152, 0.06);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  font-family: "Avenir Next", "PingFang SC", "Noto Sans SC", sans-serif;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(54, 79, 119, 0.5);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(89, 178, 255, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 0 0 3px rgba(91, 164, 255, 0.14),
+    0 14px 28px rgba(42, 75, 132, 0.1);
+  transform: translateY(-1px);
 }
 
 textarea {
   resize: vertical;
+  min-height: 104px;
 }
 
 .primary-btn,
 .ghost-btn {
-  border-radius: 10px;
-  padding: 9px 12px;
+  border-radius: 16px;
+  padding: 10px 14px;
   cursor: pointer;
   border: 1px solid transparent;
+  font-weight: 700;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, var(--profile-primary), var(--profile-primary-strong));
+  background: linear-gradient(135deg, rgba(73, 182, 223, 0.92), rgba(64, 105, 236, 0.92));
   color: #ffffff;
-  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 16px 30px rgba(45, 99, 203, 0.24);
 }
 
 .ghost-btn {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.34));
+  border-color: rgba(255, 255, 255, 0.62);
+  color: #16304e;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 10px 20px rgba(46, 74, 118, 0.08);
+}
+
+.primary-btn:hover,
+.ghost-btn:hover {
+  transform: translateY(-1px);
+}
+
+.primary-btn:disabled,
+.ghost-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
 }
 
 .preview-card {
-  border: 1px solid #dbe4f0;
-  border-radius: 14px;
-  padding: 12px;
-  background: #fffef8;
+  border: 1px solid rgba(255, 255, 255, 0.66);
+  border-radius: 22px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.2));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.74),
+    0 18px 34px rgba(54, 84, 140, 0.12);
+}
+
+.preview-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.44), transparent 44%),
+    radial-gradient(circle at 82% 18%, rgba(158, 231, 255, 0.46), transparent 26%);
+  pointer-events: none;
 }
 
 .preview-headline {
   margin: 0;
   color: var(--profile-title);
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
 }
 
 .preview-meta,
 .preview-time {
-  margin: 8px 0 0;
-  color: #64748b;
+  margin: 10px 0 0;
+  color: rgba(49, 73, 111, 0.68);
   font-size: 13px;
 }
 
 .preview-summary {
-  margin: 10px 0 0;
-  color: #1f2937;
+  margin: 14px 0 0;
+  color: #1d3658;
+  line-height: 1.8;
 }
 
 .score-grid {
-  margin-top: 12px;
+  margin-top: 16px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
 }
 
 .score-grid > div {
-  border: 1px solid #dbe4f0;
-  border-radius: 10px;
-  padding: 8px;
-  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 18px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.3));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .score-label {
   margin: 0;
-  color: #64748b;
+  color: rgba(56, 79, 115, 0.62);
   font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .score-value {
   margin: 6px 0 0;
-  color: #0f172a;
-  font-weight: 700;
-  font-size: 20px;
+  color: #10284a;
+  font-weight: 800;
+  font-size: 28px;
 }
 
 .skill-tags {
-  margin-top: 12px;
+  margin-top: 16px;
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .skill-tags span {
-  padding: 5px 9px;
+  padding: 7px 12px;
   border-radius: 999px;
-  background: #ecfeff;
-  border: 1px solid #99f6e4;
-  color: #115e59;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(215, 244, 255, 0.42));
+  border: 1px solid rgba(169, 230, 255, 0.82);
+  color: #17647b;
   font-size: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
 }
 
 .capability-list {
-  margin-top: 12px;
-  border: 1px solid #dbe4f0;
-  border-radius: 10px;
-  padding: 10px;
-  background: #ffffff;
+  margin-top: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 20px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.3));
 }
 
 .capability-list-title {
   margin: 0;
-  color: #0f172a;
-  font-weight: 600;
+  color: #11233f;
+  font-weight: 800;
 }
 
 .capability-list ul {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 12px 0 0;
   padding: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .capability-list li {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: space-between;
   align-items: flex-start;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.capability-list li:first-child {
+  padding-top: 0;
+  border-top: none;
 }
 
 .capability-list li span {
-  color: #64748b;
+  color: rgba(58, 82, 117, 0.72);
   font-size: 13px;
 }
 
 .capability-list li strong {
-  color: #1f2937;
+  color: #1e3658;
   font-size: 13px;
   text-align: right;
 }
@@ -1220,51 +1532,79 @@ textarea {
 
 .history-header p {
   margin: 0;
-  color: #64748b;
+  color: rgba(56, 80, 116, 0.68);
   font-size: 13px;
 }
 
 .history-list {
   list-style: none;
   padding: 0;
-  margin: 12px 0 0;
+  margin: 14px 0 0;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .history-list li {
-  border: 1px solid #dbe4f0;
-  border-radius: 12px;
-  padding: 12px;
-  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.28));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.history-list li:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 14px 28px rgba(46, 76, 124, 0.1);
+}
+
+.history-list li.active {
+  border-color: rgba(111, 196, 255, 0.9);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(220, 241, 255, 0.44));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 0 0 1px rgba(101, 178, 255, 0.14),
+    0 18px 34px rgba(60, 100, 176, 0.14);
 }
 
 .history-title {
   margin: 0;
-  color: #0f172a;
-  font-weight: 600;
+  color: #10284a;
+  font-weight: 800;
 }
 
 .history-meta {
   margin: 6px 0 0;
-  color: #64748b;
+  color: rgba(57, 82, 119, 0.68);
   font-size: 13px;
+}
+
+.history-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .empty {
   margin: 0;
-  color: #64748b;
+  color: rgba(56, 80, 116, 0.74);
   text-align: center;
-  padding: 12px;
+  padding: 16px;
 }
 
 .mode-hint {
   margin: 0 0 12px;
-  color: #475569;
+  color: var(--profile-subtitle);
   line-height: 1.7;
 }
 
@@ -1275,13 +1615,14 @@ textarea {
 }
 
 .resume-preview {
-  margin-top: 12px;
-  border: 1px solid #dbe4f0;
-  border-radius: 10px;
-  background: #f8fafc;
-  padding: 12px;
+  margin-top: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.22));
+  padding: 14px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
 }
 
 .resume-preview-header {
@@ -1293,26 +1634,41 @@ textarea {
 
 .resume-preview-header h4 {
   margin: 0;
-  color: #0f172a;
+  color: var(--profile-title);
 }
 
 .resume-preview-frame {
   width: 100%;
   min-height: 640px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 18px;
   background: #ffffff;
+}
+
+@keyframes float-glass {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -4px, 0);
+  }
 }
 
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(18px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.hero,
+.preview-card {
+  animation: float-glass 8s ease-in-out infinite;
 }
 
 @media (max-width: 980px) {
@@ -1333,6 +1689,42 @@ textarea {
   .history-list li {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .history-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .history-actions .ghost-btn {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .profile-page {
+    margin: 0;
+    border-radius: 0;
+    padding: 16px;
+  }
+
+  .hero {
+    padding: 22px;
+  }
+
+  .hero h2 {
+    font-size: 28px;
+  }
+
+  .preview-headline {
+    font-size: 24px;
+  }
+
+  .resume-preview-header,
+  .history-header,
+  .section-head {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

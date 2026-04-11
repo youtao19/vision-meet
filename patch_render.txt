@@ -1,4 +1,0 @@
-function renderMarkdown(content: string): string {
-  if (!content) return "<p>暂无内容</p>";
-  return DOMPurify.sanitize(marked.parse(content, { async: false, breaks: true }) as string);
-}

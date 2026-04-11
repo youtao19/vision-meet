@@ -10,6 +10,7 @@ import type {
 
 import { HttpError } from "../../shared/errors/http-error.js";
 import { buildSha256Digest } from "../../shared/utils/match-fingerprint.js";
+import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { ProfileRepository, StudentProfileCreateInput } from "./profile.repository.js";
 
 /**
@@ -77,6 +78,45 @@ const RESUME_CERTIFICATE_KEYWORDS = [
   "计算机二级",
 ];
 
+const TARGET_ROLE_PLACEHOLDER_SET = new Set([
+  "待定岗位",
+  "待定职位",
+  "待定",
+  "未定岗位",
+  "未定职位",
+  "未知岗位",
+  "未知职位",
+  "目标岗位",
+  "目标职位",
+  "意向岗位",
+  "意向职位",
+]);
+
+const RESUME_ROLE_INFERENCE_RULES = [
+  {
+    targetRole: "前端开发工程师",
+    keywords: ["vue", "react", "javascript", "typescript", "html", "css", "前端"],
+  },
+  {
+    targetRole: "后端开发工程师",
+    keywords: ["node", "express", "java", "spring", "mysql", "sql", "后端", "服务端"],
+  },
+  {
+    targetRole: "数据分析师",
+    keywords: ["python", "sql", "数据分析", "excel", "bi", "pandas", "可视化"],
+  },
+  {
+    targetRole: "测试工程师",
+    keywords: ["测试", "test", "pytest", "jmeter", "接口测试", "自动化测试"],
+  },
+  {
+    targetRole: "产品经理",
+    keywords: ["产品", "需求分析", "prd", "axure", "用户研究", "原型"],
+  },
+];
+
+const RESUME_NAME_BLOCKLIST = /(电话|手机|邮箱|教育背景|项目经历|工作经历|求职意向|目标岗位|专业技能|个人优势|联系方式|个人简历|简历|resume|cv|候选人|工程师|开发|实习|校招|春招|秋招|软件|Java|后端|前端|测试|产品|数据)/i;
+
 type MissingItemRule = {
   key: string;
   isMissing: boolean;
@@ -114,6 +154,64 @@ function normalizeOptionalText(value?: string): string | null {
   }
   const normalized = value.trim();
   return normalized ? normalized : null;
+}
+
+function isPlaceholderTargetRole(value?: string | null): boolean {
+  if (!value) {
+    return true;
+  }
+
+  const normalized = value.trim().replace(/\s+/g, "");
+  return !normalized || TARGET_ROLE_PLACEHOLDER_SET.has(normalized);
+}
+
+function cleanResumeFieldCandidate(value: string): string | null {
+  const normalized = value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const primarySegment = normalized
+    .split(/\s*(?:\||｜|\/|／|,|，|;|；)\s*/)[0]
+    ?.replace(/\s*(?:意向城市|目标城市|工作地点).*/i, "")
+    .replace(/\s*[\(（【[].*$/, "")
+    .trim();
+
+  return primarySegment || null;
+}
+
+/**
+ * 从简历里提取“标签: 值”形式的字段。
+ * 注意：这里按行起始匹配，避免把 PDF/Word 原始二进制里的字体名、资源名误识别为姓名或岗位。
+ */
+function extractResumeLabeledField(content: string, labels: string[]): string | null {
+  const pattern = new RegExp(
+    `^(?:[-*•#>\\d.()\\s]*)?(?:${labels.join("|")})\\s*[:：]\\s*(.+)$`,
+    "i",
+  );
+  const lines = content
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    const match = line.match(pattern);
+    if (!match?.[1]) {
+      continue;
+    }
+
+    const candidate = cleanResumeFieldCandidate(match[1]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 function normalizeExperience(input?: Partial<StudentProfileExperience>): StudentProfileExperience {
@@ -244,14 +342,148 @@ function calculateCompetitiveness(dimensionScores: DimensionScores): number {
   );
 }
 
-function extractResumeName(content: string): string | null {
-  const match = content.match(/(?:姓名|Name)[:：\s]+([^\n]+)/i);
-  return match?.[1]?.trim() || null;
+/**
+ * 判断候选文本是否像“真实姓名”。
+ * 注意点：这里显式排除简历栏目、岗位词与“简历/resume”等噪声词，避免把标题或文件名中的岗位描述误判为姓名。
+ */
+function isLikelyResumeNameCandidate(value: string): boolean {
+  if (!value || RESUME_NAME_BLOCKLIST.test(value)) {
+    return false;
+  }
+
+  return (
+    /^[\u4e00-\u9fa5·]{2,5}$/.test(value) ||
+    /^[A-Za-z]+(?:\s+[A-Za-z]+){0,2}$/.test(value)
+  );
+}
+
+/**
+ * 从单行标题或文件名片段中提取姓名。
+ * 参数：
+ * - rawText: 原始候选文本，可能同时包含姓名、岗位、简历字样等混合信息。
+ * 返回：
+ * - 若命中较可信的中文/英文姓名则返回清洗后的姓名，否则返回 null。
+ * 注意点：优先尝试整段命中，再拆分常见分隔符，兼容“张三 | 后端开发工程师”“王小明-简历”等标题格式。
+ */
+function extractResumeNameFromLooseText(rawText: string): string | null {
+  const cleaned = rawText
+    .replace(/^姓名\s*[:：]?\s*/i, "")
+    .replace(/^name\s*[:：]?\s*/i, "")
+    .replace(/\.[A-Za-z0-9]+$/g, "")
+    // 部分 PDF 会把姓名渲染成 “[ 吴友桃 ] | 全栈开发工程师”，这里只去掉括号外壳，不能连内容一起删除。
+    .replace(/[【\[]/g, " ")
+    .replace(/[】\]]/g, " ")
+    .replace(/[（(].*?[）)]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned || cleaned.length > 40 || /[@:：/\\]/.test(cleaned)) {
+    return null;
+  }
+
+  if (isLikelyResumeNameCandidate(cleaned)) {
+    return cleaned;
+  }
+
+  const leadingChineseName = cleaned.match(/^([\u4e00-\u9fa5·]{2,5})(?:\s+|[|｜,，;；·•\-_].*)$/);
+  if (leadingChineseName?.[1] && isLikelyResumeNameCandidate(leadingChineseName[1])) {
+    return leadingChineseName[1];
+  }
+
+  const leadingEnglishName = cleaned.match(
+    /^([A-Za-z]+(?:\s+[A-Za-z]+){0,2})(?:\s*[-|｜,，;；·•_].*)$/,
+  );
+  if (leadingEnglishName?.[1] && isLikelyResumeNameCandidate(leadingEnglishName[1])) {
+    return leadingEnglishName[1];
+  }
+
+  const segments = cleaned
+    .split(/\s*(?:\||｜|,|，|;|；|·|•|-|—|_)\s*/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  for (const segment of segments) {
+    if (isLikelyResumeNameCandidate(segment)) {
+      return segment;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 从文件名中兜底提取姓名。
+ * 参数：
+ * - fileName: 上传简历时保留下来的原始文件名。
+ * 返回：
+ * - 当文件名中存在较明确姓名时返回姓名，否则返回 null。
+ * 注意点：很多学生简历会命名为“张三-后端开发工程师-简历.pdf”，正文即使解析不完整，也可以先借助文件名避免落成匿名候选人。
+ */
+function extractResumeNameFromFileName(fileName?: string): string | null {
+  if (!fileName) {
+    return null;
+  }
+
+  const normalizedName = fileName
+    .split(/[\\/]/)
+    .pop()
+    ?.replace(/\.[^.]+$/, "")
+    .replace(/(?:个人)?简历/gi, " ")
+    .replace(/\b(?:resume|cv)\b/gi, " ")
+    .replace(/最新版|最终版|终版|更新版|附件|副本/g, " ")
+    .replace(/\d{4}[._-]?\d{1,2}[._-]?\d{1,2}/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalizedName) {
+    return null;
+  }
+
+  return extractResumeNameFromLooseText(normalizedName);
+}
+
+/**
+ * 从简历文本中提取候选人姓名。
+ * 参数：
+ * - content: 已转纯文本并完成基础清洗的简历正文。
+ * - fileName: 原始上传文件名，用于正文解析失败时做兜底。
+ * 返回：
+ * - 提取成功返回姓名，否则返回 null。
+ * 注意点：提取顺序为“标签字段 -> 顶部标题行 -> 文件名”，尽量优先使用正文中的显式信息，最后才退回文件名猜测。
+ */
+function extractResumeName(content: string, fileName?: string): string | null {
+  const labeledName = extractResumeLabeledField(content, ["姓名", "Name"]);
+  if (labeledName) {
+    return labeledName;
+  }
+
+  const topLines = content
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+
+  for (const line of topLines) {
+    if (
+      line.length > 24 ||
+      /[@:：/\\]/.test(line) ||
+      /(电话|手机|邮箱|教育背景|项目经历|工作经历|求职意向|目标岗位|专业技能|个人优势)/i.test(line)
+    ) {
+      continue;
+    }
+
+    const candidate = extractResumeNameFromLooseText(line);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return extractResumeNameFromFileName(fileName);
 }
 
 function extractResumeMajor(content: string): string | null {
-  const match = content.match(/(?:专业|Major)[:：\s]+([^\n]+)/i);
-  return match?.[1]?.trim() || null;
+  return extractResumeLabeledField(content, ["专业", "Major"]);
 }
 
 function extractResumeGraduationYear(content: string): number | undefined {
@@ -284,14 +516,90 @@ function countRegexMatches(content: string, regex: RegExp): number {
   return matched ? matched.length : 0;
 }
 
+function extractResumeTargetRole(content: string): string | null {
+  return extractResumeLabeledField(content, [
+    "目标岗位",
+    "目标职位",
+    "意向岗位",
+    "意向职位",
+    "岗位意向",
+    "求职意向",
+    "求职方向",
+    "应聘岗位",
+    "应聘职位",
+    "Target Position",
+    "Target Role",
+  ]);
+}
+
+function inferTargetRoleFromResume(content: string, skills: string[]): string | null {
+  const searchableText = `${content}\n${skills.join("\n")}`.toLowerCase();
+
+  let bestMatch: { targetRole: string; score: number } | null = null;
+  for (const rule of RESUME_ROLE_INFERENCE_RULES) {
+    const score = rule.keywords.reduce((total, keyword) => {
+      return searchableText.includes(keyword.toLowerCase()) ? total + 1 : total;
+    }, 0);
+
+    if (score <= 0) {
+      continue;
+    }
+
+    if (!bestMatch || score > bestMatch.score) {
+      bestMatch = {
+        targetRole: rule.targetRole,
+        score,
+      };
+    }
+  }
+
+  return bestMatch?.targetRole ?? null;
+}
+
+async function resolveResumeTargetRole(params: {
+  resumeInput: CreateStudentProfileFromResumeRequest;
+  normalizedContent: string;
+  skills: string[];
+  jobsRepository?: JobsRepository;
+}): Promise<string> {
+  const candidates = uniqueNonEmpty(
+    [
+      params.resumeInput.target_role,
+      extractResumeTargetRole(params.normalizedContent) ?? "",
+      inferTargetRoleFromResume(params.normalizedContent, params.skills) ?? "",
+    ].filter((item) => !isPlaceholderTargetRole(item)),
+  );
+
+  for (const candidate of candidates) {
+    if (!params.jobsRepository) {
+      return candidate;
+    }
+
+    const matchedJob = await params.jobsRepository.findBestJobByTargetRole(candidate);
+    if (matchedJob) {
+      return matchedJob.title;
+    }
+  }
+
+  if (candidates.length > 0) {
+    return candidates[0];
+  }
+
+  return "待定岗位";
+}
+
 /**
  * 将简历文本映射为标准画像输入。
  * 关键点：strict 模式下若无法识别关键技能会直接报 422，避免生成误导性画像。
  */
-function buildProfileInputFromResume(
+async function buildProfileInputFromResume(
   resumeInput: CreateStudentProfileFromResumeRequest,
-): CreateStudentProfileRequest {
-  const normalizedContent = resumeInput.file_content.replace(/\r\n/g, "\n");
+  jobsRepository?: JobsRepository,
+): Promise<CreateStudentProfileRequest> {
+  const normalizedContent = resumeInput.file_content
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\r\n/g, "\n");
   const skills = extractResumeSkills(normalizedContent);
 
   if (resumeInput.parse_mode === "strict" && skills.length === 0) {
@@ -303,9 +611,15 @@ function buildProfileInputFromResume(
   const internshipCount = countRegexMatches(normalizedContent, /(实习|intern)/gi);
   const competitionCount = countRegexMatches(normalizedContent, /(竞赛|比赛|competition)/gi);
 
-  const autoName = extractResumeName(normalizedContent);
+  const autoName = extractResumeName(normalizedContent, resumeInput.file_name);
   const autoMajor = extractResumeMajor(normalizedContent);
   const autoGraduationYear = extractResumeGraduationYear(normalizedContent);
+  const targetRole = await resolveResumeTargetRole({
+    resumeInput,
+    normalizedContent,
+    skills,
+    jobsRepository,
+  });
 
   const topLines = normalizedContent
     .split("\n")
@@ -316,7 +630,7 @@ function buildProfileInputFromResume(
 
   return {
     name: (resumeInput.name || autoName || "匿名候选人").trim(),
-    target_role: resumeInput.target_role.trim(),
+    target_role: targetRole,
     major: autoMajor ?? undefined,
     graduation_year: autoGraduationYear,
     skills: skills.length > 0 ? skills : ["学习能力"],
@@ -395,6 +709,7 @@ async function createProfileRecord(
 export function createProfileService(
   repository: ProfileRepository,
   options: {
+    jobsRepository?: JobsRepository;
     onResumeProfileCreated?: ResumeProfileCreatedHook;
   } = {},
 ): ProfileService {
@@ -418,7 +733,7 @@ export function createProfileService(
       name: input.name,
       parse_mode: input.parse_mode ?? "tolerant",
     });
-    const mappedInput = buildProfileInputFromResume(input);
+    const mappedInput = await buildProfileInputFromResume(input, options.jobsRepository);
     const profile = await createProfileRecord(repository, mappedInput, "resume", digest);
     if (options.onResumeProfileCreated) {
       await options.onResumeProfileCreated({

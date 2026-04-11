@@ -5,6 +5,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 
 import type {
+  CareerReportExportFormat,
   CareerReportExportRecord,
   CareerReportRecord,
   CareerReportSection,
@@ -55,11 +56,9 @@ const uiState = reactive({
 });
 const isEditMode = ref(false);
 
-
 const isAnyPolishing = computed(() => Object.values(loading.polish).some((val) => val));
 
 function formatApiError(error: unknown): string {
-
   if (error instanceof ApiRequestError) {
     return error.traceId ? `${error.message}（trace_id: ${error.traceId}）` : error.message;
   }
@@ -233,14 +232,13 @@ async function handlePolishSection(section: CareerReportSection): Promise<void> 
   }
 }
 
-
 async function handlePolishAll(): Promise<void> {
-  const sectionsToPolish = editableSections.value.filter(s => s.content.trim().length > 0);
+  const sectionsToPolish = editableSections.value.filter((s) => s.content.trim().length > 0);
   if (sectionsToPolish.length === 0) {
     uiState.error = "没有可润色的内容";
     return;
   }
-  
+
   for (const section of sectionsToPolish) {
     // Only continue if not interrupted (bonus: could add a cancel mechanism, but sequential is fine for now)
     await handlePolishSection(section);
@@ -249,7 +247,6 @@ async function handlePolishAll(): Promise<void> {
 }
 
 async function searchByMatchId(): Promise<void> {
-
   const matchId = toPositiveInt(form.matchId);
   if (!matchId) {
     uiState.error = "请输入合法的匹配结果 ID";
@@ -322,6 +319,16 @@ async function saveCurrentReport(): Promise<void> {
 }
 
 async function exportCurrentReport(): Promise<void> {
+  await exportCurrentReportByFormat("pdf");
+}
+
+/**
+ * 作用：按指定格式导出当前选中报告并触发下载。
+ * 参数：format 支持 pdf 与 markdown。
+ * 返回：无。
+ * 注意：导出前必须先选中报告版本。
+ */
+async function exportCurrentReportByFormat(format: CareerReportExportFormat): Promise<void> {
   if (!selectedReport.value) {
     uiState.error = "请先选择需要导出的报告版本";
     return;
@@ -333,10 +340,10 @@ async function exportCurrentReport(): Promise<void> {
 
   try {
     const exported = await createReportExport(selectedReport.value.id, {
-      format: "pdf",
+      format,
     });
 
-    uiState.success = `PDF 导出指令已下发：${exported.file_name}`;
+    uiState.success = `${format === "pdf" ? "PDF" : "Markdown"} 导出指令已下发：${exported.file_name}`;
     await loadReportExports(selectedReport.value.id);
     triggerDownload(exported.download_path);
   } catch (error) {
@@ -344,6 +351,10 @@ async function exportCurrentReport(): Promise<void> {
   } finally {
     loading.export = false;
   }
+}
+
+function formatExportTag(format: CareerReportExportFormat): string {
+  return format === "pdf" ? "PDF" : "MD";
 }
 
 const canCreate = computed(() => toPositiveInt(form.matchId) !== undefined);
@@ -639,6 +650,28 @@ onMounted(async () => {
                 {{ loading.export ? "生成中..." : "导出 PDF" }}
               </button>
               <button
+                class="btn btn-outline"
+                :disabled="loading.export"
+                @click="exportCurrentReportByFormat('markdown')"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+                {{ loading.export ? "生成中..." : "导出 Markdown" }}
+              </button>
+              <button
                 v-if="isEditMode"
                 class="btn btn-primary shadow"
                 :disabled="loading.save"
@@ -846,7 +879,7 @@ onMounted(async () => {
           class="export-file-card"
           @click="triggerDownload(item.download_path)"
         >
-          <div class="file-icon">PDF</div>
+          <div class="file-icon">{{ formatExportTag(item.format) }}</div>
           <div class="file-info">
             <strong class="file-name" :title="item.file_name">{{ item.file_name }}</strong>
             <div class="file-meta">
@@ -877,7 +910,7 @@ onMounted(async () => {
           v-if="!loading.exportList && exportsList.length === 0"
           class="empty-state mini horizontal"
         >
-          <p>当前报告版本暂无 PDF 导出记录，点击上方「导出 PDF」生成。</p>
+          <p>当前报告版本暂无导出记录，点击上方导出按钮生成 PDF 或 Markdown。</p>
         </div>
         <div v-if="loading.exportList" class="loading-state">
           <span class="spinner"></span> 数据加载中...
@@ -895,25 +928,25 @@ onMounted(async () => {
    Design System Variables & Resets
    ========================================================================== */
 .report-container {
-  --primary: #0f766e;
-  --primary-hover: #0d9488;
-  --primary-light: #ccfbf1;
-  --bg-main: #f1f5f9;
-  --bg-surface: #ffffff;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --border: #e2e8f0;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --primary: var(--glass-primary);
+  --primary-hover: var(--glass-primary-strong);
+  --primary-light: rgba(214, 240, 255, 0.56);
+  --bg-main: rgba(255, 255, 255, 0.18);
+  --bg-surface: rgba(255, 255, 255, 0.72);
+  --text-main: var(--glass-title);
+  --text-muted: var(--glass-muted);
+  --border: rgba(255, 255, 255, 0.56);
+  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  --shadow-md: 0 18px 36px rgba(44, 73, 127, 0.1);
+  --shadow-lg: 0 24px 46px rgba(40, 69, 124, 0.14);
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
 
   max-width: 1280px;
   margin: 0 auto;
   padding: 32px 24px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Avenir Next", "PingFang SC", "Noto Sans SC", sans-serif;
   color: var(--text-main);
   display: flex;
   flex-direction: column;
@@ -931,16 +964,17 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42);
   padding-bottom: 20px;
 }
 
 .page-title {
   margin: 0;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: #0f172a;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text-main);
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
 }
 
 .page-subtitle {
@@ -961,6 +995,8 @@ onMounted(async () => {
   font-weight: 500;
   font-size: 14px;
   box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .alert svg {
@@ -1007,6 +1043,7 @@ onMounted(async () => {
   transition: all 0.2s ease;
   border: 1px solid transparent;
   line-height: 1;
+  border-radius: var(--radius-md);
 }
 
 .btn:disabled {
@@ -1016,8 +1053,11 @@ onMounted(async () => {
 }
 
 .btn-primary {
-  background-color: var(--primary);
+  background: linear-gradient(135deg, rgba(73, 182, 223, 0.92), rgba(64, 105, 236, 0.92));
   color: white;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 16px 28px rgba(45, 99, 203, 0.22);
 }
 
 .btn-primary:hover {
@@ -1029,18 +1069,19 @@ onMounted(async () => {
 }
 
 .btn-outline {
-  background-color: transparent;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.3));
   border-color: var(--border);
   color: var(--text-main);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .btn-outline:hover {
-  background-color: #f8fafc;
-  border-color: #cbd5e1;
+  background-color: rgba(255, 255, 255, 0.84);
+  border-color: rgba(107, 194, 255, 0.88);
 }
 
 .btn-action {
-  background-color: #0f172a;
+  background: linear-gradient(135deg, rgba(24, 52, 96, 0.92), rgba(51, 86, 148, 0.9));
   color: white;
 }
 .btn-action:hover {
@@ -1052,7 +1093,7 @@ onMounted(async () => {
   color: var(--text-muted);
 }
 .btn-ghost:hover {
-  background-color: #f1f5f9;
+  background-color: rgba(255, 255, 255, 0.42);
   color: var(--text-main);
 }
 
@@ -1075,11 +1116,15 @@ onMounted(async () => {
    Context Panel (Top Section)
    ========================================================================== */
 .glass-panel {
-  background-color: var(--bg-surface);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.28));
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 24px;
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 36px rgba(44, 73, 127, 0.1);
+  backdrop-filter: blur(24px) saturate(175%);
+  -webkit-backdrop-filter: blur(24px) saturate(175%);
 }
 
 .toolbar-group {
@@ -1107,11 +1152,11 @@ onMounted(async () => {
 .search-box input {
   width: 100%;
   padding: 12px 16px 12px 42px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: var(--radius-md);
   font-size: 15px;
   transition: all 0.2s;
-  background-color: #f8fafc;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.42));
 }
 
 .search-box input:focus {
@@ -1131,9 +1176,9 @@ onMounted(async () => {
 .match-summary-card {
   margin-top: 20px;
   padding: 16px 24px;
-  background: linear-gradient(to right, #f8fafc, #ffffff);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(227, 243, 255, 0.38));
   border-radius: var(--radius-lg);
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed rgba(255, 255, 255, 0.58);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1182,11 +1227,15 @@ onMounted(async () => {
 
 /* Sidebar */
 .sidebar-panel {
-  background-color: var(--bg-surface);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.26));
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 20px;
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 36px rgba(44, 73, 127, 0.1);
+  backdrop-filter: blur(24px) saturate(175%);
+  -webkit-backdrop-filter: blur(24px) saturate(175%);
   position: sticky;
   top: 24px;
 }
@@ -1226,7 +1275,7 @@ onMounted(async () => {
   gap: 16px;
   width: 100%;
   padding: 16px;
-  background-color: #f8fafc;
+  background: rgba(255, 255, 255, 0.34);
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   cursor: pointer;
@@ -1240,8 +1289,8 @@ onMounted(async () => {
 }
 
 .version-card.active {
-  background-color: var(--primary-light);
-  border-color: #99f6e4;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(220, 241, 255, 0.42));
+  border-color: rgba(107, 194, 255, 0.88);
 }
 
 .version-badge {
@@ -1296,11 +1345,13 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: var(--bg-surface);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.26));
   padding: 16px 24px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 36px rgba(44, 73, 127, 0.1);
   flex-wrap: wrap;
   gap: 16px;
 }
@@ -1338,11 +1389,13 @@ onMounted(async () => {
 }
 
 .module-card {
-  background-color: var(--bg-surface);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.28));
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
-  box-shadow: var(--shadow-sm);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 36px rgba(44, 73, 127, 0.1);
 }
 
 .module-card.highlight {
@@ -1414,7 +1467,7 @@ onMounted(async () => {
 }
 
 .section-block {
-  background-color: var(--bg-surface);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.28));
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -1428,7 +1481,7 @@ onMounted(async () => {
 
 .section-header {
   padding: 16px 20px;
-  background-color: #f8fafc;
+  background-color: rgba(255, 255, 255, 0.28);
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -1479,13 +1532,13 @@ onMounted(async () => {
 .rich-textarea {
   width: 100%;
   padding: 16px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: var(--radius-md);
   font-size: 15px;
   line-height: 1.8;
   color: #0f172a;
   resize: vertical;
-  background-color: #f8fafc;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.42));
   transition: all 0.2s;
   box-sizing: border-box;
 }
@@ -1515,7 +1568,7 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background-color: #f8fafc;
+  background: rgba(255, 255, 255, 0.34);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   text-align: left;
@@ -1590,7 +1643,7 @@ onMounted(async () => {
 
 .empty-state.large {
   padding: 64px 24px;
-  background-color: var(--bg-surface);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.28));
   border: 1px dashed var(--border);
   border-radius: var(--radius-xl);
 }
@@ -1608,7 +1661,7 @@ onMounted(async () => {
   flex-direction: row;
   justify-content: flex-start;
   padding: 16px;
-  background-color: #f8fafc;
+  background-color: rgba(255, 255, 255, 0.34);
   border-radius: var(--radius-md);
   color: #64748b;
   font-size: 14px;
@@ -1670,7 +1723,7 @@ onMounted(async () => {
 }
 
 .continuous-report.paper-style {
-  background-color: var(--bg-surface);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.3));
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 40px;

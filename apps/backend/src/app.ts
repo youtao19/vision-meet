@@ -143,6 +143,9 @@ export function createApp(): express.Express {
     "/api/v1/profile",
     createProfileModule({
       pool: appDataPool,
+      env: appEnv,
+      cwd: process.cwd(),
+      jobsRepository,
       onResumeProfileCreated: ({ profile, resumeInput }) =>
         knowledgeModule.service.indexResumeProfile({ profile, resumeInput }),
     }),

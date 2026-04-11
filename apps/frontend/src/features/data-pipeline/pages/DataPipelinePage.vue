@@ -42,9 +42,9 @@ const timelineSteps = computed(() => {
   const labels: Record<MockStage, string> = {
     queued: "任务排队",
     cleaning: "清洗岗位数据",
-    generating: "模拟 Agent 生成画像",
+    generating: "生成岗位画像",
     packaging: "汇总与结果整理",
-    done: "演示完成",
+    done: "完成",
   };
   const currentIndex = stageOrder.indexOf(currentStage.value);
 
@@ -69,14 +69,11 @@ const runButtonText = computed(() => {
     return "启动中...";
   }
   if (isRunning.value) {
-    return "模拟生成中...";
+    return "生成中...";
   }
   return "开始生成画像";
 });
 
-/**
- * 作用：结束演示定时器，避免组件销毁后仍有异步任务更新状态。
- */
 function stopSimulation(): void {
   if (simulationTimer !== null) {
     window.clearInterval(simulationTimer);
@@ -88,10 +85,6 @@ function stopSimulation(): void {
   }
 }
 
-/**
- * 作用：启动纯前端模拟流程，不发起后端请求、不写入数据库。
- * 注意：该流程仅用于比赛演示“调用 Agent 生成画像”的动态效果。
- */
 function startMockPipeline(): void {
   if (isRunning.value) {
     return;
@@ -137,7 +130,7 @@ function startMockPipeline(): void {
 
     if (stepTick <= 20) {
       currentStage.value = "generating";
-      stageMessage.value = "模拟 Agent 生成岗位画像";
+      stageMessage.value = "Agent 生成岗位画像";
       progress.value = Math.min(88, progress.value + 4);
 
       const nextCount = Math.min(previewRoles.length, generatedPreviewCount.value + 1);
@@ -225,38 +218,42 @@ onBeforeUnmount(() => {
         </div>
         <p class="progress-text">当前进度：{{ progress }}%</p>
 
-        <p>模拟生成数量：{{ generatedPreviewCount }} / 10</p>
+        <p>生成数量：{{ generatedPreviewCount }} / 10</p>
         <p v-if="currentRoleHint">当前生成岗位：{{ currentRoleHint }}</p>
-        <p class="db-safe-tip">数据库状态：本次演示不会写入任何数据。</p>
       </article>
 
-      <p v-else class="empty-text">请点击“开始生成画像”启动演示任务。</p>
+      <p v-else class="empty-text">请点击“开始生成画像”启动任务。</p>
     </section>
   </section>
 </template>
 
 <style scoped>
 .pipeline-page {
-  max-width: 980px;
+  max-width: 1040px;
   margin: 24px auto;
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .page-header h2 {
   margin: 0;
-  color: #111827;
+  color: var(--glass-title);
+  font-size: 32px;
+  letter-spacing: -0.03em;
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
 }
 
 .page-header p {
   margin: 8px 0 0;
-  color: #475569;
+  color: var(--glass-muted);
 }
 
 .notice {
   margin: 0;
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  backdrop-filter: blur(18px);
 }
 
 .notice-error {
@@ -270,10 +267,15 @@ onBeforeUnmount(() => {
 }
 
 .panel {
-  background: #ffffff;
-  border: 1px solid #dbe4f0;
-  border-radius: 12px;
-  padding: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.26));
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 20px;
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 36px rgba(44, 73, 127, 0.1);
 }
 
 .row {
@@ -285,23 +287,33 @@ onBeforeUnmount(() => {
 
 label {
   display: grid;
-  gap: 6px;
-  color: #334155;
+  gap: 8px;
+  color: rgba(28, 48, 82, 0.84);
+  font-weight: 600;
 }
 
 select {
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  border-radius: 16px;
+  padding: 10px 12px;
+  color: #16304e;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.34));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 10px 22px rgba(61, 90, 152, 0.06);
 }
 
 .primary-btn {
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 16px;
+  padding: 10px 14px;
   cursor: pointer;
-  border: 1px solid #0f766e;
-  background: #0f766e;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, rgba(73, 182, 223, 0.92), rgba(64, 105, 236, 0.92));
   color: #ffffff;
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 16px 28px rgba(45, 99, 203, 0.22);
 }
 
 .primary-btn:disabled {
@@ -311,10 +323,11 @@ select {
 
 .task-card {
   margin-top: 12px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 12px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(225, 244, 255, 0.34));
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  padding: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 .task-card p {
@@ -323,12 +336,12 @@ select {
 
 .empty-text {
   margin: 10px 0 0;
-  color: #64748b;
+  color: rgba(56, 80, 116, 0.74);
 }
 
 .stage-hint {
   margin: 10px 0 0;
-  color: #0f766e;
+  color: var(--glass-primary);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -352,10 +365,11 @@ select {
   display: inline-flex;
   align-items: center;
   border-radius: 9999px;
-  padding: 2px 10px;
+  padding: 4px 12px;
   font-size: 12px;
-  color: #0f172a;
-  background: #dbeafe;
+  color: #153556;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(214, 239, 255, 0.46));
+  border: 1px solid rgba(152, 217, 255, 0.72);
 }
 
 .refresh-tip {
@@ -367,7 +381,7 @@ select {
   width: 100%;
   height: 8px;
   border-radius: 9999px;
-  background: #e2e8f0;
+  background: rgba(160, 181, 214, 0.24);
   overflow: hidden;
   margin: 8px 0 4px;
 }
@@ -402,7 +416,7 @@ select {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #64748b;
+  color: rgba(56, 80, 116, 0.74);
   font-size: 13px;
 }
 
@@ -410,8 +424,8 @@ select {
   width: 9px;
   height: 9px;
   border-radius: 9999px;
-  border: 2px solid #94a3b8;
-  background: #ffffff;
+  border: 2px solid rgba(122, 147, 185, 0.62);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .timeline-step.is-completed {
@@ -424,7 +438,7 @@ select {
 }
 
 .timeline-step.is-active {
-  color: #0f172a;
+  color: var(--glass-title);
   font-weight: 600;
 }
 
@@ -436,7 +450,7 @@ select {
 
 .progress-text {
   font-size: 12px;
-  color: #334155;
+  color: rgba(42, 63, 96, 0.82);
 }
 
 .db-safe-tip {
