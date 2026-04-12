@@ -1,6 +1,6 @@
 <template>
   <section class="dashboard-page">
-    <h1>Career Agent V2</h1>
+    <h1>Career Agent</h1>
     <p>全链路闭环：数据处理 -> 岗位画像 -> 路径图谱 -> 人岗匹配 -> 职业报告。</p>
     <nav class="entry-links">
       <RouterLink to="/pipeline">数据处理中心</RouterLink>
