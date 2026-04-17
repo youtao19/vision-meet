@@ -143,6 +143,8 @@ export type ManualJobPortraitRecord = {
   job_id?: number | null;
   job_name: string;
   category: string;
+  comic_image_url?: string | null;
+  comic_generated_at?: string | null;
   skills: ManualJobPortraitDimension;
   certification: ManualJobPortraitDimension;
   innovation: ManualJobPortraitDimension;
@@ -157,6 +159,11 @@ export type ManualJobPortraitRecord = {
 export type ManualJobPortraitListResponse = {
   total: number;
   items: ManualJobPortraitRecord[];
+};
+
+export type GenerateJobPortraitComicResponse = {
+  job_name: string;
+  comic_image_url: string;
 };
 
 export type PostingEvidenceRecord = {

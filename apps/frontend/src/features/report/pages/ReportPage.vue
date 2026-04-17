@@ -534,59 +534,25 @@ onMounted(async () => {
 
     <!-- Main Workspace -->
     <div class="workspace-layout">
-      <!-- Left Sidebar: Versions -->
-      <aside class="sidebar-panel">
-        <div class="panel-header">
-          <h3>报告版本库</h3>
-          <span class="badge">{{ reports.length }} 个版本</span>
-        </div>
-
-        <div class="version-timeline">
-          <button
-            v-for="(item, index) in reports"
-            :key="item.id"
-            class="version-card"
-            :class="{ active: selectedReport?.id === item.id }"
-            :disabled="loading.detail"
-            @click="openReport(item.id)"
-          >
-            <div class="version-badge">V{{ item.version }}</div>
-            <div class="version-content">
-              <strong>报告编号 #{{ item.id }}</strong>
-              <span class="time">{{ new Date(item.updated_at).toLocaleString() }}</span>
-            </div>
-            <div v-if="selectedReport?.id === item.id" class="active-indicator"></div>
-          </button>
-
-          <div v-if="reports.length === 0" class="empty-state mini">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-            <p>暂无报告版本</p>
-          </div>
-        </div>
-      </aside>
-
-      <!-- Center: Editor/Viewer -->
+      <!-- Main Content Area (Now full width) -->
       <main class="editor-panel">
         <template v-if="selectedReport">
           <div class="editor-header">
             <div class="report-meta-tags">
-              <span class="tag tag-primary">V{{ selectedReport.version }}</span>
+              <!-- Version Selector (Compact replacement for the sidebar) -->
+              <div class="version-selector-group">
+                <label for="version-select" class="selector-label">报告版本:</label>
+                <select
+                  id="version-select"
+                  :value="selectedReport.id"
+                  class="version-dropdown"
+                  @change="openReport(Number(($event.target as HTMLSelectElement).value))"
+                >
+                  <option v-for="item in reports" :key="item.id" :value="item.id">
+                    V{{ item.version }} ({{ new Date(item.updated_at).toLocaleDateString() }})
+                  </option>
+                </select>
+              </div>
               <span class="tag">总分: {{ selectedReport.total_score }}</span>
               <span class="tag">模式: {{ selectedReport.generator_mode }}</span>
             </div>
@@ -697,68 +663,6 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Structured Info Modules -->
-          <div class="structured-modules">
-            <div class="module-card">
-              <h4>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                </svg>
-                决策依据提取
-              </h4>
-              <ul class="bullet-list">
-                <li v-for="item in selectedReport.evidence_refs" :key="item">{{ item }}</li>
-              </ul>
-            </div>
-            <div class="module-card highlight">
-              <h4>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="9 11 12 14 22 4"></polyline>
-                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                </svg>
-                执行计划与建议
-              </h4>
-              <div class="plan-grid">
-                <div class="plan-col">
-                  <h5>阶段一：短期切入</h5>
-                  <ul class="bullet-list checked">
-                    <li v-for="item in selectedReport.action_plan.short_term" :key="`s-${item}`">
-                      {{ item }}
-                    </li>
-                  </ul>
-                </div>
-                <div class="plan-col">
-                  <h5>阶段二：中期发展</h5>
-                  <ul class="bullet-list checked">
-                    <li v-for="item in selectedReport.action_plan.mid_term" :key="`m-${item}`">
-                      {{ item }}
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Sections Content -->
           <div class="sections-container" :class="{ 'preview-mode': !isEditMode }">
             <template v-if="!isEditMode">
@@ -836,6 +740,68 @@ onMounted(async () => {
               </article>
             </template>
           </div>
+
+          <!-- Structured Info Modules (Moved to bottom as summary) -->
+          <div class="structured-modules">
+            <div class="module-card">
+              <h4>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                决策依据提取
+              </h4>
+              <ul class="bullet-list">
+                <li v-for="item in selectedReport.evidence_refs" :key="item">{{ item }}</li>
+              </ul>
+            </div>
+            <div class="module-card highlight">
+              <h4>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                执行计划与建议
+              </h4>
+              <div class="plan-grid">
+                <div class="plan-col">
+                  <h5>阶段一：短期切入</h5>
+                  <ul class="bullet-list checked">
+                    <li v-for="item in selectedReport.action_plan.short_term" :key="`s-${item}`">
+                      {{ item }}
+                    </li>
+                  </ul>
+                </div>
+                <div class="plan-col">
+                  <h5>阶段二：中期发展</h5>
+                  <ul class="bullet-list checked">
+                    <li v-for="item in selectedReport.action_plan.mid_term" :key="`m-${item}`">
+                      {{ item }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </template>
 
         <!-- Empty State for Editor -->
@@ -860,7 +826,7 @@ onMounted(async () => {
             </svg>
           </div>
           <h3>未选择报告</h3>
-          <p>请在上方加载匹配结果，或在左侧选择一个报告版本进行查看与编辑。</p>
+          <p>请在上方加载匹配结果，或在页眉中选择一个报告版本进行查看与编辑。</p>
         </div>
       </main>
     </div>
@@ -1216,122 +1182,45 @@ onMounted(async () => {
 }
 
 /* ==========================================================================
-   Workspace Layout (Sidebar + Main)
+   Workspace Layout (Full Width)
    ========================================================================== */
 .workspace-layout {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 24px;
+  display: block;
   align-items: start;
 }
 
-/* Sidebar */
-.sidebar-panel {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.26));
+/* Version Selector Styles */
+.version-selector-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.42);
+  padding: 4px 12px;
+  border-radius: 8px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 20px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.78),
-    0 18px 36px rgba(44, 73, 127, 0.1);
-  backdrop-filter: blur(24px) saturate(175%);
-  -webkit-backdrop-filter: blur(24px) saturate(175%);
-  position: sticky;
-  top: 24px;
 }
 
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.panel-header h3 {
-  margin: 0;
-  font-size: 16px;
+.selector-label {
+  font-size: 13px;
   font-weight: 600;
-}
-
-.badge {
-  background-color: #f1f5f9;
   color: var(--text-muted);
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
+  white-space: nowrap;
 }
 
-.version-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.version-card {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.34);
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.2s ease;
-}
-
-.version-card:hover:not(.active) {
-  background-color: #f1f5f9;
-  border-color: var(--border);
-}
-
-.version-card.active {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(220, 241, 255, 0.42));
-  border-color: rgba(107, 194, 255, 0.88);
-}
-
-.version-badge {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: white;
-  border-radius: 10px;
+.version-dropdown {
+  background: transparent;
+  border: none;
+  font-size: 14px;
   font-weight: 700;
   color: var(--primary);
-  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  outline: none;
+  padding: 2px 4px;
 }
 
-.version-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.version-content strong {
-  font-size: 14px;
-  color: var(--text-main);
-}
-
-.version-content .time {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.active-indicator {
-  position: absolute;
-  left: -1px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 4px;
-  height: 24px;
-  background-color: var(--primary);
-  border-radius: 0 4px 4px 0;
+.version-dropdown:focus {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
 }
 
 /* Center Editor Panel */
@@ -1693,18 +1582,15 @@ onMounted(async () => {
 
 /* Responsive Adjustments */
 @media (max-width: 1024px) {
-  .workspace-layout {
-    grid-template-columns: 260px minmax(0, 1fr);
+  .report-container {
+    padding: 20px 16px;
   }
 }
 
 @media (max-width: 768px) {
-  .workspace-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar-panel {
-    position: static;
+  .editor-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .plan-grid {

@@ -37,6 +37,7 @@ import type {
   PipelineRetryQueueCreateInput,
   JobProfileV2CreateInput,
   JobsIntelligenceRepository,
+  ManualJobPortraitComicUpdateInput,
   ManualJobPortraitUpsertInput,
   PipelineJobRecord,
   PipelineTaskUpdateInput,
@@ -191,6 +192,14 @@ function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRe
     job_id: stableId,
     job_name: String(row.job_name),
     category: String(row.category),
+    comic_image_url:
+      typeof payload.comic_image_url === "string" && payload.comic_image_url.trim()
+        ? payload.comic_image_url
+        : null,
+    comic_generated_at:
+      typeof payload.comic_generated_at === "string" && payload.comic_generated_at.trim()
+        ? payload.comic_generated_at
+        : null,
     skills: payload.skills as ManualJobPortraitRecord["skills"],
     certification: payload.certification as ManualJobPortraitRecord["certification"],
     innovation: payload.innovation as ManualJobPortraitRecord["innovation"],
@@ -1272,6 +1281,39 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     return result.rows.map((row) => mapManualJobPortrait(row));
   }
 
+  async function getManualJobPortraitByName(
+    jobName: string,
+  ): Promise<ManualJobPortraitRecord | null> {
+    await ensureSchema();
+    const result = await pool.query(
+      `
+        SELECT
+          p.*,
+          (
+            SELECT j.id
+            FROM jobs j
+            WHERE lower(trim(j.title)) = lower(trim(p.job_name))
+            ORDER BY j.id DESC
+            LIMIT 1
+          ) AS fallback_job_id,
+          (
+            SELECT j2.id
+            FROM jobs j2
+            WHERE lower(trim(j2.title)) = lower(trim(p.job_name))
+              AND regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
+                regexp_replace(lower(trim(p.job_name)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g')
+            ORDER BY j2.id DESC
+            LIMIT 1
+          ) AS job_id
+        FROM v2_manual_job_portraits p
+        WHERE p.job_name = $1
+        LIMIT 1
+      `,
+      [jobName],
+    );
+    return result.rowCount ? mapManualJobPortrait(result.rows[0]) : null;
+  }
+
   async function listManualJobPortraitsFromTable(): Promise<ManualJobPortraitRecord[]> {
     await ensureSchema();
     const result = await pool.query(`
@@ -1297,6 +1339,30 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
       ORDER BY p.created_at ASC, p.job_name ASC
     `);
     return result.rows.map((row) => mapManualJobPortrait(row));
+  }
+
+  async function updateManualJobPortraitComic(
+    input: ManualJobPortraitComicUpdateInput,
+  ): Promise<ManualJobPortraitRecord> {
+    await ensureSchema();
+    const result = await pool.query(
+      `
+        UPDATE v2_manual_job_portraits
+        SET
+          payload = payload || $2::jsonb,
+          updated_at = NOW()
+        WHERE job_name = $1
+        RETURNING *
+      `,
+      [
+        input.job_name,
+        JSON.stringify({
+          comic_image_url: input.comic_image_url,
+          comic_generated_at: input.comic_generated_at,
+        }),
+      ],
+    );
+    return mapManualJobPortrait(result.rows[0]);
   }
 
   async function replaceAgentJobPortraits(
@@ -1797,7 +1863,9 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     listCanonicalRoles,
     getCanonicalRoleByKey,
     listManualJobPortraits,
+    getManualJobPortraitByName,
     listManualJobPortraitsFromTable,
+    updateManualJobPortraitComic,
     replaceAgentJobPortraits,
     replaceManualJobPortraits,
     getLatestProfileByJobId,

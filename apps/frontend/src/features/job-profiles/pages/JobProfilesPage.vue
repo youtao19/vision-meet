@@ -3,8 +3,8 @@ import { computed, onMounted, reactive, ref } from "vue";
 
 import type { ManualJobPortraitRecord } from "@career/contracts/types";
 
-import { ApiRequestError } from "@/shared/api/http";
-import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
+import { apiBaseUrl, ApiRequestError } from "@/shared/api/http";
+import { fetchManualJobPortraits, generateJobPortraitComic } from "@/shared/api/job-profiles";
 
 /**
  * 文件作用：岗位画像中心页面。
@@ -16,6 +16,7 @@ const activeCategory = ref("all");
 
 const loading = reactive({
   list: false,
+  comicJobName: "",
 });
 
 const uiState = reactive({
@@ -56,6 +57,48 @@ async function loadProfiles(): Promise<void> {
     uiState.error = formatApiError(error);
   } finally {
     loading.list = false;
+  }
+}
+
+function resolveAssetUrl(path: string): string {
+  return new URL(path, apiBaseUrl).toString();
+}
+
+function patchProfileComic(jobName: string, comicImageUrl: string): void {
+  const target = profiles.value.find((item) => item.job_name === jobName);
+  if (target) {
+    target.comic_image_url = comicImageUrl;
+    target.comic_generated_at = new Date().toISOString();
+  }
+  if (selected.value?.job_name === jobName) {
+    selected.value = target ?? {
+      ...selected.value,
+      comic_image_url: comicImageUrl,
+      comic_generated_at: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * 作用：触发后端同步生成岗位画像漫画，并把返回图片地址写回当前页面状态。
+ * 注意：MVP 不做任务轮询；生成期间只锁定当前岗位按钮，失败信息直接展示给用户。
+ */
+async function submitGenerateComic(force = false): Promise<void> {
+  if (!selected.value || loading.comicJobName) {
+    return;
+  }
+
+  const jobName = selected.value.job_name;
+  loading.comicJobName = jobName;
+  uiState.error = "";
+
+  try {
+    const response = await generateJobPortraitComic(jobName, { force });
+    patchProfileComic(response.job_name, response.comic_image_url);
+  } catch (error) {
+    uiState.error = formatApiError(error);
+  } finally {
+    loading.comicJobName = "";
   }
 }
 
@@ -153,6 +196,38 @@ onMounted(loadProfiles);
               <h3 class="job-title">{{ selected.job_name }}</h3>
             </div>
           </header>
+
+          <section class="comic-section">
+            <div class="comic-heading">
+              <div>
+                <span class="section-kicker">岗位漫画</span>
+                <h4>四格漫画画像</h4>
+              </div>
+              <button
+                class="btn-primary comic-action"
+                :disabled="Boolean(loading.comicJobName)"
+                @click="submitGenerateComic(Boolean(selected.comic_image_url))"
+              >
+                {{
+                  loading.comicJobName === selected.job_name
+                    ? "生成中..."
+                    : selected.comic_image_url
+                      ? "重新生成"
+                      : "生成漫画"
+                }}
+              </button>
+            </div>
+
+            <div v-if="selected.comic_image_url" class="comic-preview">
+              <img
+                :src="resolveAssetUrl(selected.comic_image_url)"
+                :alt="`${selected.job_name}岗位画像漫画`"
+              />
+            </div>
+            <div v-else class="comic-empty">
+              <p>还没有漫画，点击生成后会保存到本地并在这里展示。</p>
+            </div>
+          </section>
 
           <div class="dimensions-grid">
             <div v-for="dim in dimensionsConfig" :key="dim.key" class="dimension-card">
@@ -462,6 +537,71 @@ onMounted(loadProfiles);
   letter-spacing: -0.02em;
 }
 
+.comic-section {
+  margin-bottom: 28px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(244, 250, 255, 0.34));
+}
+
+.comic-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.section-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.comic-heading h4 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.12rem;
+}
+
+.comic-action {
+  flex-shrink: 0;
+}
+
+.comic-preview {
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.comic-preview img {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+}
+
+.comic-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  border: 1px dashed rgba(107, 194, 255, 0.58);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.36);
+  text-align: center;
+}
+
+.comic-empty p {
+  margin: 0;
+  padding: 0 16px;
+}
+
 /* 维度网格 */
 .dimensions-grid {
   display: grid;
@@ -607,6 +747,16 @@ onMounted(loadProfiles);
 
   .right-panel {
     padding: 20px;
+  }
+
+  .comic-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .comic-action {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

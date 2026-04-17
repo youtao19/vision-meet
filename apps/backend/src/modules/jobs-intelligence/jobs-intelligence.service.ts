@@ -23,6 +23,7 @@ import type {
   CareerPathV2GraphResponse,
   CareerRouteRecommendation,
   CareerRouteStep,
+  GenerateJobPortraitComicResponse,
   JobPipelineMode,
   JobPipelineTaskRecord,
   JobFactsListParams,
@@ -56,6 +57,7 @@ import { generateCareerGraphByAgent } from "./jobs-intelligence.graph.agent.js";
 import { MANUAL_JOB_PORTRAITS_SEED } from "./manual-job-portraits.seed.js";
 import type { JobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
+import { generateJobPortraitComicImage } from "./jobs-intelligence.comic.js";
 
 const PIPELINE_PROGRESS_FLUSH_INTERVAL = 50;
 const JOB_PORTRAIT_TARGET_COUNT = 10;
@@ -771,6 +773,10 @@ export interface JobsIntelligenceService {
   getCanonicalRole(roleKey: string): Promise<CanonicalRoleRecord>;
   listManualJobPortraits(): Promise<ManualJobPortraitRecord[]>;
   seedManualJobPortraits(): Promise<{ seeded: number }>;
+  generateManualJobPortraitComic(input: {
+    jobName: string;
+    force: boolean;
+  }): Promise<GenerateJobPortraitComicResponse>;
   generateCareerPathGraph(
     options: CareerPathGenerateOptions,
   ): Promise<CareerPathV2GenerateResponse>;
@@ -1092,6 +1098,58 @@ export function createJobsIntelligenceService(
   }
 
   /**
+   * 作用：为指定人工岗位画像生成单张四格漫画，并把图片地址写回画像 payload。
+   * 参数：jobName 为岗位画像主键；force 控制是否覆盖已有漫画。
+   * 返回：前端可直接展示的静态图片地址。
+   * 注意：MVP 同步等待图片生成，不引入任务队列；失败会直接返回给调用方展示。
+   */
+  async function generateManualJobPortraitComic(input: {
+    jobName: string;
+    force: boolean;
+  }): Promise<GenerateJobPortraitComicResponse> {
+    if (
+      typeof repository.getManualJobPortraitByName !== "function" ||
+      typeof repository.updateManualJobPortraitComic !== "function"
+    ) {
+      throw new HttpError(
+        501,
+        "MANUAL_JOB_PORTRAIT_COMIC_UNSUPPORTED",
+        "当前仓储未实现岗位漫画生成所需能力",
+      );
+    }
+
+    const portrait = await repository.getManualJobPortraitByName(input.jobName);
+    if (!portrait) {
+      throw new HttpError(404, "MANUAL_JOB_PORTRAIT_NOT_FOUND", "目标岗位画像不存在");
+    }
+
+    if (!input.force && portrait.comic_image_url) {
+      return {
+        job_name: portrait.job_name,
+        comic_image_url: portrait.comic_image_url,
+      };
+    }
+
+    const generated = await generateJobPortraitComicImage({
+      portrait,
+      env,
+      force: input.force,
+      cwd: process.cwd(),
+    });
+
+    const updated = await repository.updateManualJobPortraitComic({
+      job_name: portrait.job_name,
+      comic_image_url: generated.imageUrl,
+      comic_generated_at: new Date().toISOString(),
+    });
+
+    return {
+      job_name: updated.job_name,
+      comic_image_url: updated.comic_image_url || generated.imageUrl,
+    };
+  }
+
+  /**
    * 作用：基于 v2_manual_job_portraits 重新生成职业图谱并写入图数据库。
    * 参数：
    *   - use_agent: 是否使用 Agent 推理生成图谱关系（含智能 reason），默认 false 走规则引擎。
@@ -1316,6 +1374,7 @@ export function createJobsIntelligenceService(
     getCanonicalRole,
     listManualJobPortraits,
     seedManualJobPortraits,
+    generateManualJobPortraitComic,
     generateCareerPathGraph,
     getCareerPathGraph,
   };

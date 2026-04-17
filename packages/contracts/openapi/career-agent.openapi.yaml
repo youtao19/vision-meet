@@ -342,6 +342,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/JobPipelineTaskRecord"
 
+  /api/v2/job-portraits/manual:
+    get:
+      summary: List Manual Job Portraits
+      responses:
+        "200":
+          description: Manual job portrait list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualJobPortraitListResponse"
+
+  /api/v2/job-portraits/manual/{job_name}/comic:
+    post:
+      summary: Generate Manual Job Portrait Comic
+      parameters:
+        - in: path
+          name: job_name
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+                  default: false
+      responses:
+        "200":
+          description: Generated comic image URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateJobPortraitComicResponse"
+        "404":
+          description: Manual job portrait not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v2/jobs/pipeline/tasks/{task_id}:
     get:
       summary: Get Jobs Pipeline Task
@@ -1414,6 +1458,89 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/JobProfileV2Record"
+
+    ManualJobPortraitDimension:
+      type: object
+      required: [level, weight, description]
+      properties:
+        level:
+          type: integer
+        weight:
+          type: number
+        description:
+          type: string
+
+    ManualJobPortraitRecord:
+      type: object
+      required:
+        [
+          job_name,
+          category,
+          skills,
+          certification,
+          innovation,
+          learning,
+          stress,
+          communication,
+          experience,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        job_id:
+          type: integer
+          nullable: true
+        job_name:
+          type: string
+        category:
+          type: string
+        comic_image_url:
+          type: string
+          nullable: true
+        comic_generated_at:
+          type: string
+          nullable: true
+          format: date-time
+        skills:
+          $ref: "#/components/schemas/ManualJobPortraitDimension"
+        certification:
+          $ref: "#/components/schemas/ManualJobPortraitDimension"
+        innovation:
+          $ref: "#/components/schemas/ManualJobPortraitDimension"
+        learning:
+          $ref: "#/components/schemas/ManualJobPortraitDimension"
+        stress:
+          $ref: "#/components/schemas/ManualJobPortraitDimension"
+        communication:
+          $ref: "#/components/schemas/ManualJobPortraitDimension"
+        experience:
+          $ref: "#/components/schemas/ManualJobPortraitDimension"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ManualJobPortraitListResponse:
+      type: object
+      required: [total, items]
+      properties:
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManualJobPortraitRecord"
+
+    GenerateJobPortraitComicResponse:
+      type: object
+      required: [job_name, comic_image_url]
+      properties:
+        job_name:
+          type: string
+        comic_image_url:
+          type: string
 
     JobPipelineTaskRecord:
       type: object

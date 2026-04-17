@@ -9,6 +9,7 @@ const envFileCandidates = [
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../.env"),
   path.resolve(process.cwd(), ".env"),
 ];
+const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
 for (const envFile of envFileCandidates) {
   dotenv.config({ path: envFile, override: false });
@@ -18,6 +19,8 @@ const rawEnvSchema = z.object({
   APP_ENV: z.string().default("dev"),
   PORT: z.coerce.number().int().positive().default(8000),
   REPORT_EXPORT_DIR: z.string().optional(),
+  JOB_COMIC_OUTPUT_DIR: z.string().optional(),
+  BAOYU_IMAGINE_SCRIPT: z.string().optional(),
   MATCH_SCORING_VERSION: z.string().trim().min(1).default("v1"),
   PGHOST: z.string().default("127.0.0.1"),
   PGPORT: z.coerce.number().int().positive().default(5432),
@@ -53,6 +56,8 @@ const rawEnvSchema = z.object({
 const envSchema = rawEnvSchema.transform((env) => {
   return {
     ...env,
+    JOB_COMIC_OUTPUT_DIR:
+      env.JOB_COMIC_OUTPUT_DIR || path.join(backendRoot, "storage", "job-comics"),
     AGENT_PI_DIR: env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"),
     AGENT_SESSION_STORE_DIR:
       env.AGENT_SESSION_STORE_DIR ||

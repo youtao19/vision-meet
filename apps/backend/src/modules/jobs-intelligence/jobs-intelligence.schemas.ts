@@ -47,6 +47,14 @@ export const jobIdParamsSchema = z.object({
   job_id: z.coerce.number().int().min(1),
 });
 
+export const manualJobPortraitNameParamsSchema = z.object({
+  job_name: z.string().trim().min(1),
+});
+
+export const generateJobPortraitComicSchema = z.object({
+  force: z.coerce.boolean().optional().default(false),
+});
+
 export const canonicalRoleParamsSchema = z.object({
   role_key: z.string().trim().min(1),
 });

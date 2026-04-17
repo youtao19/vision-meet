@@ -106,6 +106,7 @@ export function createApp(): express.Express {
 
   app.use(cors());
   app.use(express.json({ limit: "2mb" }));
+  app.use("/assets/job-comics", express.static(appEnv.JOB_COMIC_OUTPUT_DIR));
   app.use((req, res, next) => {
     // 在每次请求中透传或补齐 trace_id，便于前后端统一排障。
     const incomingTraceId = req.header("x-trace-id");

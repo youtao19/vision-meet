@@ -25,6 +25,8 @@ function buildEnv(): AppEnv {
     APP_ENV: "test",
     PORT: 8000,
     REPORT_EXPORT_DIR: "./tmp",
+    JOB_COMIC_OUTPUT_DIR: "./tmp/job-comics",
+    BAOYU_IMAGINE_SCRIPT: undefined,
     MATCH_SCORING_VERSION: "v2",
     PGHOST: "127.0.0.1",
     PGPORT: 5432,
