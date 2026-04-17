@@ -591,7 +591,7 @@ watch(
             <input
               v-model="resumeBuilder.education.school"
               type="text"
-              placeholder="例如：华中科技大学"
+              placeholder="例如：XXXXX大学"
             />
           </label>
           <label>

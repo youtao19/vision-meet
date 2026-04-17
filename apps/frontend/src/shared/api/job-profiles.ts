@@ -1,6 +1,7 @@
 import type {
   CanonicalRolesListResponse,
   GenerateJobPortraitComicResponse,
+  JobPortraitComicContext,
   ManualJobPortraitListResponse,
 } from "@career/contracts/types";
 
@@ -35,7 +36,7 @@ export async function fetchManualJobPortraits(): Promise<ManualJobPortraitListRe
 
 export async function generateJobPortraitComic(
   jobName: string,
-  input: { force?: boolean } = {},
+  input: { force?: boolean; comic_context?: JobPortraitComicContext } = {},
 ): Promise<GenerateJobPortraitComicResponse> {
   return requestJson<GenerateJobPortraitComicResponse>(
     `/api/v2/job-portraits/manual/${encodeURIComponent(jobName)}/comic`,
@@ -44,7 +45,18 @@ export async function generateJobPortraitComic(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ force: input.force ?? false }),
+      body: JSON.stringify({
+        force: input.force ?? false,
+        comic_context: input.comic_context,
+      }),
     },
+  );
+}
+
+export async function fetchJobPortraitComic(
+  jobName: string,
+): Promise<{ job_name: string; comic_image_url: string | null }> {
+  return requestJson<{ job_name: string; comic_image_url: string | null }>(
+    `/api/v2/job-portraits/manual/${encodeURIComponent(jobName)}/comic`,
   );
 }

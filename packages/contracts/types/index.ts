@@ -161,6 +161,16 @@ export type ManualJobPortraitListResponse = {
   items: ManualJobPortraitRecord[];
 };
 
+export type JobPortraitComicContext = {
+  category?: string;
+  summary?: string;
+  tech_stack?: string[];
+  industry_context?: string;
+  core_responsibilities?: string[];
+  suitable_for?: string[];
+  not_suitable_for?: string[];
+};
+
 export type GenerateJobPortraitComicResponse = {
   job_name: string;
   comic_image_url: string;

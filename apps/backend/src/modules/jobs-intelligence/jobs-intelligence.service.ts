@@ -24,6 +24,7 @@ import type {
   CareerRouteRecommendation,
   CareerRouteStep,
   GenerateJobPortraitComicResponse,
+  JobPortraitComicContext,
   JobPipelineMode,
   JobPipelineTaskRecord,
   JobFactsListParams,
@@ -57,7 +58,10 @@ import { generateCareerGraphByAgent } from "./jobs-intelligence.graph.agent.js";
 import { MANUAL_JOB_PORTRAITS_SEED } from "./manual-job-portraits.seed.js";
 import type { JobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
-import { generateJobPortraitComicImage } from "./jobs-intelligence.comic.js";
+import {
+  generateJobPortraitComicImage,
+  resolveJobPortraitComicAsset,
+} from "./jobs-intelligence.comic.js";
 
 const PIPELINE_PROGRESS_FLUSH_INTERVAL = 50;
 const JOB_PORTRAIT_TARGET_COUNT = 10;
@@ -776,7 +780,12 @@ export interface JobsIntelligenceService {
   generateManualJobPortraitComic(input: {
     jobName: string;
     force: boolean;
+    comicContext?: JobPortraitComicContext;
   }): Promise<GenerateJobPortraitComicResponse>;
+  getManualJobPortraitComic(jobName: string): Promise<{
+    job_name: string;
+    comic_image_url: string | null;
+  }>;
   generateCareerPathGraph(
     options: CareerPathGenerateOptions,
   ): Promise<CareerPathV2GenerateResponse>;
@@ -1106,6 +1115,7 @@ export function createJobsIntelligenceService(
   async function generateManualJobPortraitComic(input: {
     jobName: string;
     force: boolean;
+    comicContext?: JobPortraitComicContext;
   }): Promise<GenerateJobPortraitComicResponse> {
     if (
       typeof repository.getManualJobPortraitByName !== "function" ||
@@ -1119,11 +1129,27 @@ export function createJobsIntelligenceService(
     }
 
     const portrait = await repository.getManualJobPortraitByName(input.jobName);
-    if (!portrait) {
+    if (!portrait && !input.comicContext) {
       throw new HttpError(404, "MANUAL_JOB_PORTRAIT_NOT_FOUND", "目标岗位画像不存在");
     }
 
-    if (!input.force && portrait.comic_image_url) {
+    const portraitForGeneration =
+      portrait ??
+      ({
+        job_name: input.jobName,
+        category: input.comicContext?.category || "前端展示岗位",
+        skills: { level: 3, weight: 0.35, description: "参考前端岗位详情中的技术栈与职责" },
+        certification: { level: 2, weight: 0.05, description: "参考前端岗位详情中的岗位阶段" },
+        innovation: { level: 3, weight: 0.1, description: "结合岗位任务进行方案优化" },
+        learning: { level: 4, weight: 0.15, description: "持续学习岗位所需工具链" },
+        stress: { level: 3, weight: 0.1, description: "处理任务卡点与交付压力" },
+        communication: { level: 3, weight: 0.05, description: "与相关角色协作推进交付" },
+        experience: { level: 3, weight: 0.2, description: "通过项目实践理解岗位工作内容" },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } satisfies ManualJobPortraitRecord);
+
+    if (!input.force && portrait?.comic_image_url) {
       return {
         job_name: portrait.job_name,
         comic_image_url: portrait.comic_image_url,
@@ -1131,21 +1157,40 @@ export function createJobsIntelligenceService(
     }
 
     const generated = await generateJobPortraitComicImage({
-      portrait,
+      portrait: portraitForGeneration,
+      comicContext: input.comicContext,
       env,
       force: input.force,
       cwd: process.cwd(),
     });
 
-    const updated = await repository.updateManualJobPortraitComic({
-      job_name: portrait.job_name,
-      comic_image_url: generated.imageUrl,
-      comic_generated_at: new Date().toISOString(),
-    });
+    const updated = portrait
+      ? await repository.updateManualJobPortraitComic({
+          job_name: portrait.job_name,
+          comic_image_url: generated.imageUrl,
+          comic_generated_at: new Date().toISOString(),
+        })
+      : null;
 
     return {
-      job_name: updated.job_name,
-      comic_image_url: updated.comic_image_url || generated.imageUrl,
+      job_name: updated?.job_name ?? portraitForGeneration.job_name,
+      comic_image_url: updated?.comic_image_url || generated.imageUrl,
+    };
+  }
+
+  /**
+   * 作用：查询指定岗位本地是否已有漫画文件。
+   * 参数：jobName 为前端当前岗位名，不要求数据库存在该岗位画像。
+   * 返回：存在则返回静态图片地址，否则返回 null。
+   */
+  async function getManualJobPortraitComic(jobName: string): Promise<{
+    job_name: string;
+    comic_image_url: string | null;
+  }> {
+    const asset = resolveJobPortraitComicAsset({ jobName, env });
+    return {
+      job_name: jobName,
+      comic_image_url: asset.exists ? asset.imageUrl : null,
     };
   }
 
@@ -1375,6 +1420,7 @@ export function createJobsIntelligenceService(
     listManualJobPortraits,
     seedManualJobPortraits,
     generateManualJobPortraitComic,
+    getManualJobPortraitComic,
     generateCareerPathGraph,
     getCareerPathGraph,
   };

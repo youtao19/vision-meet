@@ -372,6 +372,8 @@ paths:
                 force:
                   type: boolean
                   default: false
+                comic_context:
+                  $ref: "#/components/schemas/JobPortraitComicContext"
       responses:
         "200":
           description: Generated comic image URL
@@ -1532,6 +1534,32 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ManualJobPortraitRecord"
+
+    JobPortraitComicContext:
+      type: object
+      properties:
+        category:
+          type: string
+        summary:
+          type: string
+        tech_stack:
+          type: array
+          items:
+            type: string
+        industry_context:
+          type: string
+        core_responsibilities:
+          type: array
+          items:
+            type: string
+        suitable_for:
+          type: array
+          items:
+            type: string
+        not_suitable_for:
+          type: array
+          items:
+            type: string
 
     GenerateJobPortraitComicResponse:
       type: object
