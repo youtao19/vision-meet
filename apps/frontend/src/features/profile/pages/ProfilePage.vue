@@ -913,7 +913,7 @@ watch(
           </label>
 
           <label>
-            目标岗位（建议选择数据库岗位）
+            目标岗位
             <input
               v-model="resumeUpload.targetRole"
               type="text"
