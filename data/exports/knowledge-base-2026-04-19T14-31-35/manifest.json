@@ -1,0 +1,44 @@
+{
+  "exported_at": "2026-04-19T06:31:36.532Z",
+  "export_timezone": "Asia/Shanghai",
+  "database": {
+    "host": "127.0.0.1",
+    "port": 5433,
+    "database": "career_agent",
+    "user": "career"
+  },
+  "filters": {
+    "include_resume_text": false,
+    "excluded_source_kinds": [
+      "resume_text"
+    ]
+  },
+  "totals": {
+    "documents": 10120,
+    "chunks": 10204
+  },
+  "by_namespace_source_kind": [
+    {
+      "namespace": "career_runtime",
+      "source_kind": "job_dataset",
+      "documents": 9961,
+      "chunks": 9961
+    },
+    {
+      "namespace": "internal_project_docs",
+      "source_kind": "project_doc",
+      "documents": 159,
+      "chunks": 243
+    }
+  ],
+  "files": [
+    {
+      "path": "knowledge_documents.json",
+      "description": "知识库文档级数据，包含原文、来源路径、命名空间和内容摘要。"
+    },
+    {
+      "path": "knowledge_chunks.jsonl",
+      "description": "知识库分块级数据，每行一个 chunk，包含检索文本、token 数、metadata 和 pgvector 向量文本。"
+    }
+  ]
+}

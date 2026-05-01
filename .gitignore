@@ -45,3 +45,8 @@ apps/backend/storage/
 # Project-specific local files
 apps/backend/.env
 Thumbs.db
+
+*.svg
+ppt-output/
+output/
+infographic/

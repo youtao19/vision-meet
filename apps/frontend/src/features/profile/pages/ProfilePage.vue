@@ -33,12 +33,30 @@ interface CapabilityFormState {
   internshipAbility: number | "";
 }
 
-interface CapabilityEntry {
+interface PreviewMetricCard {
   label: string;
-  value: string;
+  value: number;
+  unit: string;
+  icon: string;
+  color: string;
+  note: string;
 }
 
-const mode = ref<InputMode>("manual");
+interface AbilityMeter {
+  key: string;
+  label: string;
+  value: number;
+  icon: string;
+  color: string;
+  description: string;
+}
+
+interface PreviewTag {
+  label: string;
+  icon: string;
+}
+
+const mode = ref<InputMode>("resume");
 const profileRecords = ref<StudentProfileRecord[]>([]);
 const resumeHistory = ref<ResumeHtmlListItem[]>([]);
 const selectedProfileId = ref<number | null>(null);
@@ -118,6 +136,21 @@ const latestProfile = computed(() => {
   }
   return profileRecords.value[0] ?? null;
 });
+const latestProfileMetricCards = computed(() =>
+  latestProfile.value ? buildProfileMetricCards(latestProfile.value) : [],
+);
+const latestProfileAbilityMeters = computed(() =>
+  latestProfile.value ? buildProfileAbilityMeters(latestProfile.value) : [],
+);
+const latestProfileStrengthTags = computed(() =>
+  latestProfile.value ? buildProfileStrengthTags(latestProfile.value) : [],
+);
+const latestProfileWeaknessTags = computed(() =>
+  latestProfile.value ? buildProfileWeaknessTags(latestProfile.value) : [],
+);
+const latestProfileRecommendations = computed(() =>
+  latestProfile.value ? buildProfileRecommendations(latestProfile.value) : [],
+);
 const capabilityLevelOptions = [
   { value: 1, label: "1 - 待提升" },
   { value: 2, label: "2 - 一般" },
@@ -191,12 +224,44 @@ function mapSelfAssessmentLevel(score: number): string {
   return "需提升";
 }
 
+function clampPercent(value: number): number {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function selfAssessmentToPercent(score: number): number {
+  return clampPercent(score * 20);
+}
+
+function averagePercent(values: number[]): number {
+  if (values.length === 0) {
+    return 0;
+  }
+  return clampPercent(values.reduce((total, value) => total + value, 0) / values.length);
+}
+
 function normalizeCapabilityLevel(value: number | "", fallback = 3): number {
   return typeof value === "number" ? value : fallback;
 }
 
 function selectProfile(profileId: number): void {
   selectedProfileId.value = profileId;
+}
+
+function getProfileInitial(name: string): string {
+  return name.trim().slice(0, 1) || "候";
+}
+
+function getScoreGrade(score: number): string {
+  if (score >= 85) {
+    return "高潜";
+  }
+  if (score >= 70) {
+    return "稳健";
+  }
+  if (score >= 55) {
+    return "可培养";
+  }
+  return "待补强";
 }
 
 /**
@@ -227,40 +292,159 @@ async function loadResumeTargetRoleOptions(keyword: string): Promise<void> {
 }
 
 /**
- * 统一构建“画像维度展示”数据。
- * 说明：页面展示不直接暴露原始 JSON 结构，减少前端模板与后端字段耦合。
+ * 统一构建“画像预览核心指标”。
+ * 说明：预览区只消费稳定契约字段，避免把后端原始评分结构直接散落在模板里。
  */
-function buildProfileCapabilityEntries(profile: StudentProfileRecord): CapabilityEntry[] {
+function buildProfileMetricCards(profile: StudentProfileRecord): PreviewMetricCard[] {
   return [
     {
-      label: "证书",
-      value: profile.certificates.length > 0 ? profile.certificates.join("、") : "未填写",
+      label: "完整度",
+      value: clampPercent(profile.completeness_score),
+      unit: "%",
+      icon: "fact_check",
+      color: "#0f8f9d",
+      note: "字段覆盖",
     },
     {
-      label: "沟通能力",
-      value: `${mapSelfAssessmentLevel(profile.self_assessment.communication)}（${profile.self_assessment.communication}/5）`,
-    },
-    {
-      label: "学习能力",
-      value: `${mapSelfAssessmentLevel(profile.self_assessment.learning)}（${profile.self_assessment.learning}/5）`,
-    },
-    {
-      label: "抗压能力",
-      value: `${mapSelfAssessmentLevel(profile.self_assessment.stress_tolerance)}（${profile.self_assessment.stress_tolerance}/5）`,
-    },
-    {
-      label: "创新能力",
-      value: `${mapSelfAssessmentLevel(profile.self_assessment.innovation)}（${profile.self_assessment.innovation}/5）`,
-    },
-    {
-      label: "项目经历",
-      value: `${profile.experience.project_count} 段`,
-    },
-    {
-      label: "实习经历",
-      value: `${profile.experience.internship_count} 段`,
+      label: "竞争力",
+      value: clampPercent(profile.competitiveness_score),
+      unit: "%",
+      icon: "workspace_premium",
+      color: "#e26d3d",
+      note: getScoreGrade(profile.competitiveness_score),
     },
   ];
+}
+
+/**
+ * 将后端四维画像与自评量表合并成参考稿中的五项能力条。
+ * 注意：自评字段是 1-5 等级，展示前统一映射到 0-100，避免用户误读不同量纲。
+ */
+function buildProfileAbilityMeters(profile: StudentProfileRecord): AbilityMeter[] {
+  const communication = selfAssessmentToPercent(profile.self_assessment.communication);
+  const learning = selfAssessmentToPercent(profile.self_assessment.learning);
+  const stressTolerance = selfAssessmentToPercent(profile.self_assessment.stress_tolerance);
+  const innovation = selfAssessmentToPercent(profile.self_assessment.innovation);
+
+  return [
+    {
+      key: "professional_skills",
+      label: "专业/技术能力",
+      value: clampPercent(profile.dimension_scores.professional_skills),
+      icon: "code_blocks",
+      color: "#2563eb",
+      description: "技能关键词、项目与岗位要求的匹配强度",
+    },
+    {
+      key: "learning",
+      label: "学习与适应能力",
+      value: averagePercent([learning, profile.dimension_scores.development_potential]),
+      icon: "psychology",
+      color: "#14a46c",
+      description: `自评 ${mapSelfAssessmentLevel(profile.self_assessment.learning)}，结合发展潜力评分`,
+    },
+    {
+      key: "execution",
+      label: "执行与抗压能力",
+      value: stressTolerance,
+      icon: "bolt",
+      color: "#d97706",
+      description: `抗压自评 ${profile.self_assessment.stress_tolerance}/5`,
+    },
+    {
+      key: "communication",
+      label: "沟通表达能力",
+      value: averagePercent([communication, profile.dimension_scores.professional_quality]),
+      icon: "forum",
+      color: "#a855f7",
+      description: `沟通自评 ${profile.self_assessment.communication}/5，结合职业素养评分`,
+    },
+    {
+      key: "leadership",
+      label: "领导与协同能力",
+      value: averagePercent([innovation, profile.dimension_scores.professional_quality]),
+      icon: "groups",
+      color: "#6366f1",
+      description: "由创新表现、协作素养与竞赛经历综合推断",
+    },
+  ];
+}
+
+/**
+ * 提炼预览区的优势标签。
+ * 说明：这里优先展示可被简历或表单支撑的证据，不凭空生成不存在的能力结论。
+ */
+function buildProfileStrengthTags(profile: StudentProfileRecord): PreviewTag[] {
+  const tags: PreviewTag[] = profile.skills.slice(0, 4).map((skill) => ({
+    label: skill,
+    icon: "check_circle",
+  }));
+
+  if (profile.certificates.length > 0) {
+    tags.push({ label: `${profile.certificates.length} 项证书`, icon: "verified" });
+  }
+  if (profile.experience.project_count > 0) {
+    tags.push({ label: `${profile.experience.project_count} 段项目`, icon: "dashboard_customize" });
+  }
+  if (profile.experience.internship_count > 0) {
+    tags.push({ label: `${profile.experience.internship_count} 段实习`, icon: "business_center" });
+  }
+
+  return tags.slice(0, 7);
+}
+
+function buildProfileWeaknessTags(profile: StudentProfileRecord): PreviewTag[] {
+  const fieldMap: Record<string, string> = {
+    major: "专业信息待完善",
+    graduation_year: "毕业年份待补全",
+    skills: "技能关键词待提取",
+    education_level: "学历背景待补充",
+    experience: "项目/实习经历较少",
+  };
+
+  if (profile.missing_items.length > 0) {
+    return profile.missing_items.slice(0, 4).map((item) => ({
+      label: fieldMap[item] || item,
+      icon: "error",
+    }));
+  }
+
+  return [{ label: "关键字段已覆盖", icon: "task_alt" }];
+}
+
+function buildProfileRecommendations(profile: StudentProfileRecord): PreviewTag[] {
+  const recommendations: PreviewTag[] = [
+    {
+      label: `围绕「${profile.target_role}」补充岗位关键词`,
+      icon: "ads_click",
+    },
+  ];
+
+  if (profile.experience.project_count > 0) {
+    recommendations.push({
+      label: "将项目经历改写为任务-行动-结果结构",
+      icon: "format_list_bulleted",
+    });
+  } else {
+    recommendations.push({
+      label: "补充 1 个可量化项目案例",
+      icon: "add_task",
+    });
+  }
+
+  if (profile.certificates.length === 0) {
+    recommendations.push({
+      label: "补充证书、竞赛或作品集证明材料",
+      icon: "assignment_add",
+    });
+  } else {
+    recommendations.push({
+      label: "把证书与目标岗位要求建立对应关系",
+      icon: "hub",
+    });
+  }
+
+  return recommendations;
 }
 
 async function loadProfileHistory(): Promise<void> {
@@ -907,76 +1091,142 @@ watch(
         </template>
 
         <template v-else>
-          <label>
-            简历文件
-            <input type="file" accept=".pdf,.doc,.docx,.txt,.md" @change="onResumeChange" />
-          </label>
+          <div class="resume-upload-row">
+            <label>
+              简历文件
+              <input type="file" accept=".pdf,.doc,.docx,.txt,.md" @change="onResumeChange" />
+            </label>
 
-          <label>
-            目标岗位
-            <input
-              v-model="resumeUpload.targetRole"
-              type="text"
-              list="resume-target-role-options"
-              placeholder="例如：前端开发工程师"
-            />
-            <datalist id="resume-target-role-options">
-              <option v-for="item in resumeUpload.targetRoleOptions" :key="item" :value="item" />
-            </datalist>
-          </label>
+            <label>
+              目标岗位
+              <input
+                v-model="resumeUpload.targetRole"
+                type="text"
+                list="resume-target-role-options"
+                placeholder="例如：前端开发工程师"
+              />
+              <datalist id="resume-target-role-options">
+                <option v-for="item in resumeUpload.targetRoleOptions" :key="item" :value="item" />
+              </datalist>
+            </label>
 
-          <p class="mode-hint">
-            系统会优先使用你选择的数据库岗位；若留空，则会尝试从简历中自动解析并映射到数据库岗位。
-            <span v-if="loading.resumeTargetRoleSearch">岗位建议加载中...</span>
-          </p>
-
-          <button class="primary-btn" :disabled="loading.resumeSubmit" @click="submitResumeProfile">
-            {{ loading.resumeSubmit ? "解析中..." : "上传并生成画像" }}
-          </button>
+            <div class="resume-upload-action">
+              <p class="mode-hint">
+                系统会优先使用你选择的数据库岗位；留空时尝试从简历自动解析。
+                <span v-if="loading.resumeTargetRoleSearch">岗位建议加载中...</span>
+              </p>
+              <button
+                class="primary-btn"
+                :disabled="loading.resumeSubmit"
+                @click="submitResumeProfile"
+              >
+                {{ loading.resumeSubmit ? "解析中..." : "上传并生成画像" }}
+              </button>
+            </div>
+          </div>
         </template>
       </article>
 
-      <aside class="panel preview-panel">
-        <h3>实时画像预览</h3>
+      <aside class="panel preview-panel profile-preview">
+        <article v-if="latestProfile" class="profile-result-card">
+          <header class="result-header">
+            <div>
+              <h3>{{ latestProfile.name }}</h3>
+              <div class="result-meta">
+                <span>
+                  <span class="material-symbols-outlined">school</span>
+                  {{ latestProfile.education_level || "学历待补充" }}
+                </span>
+                <span>
+                  <span class="material-symbols-outlined">business_center</span>
+                  意向：{{ latestProfile.target_role }}
+                </span>
+              </div>
+            </div>
+            <span class="success-badge">
+              <span class="material-symbols-outlined">check_circle</span>
+              {{ latestProfile.source_type === "resume" ? "AI 提取成功" : "画像生成成功" }}
+            </span>
+          </header>
 
-        <div v-if="latestProfile" class="preview-card">
-          <p class="preview-headline">#{{ latestProfile.id }} {{ latestProfile.name }}</p>
-          <p class="preview-meta">
-            来源：{{ formatSourceType(latestProfile.source_type) }} ｜ 目标岗位：{{
-              latestProfile.target_role
+          <section class="result-main-grid">
+            <div class="result-ability-panel">
+              <div class="result-section-title">
+                <span class="material-symbols-outlined">trending_up</span>
+                <h4>核心能力模型推演</h4>
+              </div>
+              <div class="result-ability-list">
+                <div
+                  v-for="item in latestProfileAbilityMeters"
+                  :key="item.key"
+                  class="result-ability-row"
+                  :style="{ '--ability-color': item.color }"
+                >
+                  <div class="result-ability-copy">
+                    <span>{{ item.label }}</span>
+                    <strong>{{ item.value }}%</strong>
+                  </div>
+                  <div class="result-ability-track">
+                    <span :style="{ width: `${item.value}%` }"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="result-insight-panel">
+              <section class="result-block strengths">
+                <h4>核心优势 <span>(STRENGTHS)</span></h4>
+                <div class="result-tags">
+                  <span v-for="item in latestProfileStrengthTags" :key="item.label">
+                    <span class="material-symbols-outlined">{{ item.icon }}</span>
+                    {{ item.label }}
+                  </span>
+                </div>
+              </section>
+
+              <section class="result-block risks">
+                <h4>待提升项 <span>(WEAKNESSES)</span></h4>
+                <div class="result-tags">
+                  <span v-for="item in latestProfileWeaknessTags" :key="item.label">
+                    <span class="material-symbols-outlined">{{ item.icon }}</span>
+                    {{ item.label }}
+                  </span>
+                </div>
+              </section>
+
+              <section class="result-block recommendations">
+                <h4>推荐岗位方向</h4>
+                <div class="recommend-tags">
+                  <span v-for="item in latestProfileRecommendations" :key="item.label">
+                    {{ item.label }}
+                  </span>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="result-summary-card">
+            <div class="result-summary-title">
+              <span class="material-symbols-outlined">workspace_premium</span>
+              <h4>AI 综合评价（基于简历结构分析）</h4>
+            </div>
+            <p>{{ latestProfile.summary }}</p>
+          </section>
+
+          <footer class="result-footnote">
+            来源：{{ formatSourceType(latestProfile.source_type) }} ｜ 完整度
+            {{ latestProfile.completeness_score }} ｜ 竞争力
+            {{ latestProfile.competitiveness_score }} ｜ 生成时间：{{
+              formatDate(latestProfile.created_at)
             }}
-          </p>
-          <p class="preview-summary">{{ latestProfile.summary }}</p>
+          </footer>
+        </article>
 
-          <div class="score-grid">
-            <div>
-              <p class="score-label">完整度</p>
-              <p class="score-value">{{ latestProfile.completeness_score }}</p>
-            </div>
-            <div>
-              <p class="score-label">竞争力</p>
-              <p class="score-value">{{ latestProfile.competitiveness_score }}</p>
-            </div>
-          </div>
-
-          <div class="skill-tags">
-            <span v-for="skill in latestProfile.skills" :key="skill">{{ skill }}</span>
-          </div>
-
-          <div class="capability-list">
-            <p class="capability-list-title">画像维度结果</p>
-            <ul>
-              <li v-for="item in buildProfileCapabilityEntries(latestProfile)" :key="item.label">
-                <span>{{ item.label }}</span>
-                <strong>{{ item.value }}</strong>
-              </li>
-            </ul>
-          </div>
-
-          <p class="preview-time">生成时间：{{ formatDate(latestProfile.created_at) }}</p>
+        <div v-else class="preview-empty-state">
+          <span class="material-symbols-outlined">description</span>
+          <h4>等待生成画像</h4>
+          <p>完成一次表单录入或简历上传后，这里会展示结构化能力画像。</p>
         </div>
-
-        <p v-else class="empty">请先完成一次提交，右侧会展示最新的数据库画像结果。</p>
       </aside>
     </section>
 
@@ -1269,8 +1519,8 @@ watch(
 
 .content-layout {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
 }
 
 .form-panel h3,
@@ -1385,142 +1635,310 @@ textarea {
   box-shadow: none;
 }
 
-.preview-card {
-  border: 1px solid rgba(255, 255, 255, 0.66);
-  border-radius: 22px;
-  padding: 18px;
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.2));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.74),
-    0 18px 34px rgba(54, 84, 140, 0.12);
-}
-
-.preview-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.44), transparent 44%),
-    radial-gradient(circle at 82% 18%, rgba(158, 231, 255, 0.46), transparent 26%);
-  pointer-events: none;
-}
-
-.preview-headline {
-  margin: 0;
-  color: var(--profile-title);
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
-}
-
-.preview-meta,
-.preview-time {
-  margin: 10px 0 0;
-  color: rgba(49, 73, 111, 0.68);
-  font-size: 13px;
-}
-
-.preview-summary {
-  margin: 14px 0 0;
-  color: #1d3658;
-  line-height: 1.8;
-}
-
-.score-grid {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.score-grid > div {
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  border-radius: 18px;
-  padding: 12px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.3));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-}
-
-.score-label {
-  margin: 0;
-  color: rgba(56, 79, 115, 0.62);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.score-value {
-  margin: 6px 0 0;
-  color: #10284a;
-  font-weight: 800;
-  font-size: 28px;
-}
-
-.skill-tags {
-  margin-top: 16px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.skill-tags span {
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(215, 244, 255, 0.42));
-  border: 1px solid rgba(169, 230, 255, 0.82);
-  color: #17647b;
-  font-size: 12px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
-}
-
-.capability-list {
-  margin-top: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  border-radius: 20px;
-  padding: 14px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.3));
-}
-
-.capability-list-title {
-  margin: 0;
-  color: #11233f;
-  font-weight: 800;
-}
-
-.capability-list ul {
-  list-style: none;
-  margin: 12px 0 0;
+.profile-preview {
   padding: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.42));
+}
+
+.profile-result-card {
+  padding: 26px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 20px 44px rgba(46, 76, 124, 0.1);
+}
+
+.result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.result-header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.result-meta {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: #64748b;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.result-meta span,
+.success-badge,
+.result-section-title,
+.result-summary-title {
+  display: inline-flex;
+  align-items: center;
+}
+
+.result-meta .material-symbols-outlined {
+  margin-right: 4px;
+  font-size: 18px;
+}
+
+.success-badge {
+  flex: 0 0 auto;
+  gap: 6px;
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.success-badge .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.result-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 48px;
+  padding: 24px 0 32px;
+}
+
+.result-section-title {
+  gap: 10px;
+  color: #1e293b;
+  margin-bottom: 24px;
+}
+
+.result-section-title .material-symbols-outlined {
+  color: #3b82f6;
+  font-size: 22px;
+}
+
+.result-section-title h4,
+.result-block h4,
+.result-summary-title h4 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.result-ability-list {
+  display: grid;
+  gap: 20px;
+}
+
+.result-ability-row {
+  --ability-color: #3b82f6;
   display: grid;
   gap: 8px;
 }
 
-.capability-list li {
+.result-ability-copy {
   display: flex;
-  gap: 10px;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 10px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  gap: 12px;
+  color: #475569;
+  font-size: 15px;
+  font-weight: 600;
 }
 
-.capability-list li:first-child {
-  padding-top: 0;
-  border-top: none;
+.result-ability-copy strong {
+  color: #1e293b;
+  font-size: 16px;
+  font-weight: 700;
 }
 
-.capability-list li span {
-  color: rgba(58, 82, 117, 0.72);
+.result-ability-track {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.result-ability-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ability-color);
+  transition: width 800ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.result-insight-panel {
+  display: grid;
+  align-content: start;
+  gap: 32px;
+}
+
+.result-block h4 {
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.result-block h4 span {
+  color: #94a3b8;
+  font-weight: 500;
   font-size: 13px;
+  margin-left: 4px;
 }
 
-.capability-list li strong {
-  color: #1e3658;
-  font-size: 13px;
-  text-align: right;
+.result-tags,
+.recommend-tags {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.result-tags span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.result-tags .material-symbols-outlined {
+  font-size: 18px;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.result-tags .material-symbols-outlined::before,
+.result-tags .material-symbols-outlined::after {
+  display: none !important;
+}
+
+.strengths .result-tags span {
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #dcfce7;
+}
+
+.risks .result-tags span {
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+}
+
+.recommend-tags span {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  color: #334155;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  font-weight: 600;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.result-summary-card {
+  padding: 24px 28px;
+  border-radius: 16px;
+  background: #f0f7ff;
+  border: 1px solid #e0e7ff;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.result-summary-title {
+  gap: 10px;
+  color: #1e3a8a;
+}
+
+.result-summary-title .material-symbols-outlined {
+  font-size: 22px;
+  color: #2563eb;
+}
+
+.result-summary-title h4 {
+  color: #1e3a8a;
+  font-size: 17px;
+}
+
+.result-summary-card p {
+  margin: 12px 0 0;
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.75;
+  font-weight: 500;
+}
+
+.result-footnote {
+  margin-top: 20px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.preview-empty-state {
+  min-height: 520px;
+  padding: 44px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: rgba(56, 80, 116, 0.74);
+}
+
+.preview-empty-state > .material-symbols-outlined {
+  width: 76px;
+  height: 76px;
+  border-radius: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f8f9d;
+  font-size: 38px;
+  background: rgba(220, 252, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.66);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 18px 34px rgba(47, 83, 129, 0.12);
+}
+
+.preview-empty-state h4 {
+  margin: 14px 0 6px;
+  color: #10284a;
+  font-size: 20px;
+}
+
+.preview-empty-state p {
+  margin: 0;
+  max-width: 320px;
+  line-height: 1.7;
 }
 
 .history-header {
@@ -1608,6 +2026,27 @@ textarea {
   line-height: 1.7;
 }
 
+.resume-upload-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(220px, 0.85fr) minmax(260px, 1fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.resume-upload-row label,
+.resume-upload-row .mode-hint {
+  margin-bottom: 0;
+}
+
+.resume-upload-action {
+  display: grid;
+  gap: 10px;
+}
+
+.resume-upload-action .primary-btn {
+  min-height: 46px;
+}
+
 .action-row {
   display: flex;
   gap: 10px;
@@ -1666,8 +2105,7 @@ textarea {
   }
 }
 
-.hero,
-.preview-card {
+.hero {
   animation: float-glass 8s ease-in-out infinite;
 }
 
@@ -1682,6 +2120,7 @@ textarea {
   }
 
   .mode-selector,
+  .resume-upload-row,
   .two-col {
     grid-template-columns: 1fr;
   }
@@ -1716,7 +2155,25 @@ textarea {
     font-size: 28px;
   }
 
-  .preview-headline {
+  .profile-result-card {
+    padding: 18px;
+  }
+
+  .result-header,
+  .result-main-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .result-header {
+    display: grid;
+  }
+
+  .success-badge {
+    justify-self: start;
+  }
+
+  .result-header h3 {
     font-size: 24px;
   }
 
