@@ -79,6 +79,73 @@ const processedJobsText = computed(() => {
   return `${task.processed_jobs} / ${task.total_jobs || "待统计"}`;
 });
 
+const statusText = computed(() => {
+  const status = currentTask.value?.status;
+  if (status === "queued") {
+    return "排队中";
+  }
+  if (status === "running") {
+    return "执行中";
+  }
+  if (status === "success") {
+    return "成功";
+  }
+  if (status === "degraded") {
+    return "部分成功";
+  }
+  if (status === "failed") {
+    return "失败";
+  }
+  return "未启动";
+});
+
+function formatLocalTime(value: string | null): string {
+  if (!value) {
+    return "暂无";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "暂无";
+  }
+  return date.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) {
+    return `${seconds} 秒`;
+  }
+  return `${minutes} 分 ${seconds.toString().padStart(2, "0")} 秒`;
+}
+
+const taskTimingText = computed(() => {
+  const task = currentTask.value;
+  if (!task?.started_at) {
+    return "尚未开始";
+  }
+
+  // 依赖 heartbeatTick 让运行中的耗时文案持续刷新。
+  void heartbeatTick.value;
+  const startedAt = new Date(task.started_at).getTime();
+  const endedAt = task.finished_at ? new Date(task.finished_at).getTime() : Date.now();
+  return formatDuration(endedAt - startedAt);
+});
+
+const lastUpdatedText = computed(() => formatLocalTime(currentTask.value?.updated_at ?? null));
+
+const agentWaitHint = computed(() => {
+  if (!isRunning.value || currentStage.value !== "generating") {
+    return "";
+  }
+  return "已进入 Agent 生成阶段，后端最长等待约 180 秒；如果模型未返回，会自动标记失败并显示原因。";
+});
+
 function stopPolling(): void {
   if (pollingTimer !== null) {
     window.clearInterval(pollingTimer);
@@ -303,6 +370,10 @@ onBeforeUnmount(() => {
         <p>清洗岗位：{{ processedJobsText }}</p>
         <p>岗位总数：{{ totalJobsText }}</p>
         <p>生成数量：{{ generatedPreviewCount }} / 10</p>
+        <p>任务状态：{{ statusText }}</p>
+        <p>已耗时：{{ taskTimingText }}</p>
+        <p>最后更新：{{ lastUpdatedText }}</p>
+        <p v-if="agentWaitHint" class="wait-hint">{{ agentWaitHint }}</p>
         <p v-if="currentTask.error_message" class="error-detail">
           失败原因：{{ currentTask.error_message }}
         </p>
@@ -541,6 +612,11 @@ select {
 
 .error-detail {
   color: #991b1b;
+  font-weight: 600;
+}
+
+.wait-hint {
+  color: #0f766e;
   font-weight: 600;
 }
 

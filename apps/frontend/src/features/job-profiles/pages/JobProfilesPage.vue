@@ -387,7 +387,7 @@ const loading = reactive({ list: false, comicJobName: "" });
 const uiState = reactive({ error: "" });
 
 const categoryOptions = computed(() => {
-  const categories = Array.from(new Set(MOCK_PROFILES.map((item) => item.category))).sort();
+  const categories = Array.from(new Set(profiles.value.map((item) => item.category))).sort();
   return ["all", ...categories];
 });
 
@@ -420,14 +420,146 @@ watch(selectedJobName, (newVal) => {
   if (target) selected.value = target;
 });
 
+const DIMENSION_META = {
+  skills: {
+    dimensionKey: "professional_skills",
+    dimensionName: "专业技能",
+    icon: "⚡️",
+    groupKey: "professional_skill",
+  },
+  certification: {
+    dimensionKey: "qualification",
+    dimensionName: "资历要求",
+    icon: "🎓",
+    groupKey: "basic_requirement",
+  },
+  innovation: {
+    dimensionKey: "innovation",
+    dimensionName: "创新能力",
+    icon: "💡",
+    groupKey: "growth_potential",
+  },
+  learning: {
+    dimensionKey: "learning_ability",
+    dimensionName: "学习能力",
+    icon: "📚",
+    groupKey: "growth_potential",
+  },
+  stress: {
+    dimensionKey: "stress_tolerance",
+    dimensionName: "抗压能力",
+    icon: "🛡️",
+    groupKey: "professional_quality",
+  },
+  communication: {
+    dimensionKey: "communication",
+    dimensionName: "沟通能力",
+    icon: "💬",
+    groupKey: "professional_quality",
+  },
+  experience: {
+    dimensionKey: "practical_experience",
+    dimensionName: "实践/实习",
+    icon: "💼",
+    groupKey: "basic_requirement",
+  },
+} as const;
+
+function normalizeWeight(weight: number): number {
+  return weight > 1 ? weight / 100 : weight;
+}
+
+function toEnhancedDimension(
+  key: keyof typeof DIMENSION_META,
+  source: ManualJobPortraitRecord[keyof Pick<
+    ManualJobPortraitRecord,
+    | "skills"
+    | "certification"
+    | "innovation"
+    | "learning"
+    | "stress"
+    | "communication"
+    | "experience"
+  >],
+) {
+  const meta = DIMENSION_META[key];
+  return {
+    ...meta,
+    level: source.level,
+    weight: normalizeWeight(source.weight),
+    definition: source.description || `${meta.dimensionName}要求待补充。`,
+    importance: normalizeWeight(source.weight) >= 0.2 ? "高" : "中",
+    subAbilities: [
+      {
+        name: meta.dimensionName,
+        description: source.description || `${meta.dimensionName}要求待补充。`,
+        requiredLevel: `Lv.${source.level}`,
+        evidenceExamples: ["项目经历", "实习经历", "作品或证书"],
+        verificationMethods: ["简历材料", "面试追问", "项目说明"],
+      },
+    ],
+    learningPath: [
+      {
+        stage: "短期",
+        goal: `补齐${meta.dimensionName}相关证据`,
+        actions: [source.description || "围绕岗位要求补充可展示材料"],
+      },
+    ],
+    commonGaps: ["缺少可验证的项目或实践证据"],
+    improvementAdvice: [source.description || "结合岗位要求补齐能力证明"],
+  };
+}
+
+function toEnhancedProfile(item: ManualJobPortraitRecord): EnhancedJobProfile {
+  const enhancedDimensions = [
+    toEnhancedDimension("skills", item.skills),
+    toEnhancedDimension("certification", item.certification),
+    toEnhancedDimension("innovation", item.innovation),
+    toEnhancedDimension("learning", item.learning),
+    toEnhancedDimension("stress", item.stress),
+    toEnhancedDimension("communication", item.communication),
+    toEnhancedDimension("experience", item.experience),
+  ];
+  const techStack = item.skills.description
+    .split(/[、，,；;。\s]+/g)
+    .map((text) => text.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  return {
+    ...item,
+    jobLevel: `Lv.${item.skills.level}`,
+    jobStage: "流水线生成",
+    jobFamily: item.category,
+    summary: item.skills.description || `${item.job_name}岗位画像由流水线生成。`,
+    techStack,
+    industryContext: "来自岗位画像流水线的真实生成结果。",
+    coreResponsibilities: [item.skills.description, item.experience.description].filter(Boolean),
+    suitableFor: [item.learning.description].filter(Boolean),
+    notSuitableFor: [],
+    generatedMeta: {
+      confidence: 1,
+      sourceCount: 1,
+    },
+    enhancedDimensions,
+  };
+}
+
 async function loadProfiles(): Promise<void> {
   loading.list = true;
   uiState.error = "";
   try {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    profiles.value = await mergeSavedComicState(MOCK_PROFILES);
+    const response = await fetchManualJobPortraits();
+    const nextProfiles =
+      response.items.length > 0
+        ? response.items.map(toEnhancedProfile)
+        : await mergeSavedComicState(MOCK_PROFILES);
+    profiles.value = nextProfiles;
+    if (!categoryOptions.value.includes(activeCategory.value)) {
+      activeCategory.value = "all";
+    }
     if (profiles.value.length > 0) {
-      const defaultProfile = profiles.value[4] ?? profiles.value[0];
+      const defaultProfile = profiles.value[0];
       if (!defaultProfile) return;
       selected.value = defaultProfile;
       selectedJobName.value = defaultProfile.job_name;

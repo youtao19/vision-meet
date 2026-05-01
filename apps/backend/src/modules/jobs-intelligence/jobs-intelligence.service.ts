@@ -53,6 +53,7 @@ import {
   groupPostingFactsByRole,
   isPostingFactEligibleForCanonical,
 } from "./jobs-intelligence.profile.js";
+import { isComputerRelatedCleanedJob } from "./jobs-intelligence.computer-filter.js";
 import { buildCareerGraphFromManualPortraits } from "./jobs-intelligence.graph.manual.js";
 import { generateCareerGraphByAgent } from "./jobs-intelligence.graph.agent.js";
 import { MANUAL_JOB_PORTRAITS_SEED } from "./manual-job-portraits.seed.js";
@@ -442,8 +443,9 @@ async function generateJobPortraitsByAgent(params: {
   try {
     const summary = buildPortraitSeedSummary(params.cleanedJobs);
     const prompt = [
-      `请你基于以下“1W岗位清洗后的全量统计摘要”生成 ${JOB_PORTRAIT_TARGET_COUNT} 条岗位画像。`,
+      `请你基于以下“计算机相关岗位清洗后的统计摘要”生成 ${JOB_PORTRAIT_TARGET_COUNT} 条岗位画像。`,
       "输出要求：只返回 JSON 数组，禁止 Markdown 包裹，禁止解释。",
+      "画像必须限定在计算机、软件、数据、算法、测试、运维、安全、嵌入式、硬件测试等相关方向。",
       "category 建议值：software/data/implementation/research/product/operation/design/marketing/other。",
       "统计摘要如下：",
       summary,
@@ -827,7 +829,12 @@ export function createJobsIntelligenceService(
         message: `开始清洗 ${jobs.length} 条岗位数据`,
       });
 
-      const cleanedJobs = jobs.map((job) => buildPipelineCleanedJob(taskId, job));
+      const cleanedJobs = jobs
+        .map((job) => buildPipelineCleanedJob(taskId, job))
+        .filter((job) => isComputerRelatedCleanedJob(job));
+      if (cleanedJobs.length === 0) {
+        throw new Error("COMPUTER_RELATED_JOBS_EMPTY:清洗后没有可用于生成画像的计算机相关岗位");
+      }
       const normalizedHintHits = cleanedJobs.filter(
         (item) => item.normalization_confidence > 0 && item.job_family !== "other",
       ).length;
@@ -839,11 +846,11 @@ export function createJobsIntelligenceService(
         processed_jobs: cleanedJobs.length,
         success_profiles: 0,
         failed_profiles: 0,
-        message: `清洗完成 ${cleanedJobs.length}/${jobs.length}，准备调用 Pi Agent 生成 ${JOB_PORTRAIT_TARGET_COUNT} 条岗位画像`,
+        message: `清洗完成 ${cleanedJobs.length}/${jobs.length} 条计算机相关岗位，准备调用 Pi Agent 生成 ${JOB_PORTRAIT_TARGET_COUNT} 条岗位画像`,
       });
 
       console.info(
-        `[jobs:pipeline] cleaned task_id=${taskId} cleaned=${cleanedJobs.length} normalized_hint=${normalizedHintHits}`,
+        `[jobs:pipeline] cleaned task_id=${taskId} computer_related=${cleanedJobs.length} total=${jobs.length} normalized_hint=${normalizedHintHits}`,
       );
 
       const agentResult = await generateJobPortraitsByAgent({
@@ -863,7 +870,7 @@ export function createJobsIntelligenceService(
         await repository.replaceManualJobPortraits(agentResult.portraits);
       }
 
-      const message = `流水线完成（cleanse->agent-portraits）：cleaned=${cleanedJobs.length}，portraits=${agentResult.portraits.length}，model=${agentResult.model || "unknown"}，trace_id=${agentResult.traceId}`;
+      const message = `流水线完成（cleanse->agent-portraits）：computer_related=${cleanedJobs.length}/${jobs.length}，portraits=${agentResult.portraits.length}，model=${agentResult.model || "unknown"}，trace_id=${agentResult.traceId}`;
       console.info(`[jobs:pipeline] finish task_id=${taskId} ${message}`);
 
       return repository.updatePipelineTask(taskId, {

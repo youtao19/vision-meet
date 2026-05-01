@@ -76,15 +76,6 @@
 - 必须维护 `apps/backend/.env.example`、`apps/frontend/.env.example`。
 - 配置读取必须集中管理并做校验（建议 zod），禁止业务代码到处直读 `process.env`。
 
-## 问题复盘与沉淀
-
-- 每次问题修复完成后，必须追加结构化记录到 `docs/问题记录库.jsonl`。
-- 字段至少包含：`id`、`occurred_at`、`module`、`symptom`、`root_cause`、`resolution_steps`、`conclusion`、`tags`。
-- 记录规范与示例见 `docs/问题记录规范.md`。
-
-## 进度同步
-
-- 每次实现一个需求之后，需要同步修改进度文件`实现跟踪.md`.
 
 ## 高质量中文注释规范（默认生效）
 
