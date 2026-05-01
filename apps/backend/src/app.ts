@@ -97,7 +97,21 @@ export function createApp(): express.Express {
       matchingRepository,
       profileRepository,
       jobsRepository,
-      careerPathService: careerPathModule.service,
+      careerPathResolver: async ({ job_id }) => {
+        // 报告侧统一走 V2 jobs-intelligence 图谱，避免再依赖 V1 career-path 模块。
+        try {
+          const graph = await jobsIntelligenceService.getCareerPathGraph(job_id, 2);
+          return {
+            depth: graph.depth,
+            // V2 图谱无 canonical_role 概念，传 null 让模板退回岗位标题。
+            canonical_role_title: null,
+            promotion_routes: graph.promotion_routes,
+            transition_routes: graph.transition_routes,
+          };
+        } catch {
+          return null;
+        }
+      },
     },
     {
       reportExportDir: appEnv.REPORT_EXPORT_DIR,
@@ -152,6 +166,7 @@ export function createApp(): express.Express {
     }),
   );
   app.use("/api/v1/knowledge", knowledgeModule.router);
+  // V1 path-graph 仅向后兼容历史调用方，路由会带 Deprecation/Sunset/Link 头；新调用方请使用 /api/v2/career-paths/*。
   app.use("/api/v1/career-paths", careerPathModule.router);
   app.use("/api/v1/matches", createMatchingRouter(matchingService));
   app.use("/api/v1/reports", createReportRouter(reportService));

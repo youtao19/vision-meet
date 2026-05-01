@@ -648,7 +648,18 @@ function buildRouteRecommendations(params: {
   targetNodeId: string;
   relationType: "promotion" | "transition";
   edges: CareerPathV2GraphResponse["edges"];
+  nodes: CareerGraphSnapshot["nodes"];
 }): CareerRouteRecommendation[] {
+  /**
+   * 节点中文名查找：避免把内部 ID（形如 job-1234）当成展示标题往前端塞，
+   * 历史代码漏拼这块导致前端只能用正则反向兜底。
+   */
+  const nodeTitleById = new Map<string, string>();
+  for (const node of params.nodes) {
+    nodeTitleById.set(node.id, node.title || node.id);
+  }
+  const titleOf = (nodeId: string): string => nodeTitleById.get(nodeId) ?? nodeId;
+
   const outgoing = params.edges
     .filter(
       (edge) => edge.source === params.targetNodeId && edge.relation_type === params.relationType,
@@ -674,7 +685,7 @@ function buildRouteRecommendations(params: {
         steps.push({
           node_id: edge.source,
           role_key: edge.source,
-          title: edge.source,
+          title: titleOf(edge.source),
           relation_type: null,
           reason: null,
           required_skills: [],
@@ -686,7 +697,7 @@ function buildRouteRecommendations(params: {
       steps.push({
         node_id: edge.target,
         role_key: edge.target,
-        title: edge.target,
+        title: titleOf(edge.target),
         relation_type: edge.relation_type,
         reason: edge.reason,
         required_skills: edge.required_skills,
@@ -700,13 +711,15 @@ function buildRouteRecommendations(params: {
       pathEdges.reduce((sum, edge) => sum + edge.score, 0) / Math.max(pathEdges.length, 1),
     );
 
+    const titleChain = [titleOf(pathEdges[0].source), ...pathEdges.map((edge) => titleOf(edge.target))];
+
     return {
       route_id: pathEdges.map((edge) => edge.id).join("__"),
       route_type: params.relationType,
       title:
         params.relationType === "promotion"
-          ? `晋升路径：${pathEdges.map((edge) => `${edge.source} -> ${edge.target}`).join(" -> ")}`
-          : `换岗路径：${pathEdges.map((edge) => `${edge.source} -> ${edge.target}`).join(" -> ")}`,
+          ? `晋升路径：${titleChain.join(" -> ")}`
+          : `换岗路径：${titleChain.join(" -> ")}`,
       summary:
         params.relationType === "promotion"
           ? "同岗位族职级递进路径，强调技能加深与复杂度提升。"
@@ -1351,11 +1364,13 @@ export function createJobsIntelligenceService(
       targetNodeId: targetNode.id,
       relationType: "promotion",
       edges,
+      nodes: snapshot.nodes,
     });
     const transitionRoutes = buildRouteRecommendations({
       targetNodeId: targetNode.id,
       relationType: "transition",
       edges,
+      nodes: snapshot.nodes,
     });
 
     const promotedNodeIds = new Set(

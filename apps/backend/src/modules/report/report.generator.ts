@@ -1,6 +1,6 @@
 import type {
-  CareerPathGraphResponse,
   CareerReportSection,
+  CareerRouteRecommendation,
   KnowledgeSearchResultItem,
   MatchResultDetail,
   JobRecord,
@@ -11,11 +11,24 @@ import type {
  * 文件作用：定义报告生成器抽象。
  * 设计边界：service 只依赖该接口，当前默认实现为稳定可复现的模板生成。
  */
+/**
+ * 报告生成层使用的图谱上下文。
+ * 设计原因：报告侧只关心“图谱深度 + 路径推荐”，不应耦合 V1/V2 完整响应结构，
+ * 这样一旦底层切换或升级，生成器无需改动。
+ */
+export type ReportCareerPathContext = {
+  depth: number;
+  /** 命中的规范岗位中文名（V1 概念）。V2 链路无此字段，缺省由模板退回 job.title。 */
+  canonical_role_title?: string | null;
+  promotion_routes: CareerRouteRecommendation[];
+  transition_routes: CareerRouteRecommendation[];
+};
+
 export type ReportGeneratorInput = {
   match: MatchResultDetail;
   profile: StudentProfileRecord;
   job: JobRecord;
-  career_path?: CareerPathGraphResponse | null;
+  career_path?: ReportCareerPathContext | null;
   knowledge_hits?: KnowledgeSearchResultItem[];
   agent_summary?: string;
 };

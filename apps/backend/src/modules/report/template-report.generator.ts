@@ -126,8 +126,10 @@ function buildCareerPath(input: ReportGeneratorInput): string {
     return `${index + 1}. ${route.title}；适配度 ${route.suitability_score} 分；${route.summary}${required ? `；关键技能：${required}` : ""}`;
   });
 
+  // V2 图谱没有 canonical_role 概念，直接退回岗位标题，避免在报告里漏出 V1 才有的字段命名。
+  const anchorTitle = input.career_path.canonical_role_title ?? input.job.title;
   return [
-    `当前岗位已映射到规范岗位【${input.career_path.canonical_role_title}】，图谱深度 ${input.career_path.depth}。`,
+    `当前岗位已映射到岗位画像【${anchorTitle}】，图谱深度 ${input.career_path.depth}。`,
     `优先晋升路径：${promotionLines.length > 0 ? promotionLines.join("\n") : "当前暂无更高阶晋升路径，建议先巩固岗位核心能力。"}。`,
     `可选换岗路径：${transitionLines.length > 0 ? transitionLines.join("\n") : "当前暂无推荐换岗路径。"}。`,
   ].join("\n");

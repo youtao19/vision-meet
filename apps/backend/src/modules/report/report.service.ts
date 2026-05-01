@@ -18,12 +18,22 @@ import type {
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { MatchingRepository } from "../matching/matching.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
-import type { CareerPathService } from "../career-path/career-path.service.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import type { ReportExportRepository } from "./report-export.repository.js";
 import type { ReportExporter } from "./report.exporter.js";
-import type { ReportGenerator } from "./report.generator.js";
+import type { ReportCareerPathContext, ReportGenerator } from "./report.generator.js";
 import type { ReportRepository } from "./report.repository.js";
+
+/**
+ * 作用：解析“目标岗位 + 学生画像”对应的图谱推荐。
+ * 设计原因：报告侧只关心“能不能拿到推荐路径”，不应直接依赖 V1/V2 任意一方的 service。
+ * 调用约定：实现需要自行处理图谱不可用 / 命中失败等场景，并返回 null（视为图谱缺失）。
+ */
+export type ReportCareerPathResolver = (input: {
+  job_id: number;
+  student_profile_id?: number | null;
+  depth: number;
+}) => Promise<ReportCareerPathContext | null>;
 
 const SECTION_ORDER: CareerReportSectionKey[] = [
   "overview",
@@ -238,7 +248,7 @@ export function createReportService(
   jobsRepository: JobsRepository,
   generator: ReportGenerator,
   exporter: ReportExporter,
-  careerPathService?: CareerPathService,
+  careerPathResolver?: ReportCareerPathResolver,
   options: ReportServiceOptions = {},
 ): ReportService {
   const exportDir = options.exportDir || path.join(process.cwd(), "storage", "exports", "reports");
@@ -269,10 +279,10 @@ export function createReportService(
 
     const existing = (await reportRepository.listReports({ match_id: input.match_id })).items;
     const nextVersion = existing.length > 0 ? existing[0].version + 1 : 1;
-    let careerPath = null;
-    if (careerPathService) {
+    let careerPath: ReportCareerPathContext | null = null;
+    if (careerPathResolver) {
       try {
-        careerPath = await careerPathService.getCareerPathGraph({
+        careerPath = await careerPathResolver({
           job_id: job.id,
           student_profile_id: profile.id,
           depth: 2,

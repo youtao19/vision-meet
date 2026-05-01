@@ -1,7 +1,6 @@
 import type { Router } from "express";
 import type { Pool } from "pg";
 
-import type { CareerPathService } from "../career-path/career-path.service.js";
 import { createPgJobsRepository } from "../jobs/jobs.repository.pg.js";
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import { createPgMatchingRepository } from "../matching/matching.repository.pg.js";
@@ -14,6 +13,7 @@ import { createPlaywrightReportExporter } from "./playwright-report.exporter.js"
 import { createReportExportDownloadRouter, createReportRouter } from "./report.route.js";
 import { createPgReportRepository } from "./report.repository.pg.js";
 import type { ReportRepository } from "./report.repository.js";
+import type { ReportCareerPathResolver } from "./report.service.js";
 import { createReportService } from "./report.service.js";
 import { createTemplateReportGenerator } from "./template-report.generator.js";
 
@@ -28,7 +28,12 @@ export type ReportServiceDependencies = {
   matchingRepository: MatchingRepository;
   profileRepository: ProfileRepository;
   jobsRepository: JobsRepository;
-  careerPathService?: CareerPathService;
+  /**
+   * 作用：注入图谱推荐解析器。
+   * 设计说明：报告侧不再耦合 V1 career-path service，由 app 层将 V2 jobs-intelligence
+   * service（或将来的图谱实现）适配成 ReportCareerPathResolver。
+   */
+  careerPathResolver?: ReportCareerPathResolver;
 };
 
 export type ReportServiceFactoryOptions = {
@@ -50,7 +55,7 @@ export function createReportServiceFromDependencies(
     dependencies.jobsRepository,
     generator,
     exporter,
-    dependencies.careerPathService,
+    dependencies.careerPathResolver,
     {
       exportDir: options.reportExportDir,
     },

@@ -128,6 +128,11 @@ npm run jobs:pipeline:run
 4. `POST /api/v2/matches`、`GET /api/v2/matches*`：V2 匹配接口（含路径建议和证据引用）。
 5. `POST /api/v2/reports`、`GET /api/v2/reports*`：V2 报告接口（含 `generator_mode` 与结构化行动计划）。
 
+## 已废弃接口（仅向后兼容）
+
+1. `GET /api/v1/career-paths/jobs/{job_id}` 已被 `GET /api/v2/career-paths/jobs/{job_id}` 替代；响应携带 `Deprecation: true`、`Sunset`（计划 2026-11-02）与 `Link: ... rel="successor-version"` 头，请按 sunset 日期之前完成迁移。
+2. matching/report 服务已不再依赖 V1 `career-path` 模块，统一转调 `jobs-intelligence` service，下线规划见 [`docs/图谱功能评审与优化建议.md`](./docs/图谱功能评审与优化建议.md)。
+
 ## 知识库说明
 
 1. 业务知识库命名空间为 `career_runtime`，只收录岗位数据与学生简历文本。

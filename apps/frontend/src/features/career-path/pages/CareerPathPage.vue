@@ -203,19 +203,6 @@ function getNodeTitleById(nodeId: string): string {
   return matched?.title ?? nodeId;
 }
 
-/**
- * 作用：将路径推荐文案中的节点 ID（如 job-1730415757）转换为岗位名称，提升可读性。
- * 参数：text 为后端返回的路径标题或摘要文本。
- * 返回：替换后的可读文案。
- * 注意：仅替换当前图谱中可识别的节点 ID；未知 ID 保持原样，避免误替换。
- */
-function formatRouteText(text: string): string {
-  if (!graphResult.value || !text) {
-    return text;
-  }
-  return text.replace(/job-\d+/g, (matchedNodeId) => getNodeTitleById(matchedNodeId));
-}
-
 function buildRadarOption() {
   const comparison = radarComparison.value;
   if (!comparison) {
@@ -761,10 +748,10 @@ onUnmounted(() => {
           class="route-card"
         >
           <header>
-            <strong>{{ formatRouteText(item.title) }}</strong>
+            <strong>{{ item.title }}</strong>
             <span class="route-score">{{ item.suitability_score }} 分</span>
           </header>
-          <p>{{ formatRouteText(item.summary) }}</p>
+          <p>{{ item.summary }}</p>
         </article>
         <article
           v-for="item in graphResult.transition_routes"
@@ -772,10 +759,10 @@ onUnmounted(() => {
           class="route-card transition-card"
         >
           <header>
-            <strong>{{ formatRouteText(item.title) }}</strong>
+            <strong>{{ item.title }}</strong>
             <span class="route-score">{{ item.suitability_score }} 分</span>
           </header>
-          <p>{{ formatRouteText(item.summary) }}</p>
+          <p>{{ item.summary }}</p>
         </article>
       </div>
     </section>
