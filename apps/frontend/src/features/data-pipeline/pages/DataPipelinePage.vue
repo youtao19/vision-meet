@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import type { JobPipelineTaskRecord, JobPipelineTaskStatus } from "@career/contracts/types";
+
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
+
+import { fetchJobPipelineTask, runJobPipeline } from "@/shared/api/job-pipeline";
 
 const loading = reactive({
   run: false,
@@ -10,41 +14,27 @@ const uiState = reactive({
   success: "",
 });
 
-type MockStage = "queued" | "cleaning" | "generating" | "packaging" | "done";
+type PipelineStage = "queued" | "cleaning" | "generating" | "packaging" | "done" | "failed";
 
-const mockTaskId = ref<number | null>(null);
-const currentStage = ref<MockStage>("queued");
+const currentTask = ref<JobPipelineTaskRecord | null>(null);
+const currentStage = ref<PipelineStage>("queued");
 const progress = ref(0);
 const isRunning = ref(false);
 const stageMessage = ref("待开始");
-const generatedPreviewCount = ref(0);
-const currentRoleHint = ref("");
 
-let simulationTimer: number | null = null;
+let pollingTimer: number | null = null;
 let heartbeatTimer: number | null = null;
 const heartbeatTick = ref(0);
 
-const previewRoles = [
-  "前端开发工程师",
-  "Java开发工程师",
-  "测试工程师",
-  "技术支持工程师",
-  "实施工程师",
-  "C/C++开发工程师",
-  "软件测试工程师",
-  "硬件测试工程师",
-  "网络工程师",
-  "产品专员/助理",
-];
-
 const timelineSteps = computed(() => {
-  const stageOrder: MockStage[] = ["queued", "cleaning", "generating", "packaging", "done"];
-  const labels: Record<MockStage, string> = {
+  const stageOrder: PipelineStage[] = ["queued", "cleaning", "generating", "packaging", "done"];
+  const labels: Record<PipelineStage, string> = {
     queued: "任务排队",
     cleaning: "清洗岗位数据",
     generating: "生成岗位画像",
     packaging: "汇总与结果整理",
     done: "完成",
+    failed: "失败",
   };
   const currentIndex = stageOrder.indexOf(currentStage.value);
 
@@ -74,18 +64,147 @@ const runButtonText = computed(() => {
   return "开始生成画像";
 });
 
-function stopSimulation(): void {
-  if (simulationTimer !== null) {
-    window.clearInterval(simulationTimer);
-    simulationTimer = null;
+const generatedPreviewCount = computed(() => currentTask.value?.success_profiles ?? 0);
+
+const totalJobsText = computed(() => {
+  const total = currentTask.value?.total_jobs ?? 0;
+  return total > 0 ? String(total) : "待统计";
+});
+
+const processedJobsText = computed(() => {
+  const task = currentTask.value;
+  if (!task) {
+    return "0";
   }
+  return `${task.processed_jobs} / ${task.total_jobs || "待统计"}`;
+});
+
+function stopPolling(): void {
+  if (pollingTimer !== null) {
+    window.clearInterval(pollingTimer);
+    pollingTimer = null;
+  }
+}
+
+function stopHeartbeat(): void {
   if (heartbeatTimer !== null) {
     window.clearInterval(heartbeatTimer);
     heartbeatTimer = null;
   }
 }
 
-function startMockPipeline(): void {
+function stopRuntimeTimers(): void {
+  stopPolling();
+  stopHeartbeat();
+}
+
+function isTerminalStatus(status: JobPipelineTaskStatus): boolean {
+  return status === "success" || status === "degraded" || status === "failed";
+}
+
+function resolveStage(task: JobPipelineTaskRecord): PipelineStage {
+  if (task.status === "failed") {
+    return "failed";
+  }
+  if (task.status === "success" || task.status === "degraded") {
+    return "done";
+  }
+  if (task.status === "queued") {
+    return "queued";
+  }
+  if (task.total_jobs > 0 && task.processed_jobs >= task.total_jobs) {
+    return "generating";
+  }
+  return "cleaning";
+}
+
+function resolveProgress(task: JobPipelineTaskRecord): number {
+  if (task.status === "success" || task.status === "degraded") {
+    return 100;
+  }
+  if (task.status === "failed") {
+    return Math.max(progress.value, 10);
+  }
+  if (task.status === "queued") {
+    return 5;
+  }
+
+  const totalJobs = Math.max(task.total_jobs, 1);
+  const cleanedRatio = Math.min(1, task.processed_jobs / totalJobs);
+  const cleanProgress = Math.round(8 + cleanedRatio * 62);
+  if (task.processed_jobs < task.total_jobs || task.total_jobs === 0) {
+    return Math.max(progress.value, cleanProgress);
+  }
+
+  // 后端清洗完成后会同步调用 Agent，期间任务仍是 running；这里给出真实状态下的等待进度。
+  return Math.max(progress.value, 88);
+}
+
+function resolveStageMessage(task: JobPipelineTaskRecord): string {
+  if (task.error_message) {
+    return task.error_message;
+  }
+  if (task.message) {
+    return task.message;
+  }
+  if (task.status === "queued") {
+    return "任务排队中";
+  }
+  if (task.status === "running") {
+    return "流水线执行中";
+  }
+  return "待开始";
+}
+
+function applyTaskState(task: JobPipelineTaskRecord): void {
+  currentTask.value = task;
+  currentStage.value = resolveStage(task);
+  progress.value = resolveProgress(task);
+  stageMessage.value = resolveStageMessage(task);
+  isRunning.value = !isTerminalStatus(task.status);
+
+  if (task.status === "success" || task.status === "degraded") {
+    uiState.success = task.message || "岗位画像流水线执行完成。";
+    stopRuntimeTimers();
+  }
+
+  if (task.status === "failed") {
+    uiState.error = task.error_message || task.message || "岗位画像流水线执行失败。";
+    stopRuntimeTimers();
+  }
+}
+
+async function refreshCurrentTask(): Promise<void> {
+  if (!currentTask.value) {
+    return;
+  }
+
+  try {
+    const latestTask = await fetchJobPipelineTask(currentTask.value.id);
+    applyTaskState(latestTask);
+  } catch (error) {
+    uiState.error = error instanceof Error ? error.message : "任务状态查询失败。";
+    isRunning.value = false;
+    stopRuntimeTimers();
+  }
+}
+
+function startPolling(): void {
+  stopPolling();
+  pollingTimer = window.setInterval(() => {
+    void refreshCurrentTask();
+  }, 1500);
+}
+
+function startHeartbeat(): void {
+  heartbeatTick.value = 0;
+  stopHeartbeat();
+  heartbeatTimer = window.setInterval(() => {
+    heartbeatTick.value += 1;
+  }, 500);
+}
+
+async function startPipeline(): Promise<void> {
   if (isRunning.value) {
     return;
   }
@@ -93,68 +212,31 @@ function startMockPipeline(): void {
   loading.run = true;
   uiState.error = "";
   uiState.success = "";
-
-  mockTaskId.value = Math.floor(Date.now() / 1000);
+  stopRuntimeTimers();
+  currentTask.value = null;
   currentStage.value = "queued";
-  progress.value = 3;
-  generatedPreviewCount.value = 0;
-  currentRoleHint.value = "";
+  progress.value = 0;
   stageMessage.value = "任务排队中";
-  isRunning.value = true;
-  loading.run = false;
 
-  heartbeatTick.value = 0;
-  if (heartbeatTimer === null) {
-    heartbeatTimer = window.setInterval(() => {
-      heartbeatTick.value += 1;
-    }, 500);
-  }
-
-  let stepTick = 0;
-  simulationTimer = window.setInterval(() => {
-    stepTick += 1;
-
-    if (stepTick <= 2) {
-      currentStage.value = "queued";
-      stageMessage.value = "任务排队中";
-      progress.value = Math.min(8, progress.value + 2);
-      return;
+  try {
+    const task = await runJobPipeline({ mode: "cleanse_agent_portraits" });
+    applyTaskState(task);
+    if (!isTerminalStatus(task.status)) {
+      isRunning.value = true;
+      startHeartbeat();
+      startPolling();
+      void refreshCurrentTask();
     }
-
-    if (stepTick <= 8) {
-      currentStage.value = "cleaning";
-      stageMessage.value = "正在清洗岗位数据";
-      progress.value = Math.min(42, progress.value + 6);
-      return;
-    }
-
-    if (stepTick <= 20) {
-      currentStage.value = "generating";
-      stageMessage.value = "Agent 生成岗位画像";
-      progress.value = Math.min(88, progress.value + 4);
-
-      const nextCount = Math.min(previewRoles.length, generatedPreviewCount.value + 1);
-      generatedPreviewCount.value = nextCount;
-      currentRoleHint.value = previewRoles[nextCount - 1] || "";
-      return;
-    }
-
-    if (stepTick <= 24) {
-      currentStage.value = "packaging";
-      stageMessage.value = "正在汇总画像结果";
-      progress.value = Math.min(98, progress.value + 2);
-      return;
-    }
-
-    currentStage.value = "done";
-    progress.value = 100;
+  } catch (error) {
+    uiState.error = error instanceof Error ? error.message : "岗位画像流水线启动失败。";
     isRunning.value = false;
-    stopSimulation();
-  }, 700);
+  } finally {
+    loading.run = false;
+  }
 }
 
 onBeforeUnmount(() => {
-  stopSimulation();
+  stopRuntimeTimers();
 });
 </script>
 
@@ -175,7 +257,7 @@ onBeforeUnmount(() => {
             <option>Agent 生成 10 条岗位画像</option>
           </select>
         </label>
-        <button class="primary-btn" :disabled="isRunning || loading.run" @click="startMockPipeline">
+        <button class="primary-btn" :disabled="isRunning || loading.run" @click="startPipeline">
           {{ runButtonText }}
         </button>
       </div>
@@ -187,9 +269,9 @@ onBeforeUnmount(() => {
     <section class="panel">
       <h3>任务追踪</h3>
 
-      <article v-if="mockTaskId" class="task-card">
+      <article v-if="currentTask" class="task-card">
         <p>
-          <strong>任务 #{{ mockTaskId }}</strong>
+          <strong>任务 #{{ currentTask.id }}</strong>
         </p>
         <p class="stage-line">
           <span class="stage-chip">{{ liveStageText }}</span>
@@ -218,8 +300,12 @@ onBeforeUnmount(() => {
         </div>
         <p class="progress-text">当前进度：{{ progress }}%</p>
 
+        <p>清洗岗位：{{ processedJobsText }}</p>
+        <p>岗位总数：{{ totalJobsText }}</p>
         <p>生成数量：{{ generatedPreviewCount }} / 10</p>
-        <p v-if="currentRoleHint">当前生成岗位：{{ currentRoleHint }}</p>
+        <p v-if="currentTask.error_message" class="error-detail">
+          失败原因：{{ currentTask.error_message }}
+        </p>
       </article>
 
       <p v-else class="empty-text">请点击“开始生成画像”启动任务。</p>
@@ -451,6 +537,11 @@ select {
 .progress-text {
   font-size: 12px;
   color: rgba(42, 63, 96, 0.82);
+}
+
+.error-detail {
+  color: #991b1b;
+  font-weight: 600;
 }
 
 .db-safe-tip {
