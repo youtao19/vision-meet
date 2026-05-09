@@ -349,24 +349,32 @@ export function createAgentService(dependencies: AgentServiceDependencies): Agen
         warnings: state.warnings,
       };
 
-      await dependencies.agentRepository.createTask({
-        trace_id: runtime.traceId,
-        model: resolvedModel,
-        status: "failed",
-        student_profile_id: input.student_profile_id,
-        job_id: input.job_id,
-        objective,
-        deliverables,
-        force_recalculate: Boolean(input.force_recalculate),
-        top_k: topK,
-        planned_steps: plannedSteps,
-        step_trace: stepTrace,
-        result: fallbackResult,
-        error_code: mappedError.code,
-        error_message: mappedError.message,
-        created_at: startedAt,
-        finished_at: new Date().toISOString(),
-      });
+      const [profileExists, jobExists] = await Promise.all([
+        dependencies.profileRepository.getStudentProfileById(input.student_profile_id),
+        dependencies.jobsRepository.getJobById(input.job_id),
+      ]);
+
+      // 失败快照表带有 profile/job 外键。输入本身非法时直接返回原始错误，避免用落库失败掩盖真正原因。
+      if (profileExists && jobExists) {
+        await dependencies.agentRepository.createTask({
+          trace_id: runtime.traceId,
+          model: resolvedModel,
+          status: "failed",
+          student_profile_id: input.student_profile_id,
+          job_id: input.job_id,
+          objective,
+          deliverables,
+          force_recalculate: Boolean(input.force_recalculate),
+          top_k: topK,
+          planned_steps: plannedSteps,
+          step_trace: stepTrace,
+          result: fallbackResult,
+          error_code: mappedError.code,
+          error_message: mappedError.message,
+          created_at: startedAt,
+          finished_at: new Date().toISOString(),
+        });
+      }
 
       throw mappedError;
     }

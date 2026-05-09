@@ -232,51 +232,20 @@ export function createPgJobsRepository(pool: Pool): JobsRepository {
     const fuzzyKeyword = `%${normalizedTargetRole.toLowerCase()}%`;
     const result = await pool.query(
       `
-        SELECT ranked.*
-        FROM (
-          SELECT
-            j.*,
-            n.normalized_title,
-            n.confidence AS normalized_confidence,
-            CASE
-              WHEN LOWER(j.title) = LOWER($1) THEN 0
-              WHEN LOWER(COALESCE(n.normalized_title, '')) = LOWER($1) THEN 1
-              WHEN LOWER(j.title) LIKE $2 THEN 2
-              WHEN LOWER(COALESCE(n.normalized_title, '')) LIKE $2 THEN 3
-              ELSE 9
-            END AS match_rank
-          FROM jobs j
-          LEFT JOIN LATERAL (
-            SELECT normalized_title, confidence
-            FROM job_normalized
-            WHERE
-              (
-                j.normalized_source_key IS NOT NULL
-                AND (
-                  dedup_key = j.normalized_source_key
-                  OR normalized_payload ->> 'source_row_id' = j.normalized_source_key
-                  OR normalized_payload ->> 'source_job_code' = j.normalized_source_key
-                )
-              )
-              OR normalized_title = j.title
-              OR (
-                j.source_row_id IS NOT NULL
-                AND normalized_payload ->> 'source_row_id' = j.source_row_id
-              )
-            ORDER BY confidence DESC, updated_at DESC
-            LIMIT 1
-          ) n ON true
-          WHERE
-            LOWER(j.title) = LOWER($1)
-            OR LOWER(COALESCE(n.normalized_title, '')) = LOWER($1)
-            OR LOWER(j.title) LIKE $2
-            OR LOWER(COALESCE(n.normalized_title, '')) LIKE $2
-        ) ranked
+        SELECT
+          j.*,
+          CASE
+            WHEN LOWER(j.title) = LOWER($1) THEN 0
+            WHEN LOWER(j.title) LIKE $2 THEN 1
+            ELSE 9
+          END AS match_rank
+        FROM jobs j
+        WHERE LOWER(j.title) = LOWER($1)
+          OR LOWER(j.title) LIKE $2
         ORDER BY
-          ranked.match_rank ASC,
-          ABS(CHAR_LENGTH(COALESCE(ranked.normalized_title, ranked.title)) - CHAR_LENGTH($1)) ASC,
-          ranked.normalized_confidence DESC NULLS LAST,
-          ranked.id DESC
+          match_rank ASC,
+          ABS(CHAR_LENGTH(j.title) - CHAR_LENGTH($1)) ASC,
+          j.id DESC
         LIMIT 1
       `,
       [normalizedTargetRole, fuzzyKeyword],

@@ -14,6 +14,7 @@ import { useRoute, useRouter } from "vue-router";
 import type {
   CareerPathEdge,
   CareerPathNode,
+  CareerPathTargetOption,
   CareerPathV2GraphResponse,
   ManualJobPortraitRecord,
   StudentProfileRecord,
@@ -23,7 +24,7 @@ import { LegendComponent, TooltipComponent } from "echarts/components";
 import { init, use, type ECharts } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 
-import { fetchCareerPathGraph } from "@/shared/api/career-path";
+import { fetchCareerPathGraph, fetchCareerPathTargets } from "@/shared/api/career-path";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { fetchStudentProfiles } from "@/shared/api/profile";
@@ -34,6 +35,7 @@ const route = useRoute();
 const router = useRouter();
 
 const manualPortraits = ref<ManualJobPortraitRecord[]>([]);
+const graphTargets = ref<CareerPathTargetOption[]>([]);
 const profiles = ref<StudentProfileRecord[]>([]);
 const graphResult = ref<CareerPathV2GraphResponse | null>(null);
 
@@ -56,11 +58,13 @@ const form = reactive({
   depth: 2,
 });
 
-const PREBUILT_GRAPH_JOB_IDS = [1730415757, 1683349906, 1193271204, 1731015984, 1410409555];
-
 const uiState = reactive({
   error: "",
   success: "",
+});
+
+const canLoadGraph = computed(() => {
+  return toPositiveInt(form.jobId) !== undefined && !loading.graph;
 });
 
 let radarInstance: ECharts | null = null;
@@ -118,7 +122,12 @@ function calculateSkillLevel(profile: StudentProfileRecord): number {
 const selectedJobPortrait = computed(() => {
   const jobId = toPositiveInt(form.jobId);
   if (!jobId) return null;
-  return manualPortraits.value.find((item) => item.job_id === jobId) ?? null;
+  const selectedTarget = graphTargets.value.find((item) => item.job_id === jobId);
+  return (
+    manualPortraits.value.find((item) => item.job_id === jobId) ??
+    manualPortraits.value.find((item) => item.job_name === selectedTarget?.job_name) ??
+    null
+  );
 });
 
 const selectedProfile = computed(() => {
@@ -179,11 +188,9 @@ const radarComparison = computed(() => {
 });
 
 const targetJobOptions = computed(() => {
-  return manualPortraits.value.map((item, index) => ({
-    job_id: item.job_id as number,
-    option_key: `${item.job_name}-${item.category}-${index}`,
-    job_name: item.job_name,
-    category: item.category,
+  return graphTargets.value.map((item) => ({
+    ...item,
+    option_key: `graph-${item.job_id}`,
   }));
 });
 
@@ -273,30 +280,6 @@ function nodeColorByCategory(category: CareerPathNode["category"]): string {
 
 function edgeColorByType(relationType: CareerPathEdge["relation_type"]): string {
   return relationType === "promotion" ? "#1d4ed8" : "#ea580c";
-}
-
-function buildGraphPlaceholderNode(jobId: number): CareerPathV2GraphResponse["nodes"][number] {
-  return {
-    id: `job-${jobId}`,
-    job_id: jobId,
-    role_key: `job-${jobId}`,
-    title: `岗位 #${jobId}`,
-    description: "当前图谱关系较少，已展示目标岗位占位节点。",
-    family: "unknown",
-    level: 1,
-    aliases: [],
-    typical_skills: [],
-    category: "target",
-    is_target: true,
-  };
-}
-
-function resolveFallbackGraphJobId(jobId: number): number {
-  if (PREBUILT_GRAPH_JOB_IDS.includes(jobId)) {
-    return jobId;
-  }
-  // 默认回退到 Java 开发岗位图谱，避免出现空白页
-  return PREBUILT_GRAPH_JOB_IDS[0] ?? jobId;
 }
 
 function pickEventTargetId(event: IEvent): string {
@@ -413,11 +396,13 @@ async function bootstrap(): Promise<void> {
   uiState.error = "";
   uiState.success = "";
   try {
-    const [manualResponse, profileResponse] = await Promise.all([
+    const [manualResponse, targetResponse, profileResponse] = await Promise.all([
       fetchManualJobPortraits(),
+      fetchCareerPathTargets(),
       fetchStudentProfiles(),
     ]);
     manualPortraits.value = manualResponse.items;
+    graphTargets.value = targetResponse.items;
     profiles.value = profileResponse.items;
   } catch (error) {
     uiState.error = formatApiError(error);
@@ -438,37 +423,11 @@ async function loadGraph(): Promise<void> {
   uiState.error = "";
 
   try {
-    let fetched: CareerPathV2GraphResponse;
-    try {
-      fetched = await fetchCareerPathGraph({
-        job_id: jobId,
-        student_profile_id: toPositiveInt(form.studentProfileId),
-        depth: form.depth,
-      });
-    } catch (error) {
-      // 兜底：若当前岗位暂无图谱，则自动回退到预置图谱岗位，保证可视化稳定展示
-      if (error instanceof ApiRequestError && error.status === 404) {
-        const fallbackJobId = resolveFallbackGraphJobId(jobId);
-        fetched = await fetchCareerPathGraph({
-          job_id: fallbackJobId,
-          student_profile_id: toPositiveInt(form.studentProfileId),
-          depth: form.depth,
-        });
-        uiState.success = `当前岗位尚未命中图谱，已展示预置图谱（岗位ID: ${fallbackJobId}）`;
-      } else {
-        throw error;
-      }
-    }
-
-    const result =
-      fetched.nodes.length > 0
-        ? fetched
-        : {
-            ...fetched,
-            target_node_id: `job-${jobId}`,
-            nodes: [buildGraphPlaceholderNode(jobId)],
-            edges: [],
-          };
+    const result = await fetchCareerPathGraph({
+      job_id: jobId,
+      student_profile_id: toPositiveInt(form.studentProfileId),
+      depth: form.depth,
+    });
     graphResult.value = result;
     selectedNodeId.value = result.target_node_id;
     selectedEdgeId.value = "";
@@ -621,7 +580,7 @@ onUnmounted(() => {
           </select>
         </label>
 
-        <button class="primary-btn" :disabled="loading.graph" @click="searchGraph">
+        <button class="primary-btn" :disabled="!canLoadGraph" @click="searchGraph">
           {{ loading.graph ? "加载中..." : "加载图谱" }}
         </button>
       </div>

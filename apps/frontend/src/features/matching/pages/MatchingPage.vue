@@ -3,26 +3,29 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import type {
-  ManualJobPortraitRecord,
+  DimensionKey,
+  JobRecord,
   MatchResultDetail,
   MatchResultSummary,
   StudentProfileRecord,
 } from "@career/contracts/types";
 
-import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
+import { createAgentTask } from "@/shared/api/agent";
+import { fetchJobs } from "@/shared/api/jobs";
 import { createMatch, fetchMatchDetail, fetchMatchList } from "@/shared/api/matching";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchStudentProfiles } from "@/shared/api/profile";
 
 const router = useRouter();
 const profiles = ref<StudentProfileRecord[]>([]);
-const jobPortraits = ref<ManualJobPortraitRecord[]>([]);
+const jobs = ref<JobRecord[]>([]);
 const matches = ref<MatchResultSummary[]>([]);
 const selectedDetail = ref<MatchResultDetail | null>(null);
 
 const loading = reactive({
   bootstrap: false,
   create: false,
+  agent: false,
   list: false,
   detail: false,
 });
@@ -45,11 +48,79 @@ const uiState = reactive({
   success: "",
 });
 
+const DIMENSION_META: Record<
+  DimensionKey,
+  {
+    label: string;
+    shortLabel: string;
+    description: string;
+    accent: string;
+  }
+> = {
+  base_requirements: {
+    label: "基础要求",
+    shortLabel: "基础",
+    description: "学历、证书、实习等硬性门槛",
+    accent: "#2f7dd3",
+  },
+  professional_skills: {
+    label: "职业技能",
+    shortLabel: "技能",
+    description: "岗位核心技能与项目证明",
+    accent: "#0f9f8f",
+  },
+  professional_quality: {
+    label: "职业素养",
+    shortLabel: "素养",
+    description: "沟通、协作、抗压等工作质量",
+    accent: "#a7651a",
+  },
+  development_potential: {
+    label: "发展潜力",
+    shortLabel: "潜力",
+    description: "学习能力、竞赛项目与成长信号",
+    accent: "#7f62c9",
+  },
+};
+
+const DIMENSION_ORDER: DimensionKey[] = [
+  "base_requirements",
+  "professional_skills",
+  "professional_quality",
+  "development_potential",
+];
+
 const canCreate = computed(() => {
   return (
     toPositiveInt(createForm.studentProfileId) !== undefined &&
     toPositiveInt(createForm.jobId) !== undefined
   );
+});
+
+const selectedDimensionCards = computed(() => {
+  const detail = selectedDetail.value;
+  if (!detail) {
+    return [];
+  }
+
+  return DIMENSION_ORDER.map((key) => {
+    const score = detail.dimension_scores[key];
+    return {
+      key,
+      score,
+      tone: scoreTone(score),
+      ...DIMENSION_META[key],
+    };
+  });
+});
+
+const selectedScoreTone = computed(() => {
+  const score = selectedDetail.value?.total_score ?? 0;
+  if (score >= 90) return "高度匹配";
+  if (score >= 80) return "优势明显";
+  if (score >= 70) return "基本匹配";
+  if (score >= 60) return "需要补强";
+  return "优先重建";
 });
 
 function toPositiveInt(raw: string): number | undefined {
@@ -69,27 +140,45 @@ function formatApiError(error: unknown): string {
   return "请求失败，请稍后重试";
 }
 
+function scoreTone(score: number): string {
+  if (score >= 90) return "excellent";
+  if (score >= 80) return "good";
+  if (score >= 70) return "watch";
+  return "risk";
+}
+
+function dimensionLabel(key: DimensionKey): string {
+  return DIMENSION_META[key]?.label ?? key;
+}
+
+function evidenceTagClass(item: string): string {
+  if (item.includes("待补齐") || item.includes("缺少")) return "tag-risk";
+  if (item.includes("命中") || item.includes("覆盖率")) return "tag-strong";
+  if (item.includes("算法")) return "tag-neutral";
+  return "tag-default";
+}
+
 async function bootstrap(): Promise<void> {
   loading.bootstrap = true;
   uiState.error = "";
 
   try {
-    const [profileResponse, portraitsResponse] = await Promise.all([
+    const [profileResponse, jobsResponse] = await Promise.all([
       fetchStudentProfiles(),
-      fetchManualJobPortraits(),
+      fetchJobs({ limit: 100 }),
     ]);
 
     profiles.value = profileResponse.items;
-    jobPortraits.value = portraitsResponse.items;
+    jobs.value = jobsResponse.items;
 
     if (!createForm.studentProfileId && profiles.value[0]) {
       createForm.studentProfileId = String(profiles.value[0].id);
       queryForm.studentProfileId = String(profiles.value[0].id);
     }
 
-    if (!createForm.jobId && jobPortraits.value[0]?.job_id) {
-      createForm.jobId = String(jobPortraits.value[0].job_id);
-      queryForm.jobId = String(jobPortraits.value[0].job_id);
+    if (!createForm.jobId && jobs.value[0]) {
+      createForm.jobId = String(jobs.value[0].id);
+      queryForm.jobId = String(jobs.value[0].id);
     }
   } catch (error) {
     uiState.error = formatApiError(error);
@@ -147,6 +236,41 @@ async function submitCreateMatch(): Promise<void> {
     uiState.error = formatApiError(error);
   } finally {
     loading.create = false;
+  }
+}
+
+async function submitAgentMatch(): Promise<void> {
+  const studentProfileId = toPositiveInt(createForm.studentProfileId);
+  const jobId = toPositiveInt(createForm.jobId);
+  if (!studentProfileId || !jobId) {
+    uiState.error = "请选择学生画像和岗位";
+    return;
+  }
+
+  loading.agent = true;
+  uiState.error = "";
+  uiState.success = "";
+
+  try {
+    const task = await createAgentTask({
+      student_profile_id: studentProfileId,
+      job_id: jobId,
+      deliverables: ["match_analysis"],
+      force_recalculate: createForm.forceRecalculate,
+      objective: "基于学生画像、岗位画像和知识证据完成人岗匹配深度分析。",
+    });
+    if (!task.result.match_result) {
+      uiState.error = task.result.summary || "Agent 未产出匹配结果。";
+      return;
+    }
+
+    selectedDetail.value = task.result.match_result;
+    uiState.success = task.result.summary || "Agent 已完成深度匹配分析。";
+    await loadMatches();
+  } catch (error) {
+    uiState.error = formatApiError(error);
+  } finally {
+    loading.agent = false;
   }
 }
 
@@ -230,12 +354,8 @@ onMounted(async () => {
           目标岗位
           <select v-model="createForm.jobId" :disabled="loading.bootstrap || loading.create">
             <option value="">请选择</option>
-            <option
-              v-for="portrait in jobPortraits"
-              :key="portrait.job_id ?? `${portrait.job_name}-${portrait.category}`"
-              :value="String(portrait.job_id)"
-            >
-              #{{ portrait.job_id }} {{ portrait.job_name }}
+            <option v-for="job in jobs" :key="job.id" :value="String(job.id)">
+              #{{ job.id }} {{ job.title }}
             </option>
           </select>
         </label>
@@ -248,64 +368,152 @@ onMounted(async () => {
 
       <button
         class="primary-btn"
-        :disabled="!canCreate || loading.create"
+        :disabled="!canCreate || loading.create || loading.agent"
         @click="submitCreateMatch"
       >
         {{ loading.create ? "分析中..." : "开始匹配分析" }}
       </button>
+      <button
+        class="ghost-btn"
+        :disabled="!canCreate || loading.create || loading.agent"
+        @click="submitAgentMatch"
+      >
+        {{ loading.agent ? "Agent 分析中..." : "Agent 深度匹配" }}
+      </button>
     </section>
 
-    <section v-if="selectedDetail" class="panel">
-      <div class="panel-title-row">
-        <h3>匹配详情 #{{ selectedDetail.id }}</h3>
-        <span v-if="selectedDetail.from_cache" class="cache-tag">from_cache</span>
+    <section v-if="selectedDetail" class="match-detail-panel">
+      <div class="detail-hero">
+        <div class="score-orb" :style="{ '--score': `${selectedDetail.total_score}%` }">
+          <span>总分</span>
+          <strong>{{ selectedDetail.total_score }}</strong>
+          <em>{{ selectedScoreTone }}</em>
+        </div>
+
+        <div class="detail-heading">
+          <div class="panel-title-row">
+            <div>
+              <p class="eyebrow">Match Assessment</p>
+              <h3>匹配详情 #{{ selectedDetail.id }}</h3>
+            </div>
+            <span v-if="selectedDetail.from_cache" class="cache-tag">from_cache</span>
+          </div>
+          <p class="detail-summary">
+            该结果由岗位画像、学生画像和证据覆盖率共同计算，重点关注技能命中、差距动作和可执行路径。
+          </p>
+        </div>
       </div>
 
-      <p class="score-line">
-        总分：<strong>{{ selectedDetail.total_score }}</strong>
-      </p>
-
-      <ul class="score-grid">
-        <li>基础要求：{{ selectedDetail.dimension_scores.base_requirements }}</li>
-        <li>职业技能：{{ selectedDetail.dimension_scores.professional_skills }}</li>
-        <li>职业素养：{{ selectedDetail.dimension_scores.professional_quality }}</li>
-        <li>发展潜力：{{ selectedDetail.dimension_scores.development_potential }}</li>
-      </ul>
-
-      <div class="sub-panel">
-        <h4>差距项</h4>
-        <ul>
-          <li v-for="gap in selectedDetail.gaps" :key="gap.dimension">
-            {{ gap.dimension }}：当前 {{ gap.current_score }} / 目标 {{ gap.target_score }}（差距
-            {{ gap.gap }}）
-          </li>
-        </ul>
+      <div class="dimension-board">
+        <article
+          v-for="card in selectedDimensionCards"
+          :key="card.key"
+          class="dimension-card"
+          :class="`tone-${card.tone}`"
+          :style="{ '--accent': card.accent, '--score': `${card.score}%` }"
+        >
+          <div class="dimension-card-head">
+            <span>{{ card.shortLabel }}</span>
+            <strong>{{ card.score }}</strong>
+          </div>
+          <h4>{{ card.label }}</h4>
+          <p>{{ card.description }}</p>
+          <div class="metric-track">
+            <span />
+          </div>
+        </article>
       </div>
 
-      <div class="sub-panel">
-        <h4>建议</h4>
-        <ul>
-          <li v-for="item in selectedDetail.suggestions" :key="item">{{ item }}</li>
-        </ul>
+      <div class="detail-grid">
+        <section class="insight-card gaps-card">
+          <div class="section-title">
+            <span>01</span>
+            <h4>差距诊断</h4>
+          </div>
+          <div class="gap-list">
+            <article v-for="gap in selectedDetail.gaps" :key="gap.dimension" class="gap-item">
+              <div class="gap-topline">
+                <strong>{{ dimensionLabel(gap.dimension) }}</strong>
+                <span>差距 {{ gap.gap }}</span>
+              </div>
+              <div class="gap-numbers">
+                <span>当前 {{ gap.current_score }}</span>
+                <span>目标 {{ gap.target_score }}</span>
+              </div>
+              <div class="gap-track">
+                <span :style="{ width: `${gap.current_score}%` }" />
+              </div>
+              <p v-for="evidence in gap.evidence.slice(0, 2)" :key="evidence">
+                {{ evidence }}
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="insight-card action-card">
+          <div class="section-title">
+            <span>02</span>
+            <h4>行动建议</h4>
+          </div>
+          <ol class="action-list">
+            <li v-for="item in selectedDetail.suggestions" :key="item">{{ item }}</li>
+          </ol>
+        </section>
       </div>
 
-      <div class="sub-panel">
-        <h4>证据引用</h4>
-        <ul>
-          <li v-for="item in selectedDetail.evidence_refs" :key="item">{{ item }}</li>
-        </ul>
-      </div>
+      <section class="insight-card explanation-card">
+        <div class="section-title">
+          <span>03</span>
+          <h4>维度解释</h4>
+        </div>
+        <div class="explanation-grid">
+          <article
+            v-for="item in selectedDetail.explanations"
+            :key="item.dimension"
+            class="explanation-item"
+          >
+            <h5>{{ dimensionLabel(item.dimension) }}</h5>
+            <p>{{ item.reasoning }}</p>
+          </article>
+        </div>
+      </section>
 
-      <div class="sub-panel">
-        <h4>路径建议</h4>
-        <ul>
-          <li v-for="item in selectedDetail.path_recommendations" :key="item.route_id">
-            {{ item.title }}（适配度 {{ item.suitability_score }}）
-          </li>
-        </ul>
-      </div>
+      <section class="insight-card evidence-card">
+        <div class="section-title">
+          <span>04</span>
+          <h4>证据引用</h4>
+        </div>
+        <div class="evidence-cloud">
+          <span
+            v-for="item in selectedDetail.evidence_refs"
+            :key="item"
+            class="evidence-tag"
+            :class="evidenceTagClass(item)"
+          >
+            {{ item }}
+          </span>
+        </div>
+      </section>
 
-      <div class="action-row">
+      <section class="insight-card route-card">
+        <div class="section-title">
+          <span>05</span>
+          <h4>路径建议</h4>
+        </div>
+        <div v-if="selectedDetail.path_recommendations.length > 0" class="route-list">
+          <article
+            v-for="item in selectedDetail.path_recommendations"
+            :key="item.route_id"
+            class="route-item"
+          >
+            <strong>{{ item.title }}</strong>
+            <span>适配度 {{ item.suitability_score }}</span>
+          </article>
+        </div>
+        <p v-else class="empty-note">当前结果暂无路径建议，可进入路径图谱中心重建或查看岗位图谱。</p>
+      </section>
+
+      <div class="detail-actions">
         <button class="ghost-btn" :disabled="loading.create" @click="repeatAnalyze">
           重复分析（验证一致性）
         </button>
@@ -336,12 +544,8 @@ onMounted(async () => {
           按岗位筛选
           <select v-model="queryForm.jobId" :disabled="loading.list">
             <option value="">全部</option>
-            <option
-              v-for="portrait in jobPortraits"
-              :key="portrait.job_id ?? `${portrait.job_name}-${portrait.category}`"
-              :value="String(portrait.job_id)"
-            >
-              #{{ portrait.job_id }} {{ portrait.job_name }}
+            <option v-for="job in jobs" :key="job.id" :value="String(job.id)">
+              #{{ job.id }} {{ job.title }}
             </option>
           </select>
         </label>
@@ -554,6 +758,7 @@ input[type="text"]:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
 }
 
 .cache-tag {
@@ -566,38 +771,355 @@ input[type="text"]:focus {
   border: 1px solid rgba(179, 236, 191, 0.82);
 }
 
-.score-line {
-  margin: 10px 0;
-  color: #17314e;
-}
-
-.score-grid {
-  margin: 0;
-  padding-left: 20px;
+.match-detail-panel {
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(232, 246, 255, 0.5)),
+    radial-gradient(circle at 16% 12%, rgba(52, 125, 211, 0.12), transparent 32%),
+    radial-gradient(circle at 92% 18%, rgba(15, 159, 143, 0.12), transparent 30%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 28px 58px rgba(37, 65, 111, 0.14);
   display: grid;
-  gap: 6px;
-  color: rgba(33, 53, 85, 0.82);
+  gap: 18px;
 }
 
-.sub-panel {
-  margin-top: 14px;
-  padding: 14px 16px;
+.match-detail-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(27, 54, 92, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27, 54, 92, 0.05) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(135deg, rgba(0, 0, 0, 0.38), transparent 62%);
+}
+
+.detail-hero,
+.dimension-board,
+.detail-grid,
+.insight-card,
+.detail-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.detail-hero {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+}
+
+.score-orb {
+  --score: 0%;
+  width: 168px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.96) 0 57%, transparent 58%),
+    conic-gradient(#0f9f8f var(--score), rgba(26, 54, 91, 0.12) 0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 22px 38px rgba(33, 76, 129, 0.16);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  color: #132a47;
+}
+
+.score-orb span,
+.score-orb em {
+  font-size: 12px;
+  font-style: normal;
+  color: rgba(29, 53, 86, 0.64);
+}
+
+.score-orb strong {
+  line-height: 0.95;
+  font-size: 52px;
+  font-family: "DIN Alternate", "Avenir Next", "PingFang SC", sans-serif;
+  letter-spacing: 0;
+}
+
+.detail-heading h3 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 0;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: rgba(15, 119, 131, 0.82);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.detail-summary {
+  max-width: 760px;
+  margin: 12px 0 0;
+  color: rgba(31, 54, 86, 0.72);
+  line-height: 1.8;
+}
+
+.dimension-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dimension-card {
+  --score: 0%;
+  --accent: #2f7dd3;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 18px;
-  background: var(--page-panel-strong);
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 14px 26px rgba(42, 71, 118, 0.08);
 }
 
-.sub-panel h4 {
-  margin: 0 0 8px;
-  color: var(--glass-title);
+.dimension-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--accent);
+  font-weight: 800;
 }
 
-.action-row,
+.dimension-card-head strong {
+  font-size: 28px;
+  font-family: "DIN Alternate", "Avenir Next", "PingFang SC", sans-serif;
+}
+
+.dimension-card h4,
+.insight-card h4 {
+  margin: 8px 0 0;
+  color: #132a47;
+}
+
+.dimension-card p {
+  min-height: 44px;
+  margin: 6px 0 12px;
+  color: rgba(31, 54, 86, 0.66);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.metric-track,
+.gap-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(30, 58, 96, 0.1);
+}
+
+.metric-track span,
+.gap-track span {
+  display: block;
+  height: 100%;
+  width: var(--score);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), rgba(255, 255, 255, 0.78));
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 14px;
+}
+
+.insight-card {
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.64);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.74),
+    0 16px 30px rgba(42, 71, 118, 0.08);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.section-title span {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #132a47;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.gap-list,
+.explanation-grid,
+.route-list {
+  display: grid;
+  gap: 10px;
+}
+
+.gap-item,
+.explanation-item,
+.route-item {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(224, 233, 246, 0.86);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.gap-topline,
+.gap-numbers,
+.route-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gap-topline strong {
+  color: #132a47;
+}
+
+.gap-topline span {
+  color: #9f3f24;
+  font-weight: 800;
+}
+
+.gap-numbers {
+  margin-top: 6px;
+  color: rgba(31, 54, 86, 0.64);
+  font-size: 13px;
+}
+
+.gap-track {
+  margin: 9px 0;
+}
+
+.gap-track span {
+  --accent: #0f9f8f;
+}
+
+.gap-item p,
+.explanation-item p,
+.empty-note {
+  margin: 6px 0 0;
+  color: rgba(31, 54, 86, 0.7);
+  line-height: 1.65;
+}
+
+.action-list {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  counter-reset: action;
+}
+
+.action-list li {
+  counter-increment: action;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  color: #132a47;
+  line-height: 1.7;
+}
+
+.action-list li::before {
+  content: counter(action);
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(15, 159, 143, 0.14);
+  color: #0b756d;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.explanation-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.explanation-item h5 {
+  margin: 0;
+  color: #132a47;
+  font-size: 15px;
+}
+
+.evidence-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.evidence-tag {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(219, 230, 244, 0.9);
+  background: rgba(255, 255, 255, 0.66);
+  color: rgba(31, 54, 86, 0.78);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.tag-strong {
+  border-color: rgba(15, 159, 143, 0.24);
+  background: rgba(15, 159, 143, 0.1);
+  color: #0b756d;
+}
+
+.tag-risk {
+  border-color: rgba(190, 77, 48, 0.24);
+  background: rgba(190, 77, 48, 0.09);
+  color: #9f3f24;
+}
+
+.tag-neutral {
+  border-color: rgba(47, 125, 211, 0.24);
+  background: rgba(47, 125, 211, 0.09);
+  color: #245f9f;
+}
+
+.route-item {
+  align-items: center;
+  color: #132a47;
+}
+
+.route-item span {
+  color: #0b756d;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.detail-actions,
 .table-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.detail-actions {
+  padding-top: 2px;
 }
 
 .result-table {
@@ -634,9 +1156,41 @@ input[type="text"]:focus {
     grid-template-columns: 1fr;
   }
 
+  .detail-hero,
+  .detail-grid,
+  .explanation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .score-orb {
+    width: 148px;
+  }
+
+  .dimension-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .result-table {
     display: block;
     overflow-x: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .match-detail-panel {
+    padding: 18px;
+  }
+
+  .dimension-board {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-title-row,
+  .gap-topline,
+  .gap-numbers,
+  .route-item {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

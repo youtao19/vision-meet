@@ -1,4 +1,5 @@
 import type {
+  CareerPathTargetOptionsResponse,
   CareerPathV2GenerateRequest,
   CareerPathV2GenerateResponse,
   CareerPathV2GraphResponse,
@@ -43,6 +44,10 @@ export async function generateCareerPathGraph(
     },
     body: JSON.stringify(payload),
   });
+}
+
+export async function fetchCareerPathTargets(): Promise<CareerPathTargetOptionsResponse> {
+  return requestJson<CareerPathTargetOptionsResponse>("/api/v2/career-paths/targets");
 }
 
 export async function seedCareerPathUserData(): Promise<{ seeded: number }> {

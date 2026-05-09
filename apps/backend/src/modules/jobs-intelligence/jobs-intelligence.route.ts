@@ -334,6 +334,14 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
     }
   });
 
+  router.get("/career-paths/targets", async (_req, res, next) => {
+    try {
+      return res.json(await service.listCareerPathTargets());
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   router.get("/career-paths/jobs/:job_id", async (req, res, next) => {
     const paramsParsed = jobIdParamsSchema.safeParse(req.params);
     if (!paramsParsed.success) {

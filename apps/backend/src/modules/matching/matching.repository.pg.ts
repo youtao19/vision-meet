@@ -239,31 +239,11 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
     const result = await pool.query(
       `
         SELECT
-          n.normalized_title,
-          n.normalized_job_family,
-          n.confidence
-        FROM jobs j
-        LEFT JOIN LATERAL (
-          SELECT normalized_title, normalized_job_family, confidence
-          FROM job_normalized
-          WHERE
-            (
-              j.normalized_source_key IS NOT NULL
-              AND (
-                dedup_key = j.normalized_source_key
-                OR normalized_payload ->> 'source_row_id' = j.normalized_source_key
-                OR normalized_payload ->> 'source_job_code' = j.normalized_source_key
-              )
-            )
-            OR normalized_title = j.title
-            OR (
-              j.source_row_id IS NOT NULL
-              AND normalized_payload ->> 'source_row_id' = j.source_row_id
-            )
-          ORDER BY confidence DESC, updated_at DESC
-          LIMIT 1
-        ) n ON true
-        WHERE j.id = $1
+          title AS normalized_title,
+          NULL::text AS normalized_job_family,
+          NULL::double precision AS confidence
+        FROM jobs
+        WHERE id = $1
         LIMIT 1
       `,
       [jobId],

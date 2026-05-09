@@ -23,6 +23,7 @@ export interface JobsIntelligenceGraphRepository {
   syncGraph(
     snapshot: CareerGraphSnapshot,
   ): Promise<{ nodes_upserted: number; edges_upserted: number }>;
+  listGraphTargetNodes?(): Promise<CareerGraphNodeRecord[]>;
   getSubgraphByJobId(jobId: number, depth: number): Promise<CareerGraphSnapshot>;
   close(): Promise<void>;
 }
@@ -188,12 +189,33 @@ export function createNeo4jJobsIntelligenceGraphRepositoryWithDriver(
     };
   }
 
+  /**
+   * 作用：列出图数据库中已经构建完成的岗位节点，用作前端“目标岗位”下拉来源。
+   * 返回值：只包含 Neo4j 当前图谱快照中的 CareerRoleV2 节点，避免前端把未构图的 jobs 误当成可查询目标。
+   * 注意：这里不回退到 PostgreSQL jobs，全量岗位属于招聘数据，不等同于路径图谱覆盖范围。
+   */
+  async function listGraphTargetNodes(): Promise<CareerGraphNodeRecord[]> {
+    await ensureSchema();
+    const result = await driver.executeQuery(
+      `
+        MATCH (node:CareerRoleV2)
+        RETURN node
+        ORDER BY node.family ASC, node.level ASC, node.title ASC
+      `,
+      {},
+      { routing: neo4j.routing.READ },
+    );
+
+    return result.records.map((record) => mapNode(record.get("node")));
+  }
+
   async function close(): Promise<void> {
     await driver.close();
   }
 
   return {
     syncGraph,
+    listGraphTargetNodes,
     getSubgraphByJobId,
     close,
   };

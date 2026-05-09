@@ -47,6 +47,8 @@ const DEFAULT_DIMENSION_WEIGHTS: DimensionScores = {
   development_potential: 0.15,
 };
 
+const MATCHING_ALGORITHM_VERSION = "hybrid-evidence-v2";
+
 function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -125,6 +127,16 @@ function buildMatchDimensionScores(
   };
 }
 
+function blendScore(items: Array<{ score: number; weight: number }>): number {
+  const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+  if (totalWeight <= 0) {
+    return 0;
+  }
+
+  const weighted = items.reduce((sum, item) => sum + item.score * item.weight, 0);
+  return clampScore(weighted / totalWeight);
+}
+
 function calculateTotalScore(matchScores: DimensionScores, weights: DimensionScores): number {
   return clampScore(
     matchScores.base_requirements * weights.base_requirements +
@@ -134,41 +146,200 @@ function calculateTotalScore(matchScores: DimensionScores, weights: DimensionSco
   );
 }
 
+function normalizeKeyword(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[（）()【】\[\]\s._-]+/g, "");
+}
+
+function includesKeyword(source: string, target: string): boolean {
+  const normalizedSource = normalizeKeyword(source);
+  const normalizedTarget = normalizeKeyword(target);
+  if (!normalizedSource || !normalizedTarget) {
+    return false;
+  }
+
+  return normalizedSource.includes(normalizedTarget) || normalizedTarget.includes(normalizedSource);
+}
+
+function findMatchedLabels(required: string[], owned: string[]): string[] {
+  return required.filter((requiredItem) =>
+    owned.some((ownedItem) => includesKeyword(ownedItem, requiredItem)),
+  );
+}
+
+type MatchEvidenceProfile = {
+  matchedHardSkills: string[];
+  missingHardSkills: string[];
+  matchedCertificates: string[];
+  missingCertificates: string[];
+  matchedSoftSkills: string[];
+  skillCoverageScore: number;
+  certificateCoverageScore: number;
+  baseEvidenceScore: number;
+  qualityEvidenceScore: number;
+  potentialEvidenceScore: number;
+};
+
+/**
+ * 作用：从学生画像和岗位画像中抽取可解释的证据命中情况。
+ * 参数：profile 为学生画像，jobProfile 为匹配用岗位画像快照。
+ * 返回：各类命中、缺口和证据评分，供最终维度分与解释共用。
+ * 注意：这里仍保持确定性规则，不直接调用模型；模型增强应在 AI 任务层复用本结果继续推理。
+ */
+function buildMatchEvidenceProfile(
+  profile: StudentProfileRecord,
+  jobProfile: MatchingJobProfileSnapshot,
+): MatchEvidenceProfile {
+  const matchedHardSkills = findMatchedLabels(jobProfile.hard_skills, profile.skills);
+  const missingHardSkills = jobProfile.hard_skills.filter(
+    (skill) => !matchedHardSkills.includes(skill),
+  );
+  const certificateRequirements = jobProfile.certificates.filter(
+    (item) => !includesKeyword(item, "无强制证书要求"),
+  );
+  const matchedCertificates = findMatchedLabels(certificateRequirements, profile.certificates);
+  const missingCertificates = certificateRequirements.filter(
+    (item) => !matchedCertificates.includes(item),
+  );
+
+  const softSignalByLabel: Record<string, number> = {
+    沟通: profile.self_assessment.communication,
+    抗压: profile.self_assessment.stress_tolerance,
+    学习能力: profile.self_assessment.learning,
+    创新: profile.self_assessment.innovation,
+    实践: Math.min(5, 2 + profile.experience.project_count + profile.experience.internship_count),
+  };
+  const matchedSoftSkills = jobProfile.soft_skills.filter((skill) => {
+    const matchedLabel = Object.keys(softSignalByLabel).find((label) =>
+      includesKeyword(skill, label),
+    );
+    return matchedLabel ? softSignalByLabel[matchedLabel] >= 3 : false;
+  });
+
+  const skillCoverageScore =
+    jobProfile.hard_skills.length > 0
+      ? clampScore((matchedHardSkills.length / jobProfile.hard_skills.length) * 100)
+      : 70;
+  const certificateCoverageScore =
+    certificateRequirements.length > 0
+      ? clampScore((matchedCertificates.length / certificateRequirements.length) * 100)
+      : 80;
+  const educationScore = profile.education_level ? 78 : 45;
+  const internshipScore = profile.experience.internship_count > 0 ? 82 : 48;
+  const baseEvidenceScore = blendScore([
+    { score: educationScore, weight: 0.45 },
+    { score: certificateCoverageScore, weight: 0.35 },
+    { score: internshipScore, weight: 0.2 },
+  ]);
+
+  const qualityEvidenceScore = blendScore([
+    { score: profile.self_assessment.communication * 20, weight: 0.45 },
+    { score: profile.self_assessment.stress_tolerance * 20, weight: 0.35 },
+    {
+      score:
+        jobProfile.soft_skills.length > 0
+          ? (matchedSoftSkills.length / jobProfile.soft_skills.length) * 100
+          : 70,
+      weight: 0.2,
+    },
+  ]);
+  const potentialEvidenceScore = blendScore([
+    { score: Math.min(100, profile.experience.project_count * 22 + 35), weight: 0.42 },
+    { score: Math.min(100, profile.experience.competition_count * 24 + 35), weight: 0.24 },
+    { score: profile.self_assessment.learning * 20, weight: 0.24 },
+    { score: profile.personal_summary ? 80 : 50, weight: 0.1 },
+  ]);
+
+  return {
+    matchedHardSkills,
+    missingHardSkills,
+    matchedCertificates,
+    missingCertificates,
+    matchedSoftSkills,
+    skillCoverageScore,
+    certificateCoverageScore,
+    baseEvidenceScore,
+    qualityEvidenceScore,
+    potentialEvidenceScore,
+  };
+}
+
+function buildEvidenceAdjustedStudentScores(
+  profile: StudentProfileRecord,
+  evidence: MatchEvidenceProfile,
+): DimensionScores {
+  return {
+    base_requirements: blendScore([
+      { score: profile.dimension_scores.base_requirements, weight: 0.62 },
+      { score: evidence.baseEvidenceScore, weight: 0.38 },
+    ]),
+    professional_skills: blendScore([
+      { score: profile.dimension_scores.professional_skills, weight: 0.5 },
+      { score: evidence.skillCoverageScore, weight: 0.5 },
+    ]),
+    professional_quality: blendScore([
+      { score: profile.dimension_scores.professional_quality, weight: 0.58 },
+      { score: evidence.qualityEvidenceScore, weight: 0.42 },
+    ]),
+    development_potential: blendScore([
+      { score: profile.dimension_scores.development_potential, weight: 0.58 },
+      { score: evidence.potentialEvidenceScore, weight: 0.42 },
+    ]),
+  };
+}
+
 function buildEvidenceByDimension(
   dimension: DimensionKey,
   profile: StudentProfileRecord,
-  missingHardSkills: string[],
+  evidenceProfile: MatchEvidenceProfile,
 ): string[] {
   switch (dimension) {
     case "base_requirements": {
       const evidence: string[] = [];
       if (!profile.education_level) {
         evidence.push("教育层次信息缺失");
+      } else {
+        evidence.push(`教育层次：${profile.education_level}`);
       }
-      if ((profile.certificates || []).length === 0) {
-        evidence.push("证书项为 0");
+      if (evidenceProfile.missingCertificates.length > 0) {
+        evidence.push(`待补齐证书：${evidenceProfile.missingCertificates.slice(0, 3).join("、")}`);
+      } else if (evidenceProfile.matchedCertificates.length > 0) {
+        evidence.push(`证书命中：${evidenceProfile.matchedCertificates.slice(0, 3).join("、")}`);
+      } else {
+        evidence.push("岗位无强制证书要求或证书信号不足");
       }
       if ((profile.experience?.internship_count || 0) === 0) {
         evidence.push("缺少实习经历信号");
+      } else {
+        evidence.push(`实习经历 ${profile.experience.internship_count} 段`);
       }
-      return evidence.length > 0 ? evidence : ["基础要求满足度接近岗位目标"];
+      return evidence;
     }
     case "professional_skills": {
-      if (missingHardSkills.length > 0) {
-        return [`待补齐技能：${missingHardSkills.slice(0, 5).join("、")}`];
+      const evidence: string[] = [];
+      if (evidenceProfile.matchedHardSkills.length > 0) {
+        evidence.push(`已命中技能：${evidenceProfile.matchedHardSkills.slice(0, 5).join("、")}`);
       }
-      return ["核心技能命中率较高，但仍有强化空间"];
+      if (evidenceProfile.missingHardSkills.length > 0) {
+        evidence.push(`待补齐技能：${evidenceProfile.missingHardSkills.slice(0, 5).join("、")}`);
+      }
+      evidence.push(`核心技能覆盖率 ${evidenceProfile.skillCoverageScore}%`);
+      return evidence;
     }
     case "professional_quality": {
       return [
         `沟通自评 ${profile.self_assessment.communication}/5`,
         `抗压自评 ${profile.self_assessment.stress_tolerance}/5`,
+        `软素质命中：${evidenceProfile.matchedSoftSkills.join("、") || "暂无明确命中"}`,
       ];
     }
     case "development_potential": {
       return [
         `项目经历 ${profile.experience.project_count} 项`,
         `竞赛经历 ${profile.experience.competition_count} 项`,
+        `学习能力自评 ${profile.self_assessment.learning}/5`,
       ];
     }
     default:
@@ -222,7 +393,8 @@ function buildNormalizedHintEvidence(
 
 function buildGapAndExplanation(params: {
   profile: StudentProfileRecord;
-  hardSkills: string[];
+  evidenceProfile: MatchEvidenceProfile;
+  adjustedStudentScores: DimensionScores;
   targetScores: DimensionScores;
   matchScores: DimensionScores;
 }): {
@@ -231,20 +403,15 @@ function buildGapAndExplanation(params: {
   suggestions: string[];
   evidenceRefs: string[];
 } {
-  const profileSkillsLower = new Set(params.profile.skills.map((item) => item.toLowerCase()));
-  const missingHardSkills = params.hardSkills.filter(
-    (skill) => !profileSkillsLower.has(skill.toLowerCase()),
-  );
-
   const gaps: MatchGapItem[] = [];
   const explanations: MatchExplanationItem[] = [];
   const suggestionPool: string[] = [];
 
   for (const dimension of DIMENSION_ORDER) {
     const targetScore = params.targetScores[dimension];
-    const currentScore = params.profile.dimension_scores[dimension];
+    const currentScore = params.adjustedStudentScores[dimension];
     const gap = Math.max(0, targetScore - currentScore);
-    const evidence = buildEvidenceByDimension(dimension, params.profile, missingHardSkills);
+    const evidence = buildEvidenceByDimension(dimension, params.profile, params.evidenceProfile);
     const actions = buildActionsByDimension(dimension);
 
     if (gap > 0) {
@@ -260,7 +427,7 @@ function buildGapAndExplanation(params: {
 
     explanations.push({
       dimension,
-      reasoning: `该维度匹配分 ${params.matchScores[dimension]}，学生当前能力 ${currentScore}，岗位目标 ${targetScore}。`,
+      reasoning: `该维度匹配分 ${params.matchScores[dimension]}，学生证据修正后能力 ${currentScore}，岗位目标 ${targetScore}。`,
       improvement_actions: actions,
       evidence_refs: evidence,
     });
@@ -275,7 +442,7 @@ function buildGapAndExplanation(params: {
     gaps.push({
       dimension: weakest,
       target_score: params.targetScores[weakest],
-      current_score: params.profile.dimension_scores[weakest],
+      current_score: params.adjustedStudentScores[weakest],
       gap: 0,
       evidence: ["当前维度已达标，建议继续巩固优势"],
     });
@@ -288,7 +455,14 @@ function buildGapAndExplanation(params: {
     gaps,
     explanations,
     suggestions: suggestions.length > 0 ? suggestions : ["继续保持当前能力结构并定期复测"],
-    evidenceRefs: Array.from(new Set(gaps.flatMap((item) => item.evidence))).slice(0, 12),
+    evidenceRefs: Array.from(
+      new Set([
+        `匹配算法：${MATCHING_ALGORITHM_VERSION}`,
+        `核心技能覆盖率：${params.evidenceProfile.skillCoverageScore}%`,
+        `证书覆盖率：${params.evidenceProfile.certificateCoverageScore}%`,
+        ...gaps.flatMap((item) => item.evidence),
+      ]),
+    ).slice(0, 16),
   };
 }
 
@@ -475,6 +649,7 @@ export function createMatchingService(
     const normalizedHint = await matchingRepository.getNormalizedJobHint(job.id);
 
     const inputFingerprint = createMatchFingerprint({
+      algorithm_version: MATCHING_ALGORITHM_VERSION,
       student_profile_id: profile.id,
       student_source_digest: profile.source_digest,
       student_dimension_scores: profile.dimension_scores,
@@ -513,12 +688,15 @@ export function createMatchingService(
       confidence: latestJobProfile.confidence,
     });
 
-    const matchScores = buildMatchDimensionScores(profile.dimension_scores, targetScores);
+    const evidenceProfile = buildMatchEvidenceProfile(profile, latestJobProfile);
+    const adjustedStudentScores = buildEvidenceAdjustedStudentScores(profile, evidenceProfile);
+    const matchScores = buildMatchDimensionScores(adjustedStudentScores, targetScores);
     const weights = resolveDimensionWeights(latestJobProfile.skill_weights);
     const totalScore = calculateTotalScore(matchScores, weights);
     const { gaps, explanations, suggestions, evidenceRefs } = buildGapAndExplanation({
       profile,
-      hardSkills: latestJobProfile.hard_skills,
+      evidenceProfile,
+      adjustedStudentScores,
       targetScores,
       matchScores,
     });

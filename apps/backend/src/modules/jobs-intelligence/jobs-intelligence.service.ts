@@ -15,6 +15,7 @@ import { randomUUID } from "node:crypto";
 
 import type {
   CareerGraphSnapshot,
+  CareerPathTargetOptionsResponse,
   CanonicalRoleRecord,
   CanonicalRolesListParams,
   CanonicalRolesListResponse,
@@ -770,6 +771,14 @@ function normalizeCareerPathQuery(
   return optionsOrDepth;
 }
 
+function normalizeCareerPathTargetName(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/c\/c\+\+/g, "c++")
+    .replace(/[^a-z0-9\u4e00-\u9fa5+#]+/g, "");
+}
+
 export interface JobsIntelligenceService {
   runPipeline(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord>;
   runPipelineNow(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord>;
@@ -804,6 +813,7 @@ export interface JobsIntelligenceService {
   generateCareerPathGraph(
     options: CareerPathGenerateOptions,
   ): Promise<CareerPathV2GenerateResponse>;
+  listCareerPathTargets(): Promise<CareerPathTargetOptionsResponse>;
   getCareerPathGraph(
     jobId: number,
     options: CareerPathQueryOptions | number,
@@ -1427,6 +1437,40 @@ export function createJobsIntelligenceService(
     };
   }
 
+  /**
+   * 作用：返回当前已经写入图数据库的路径图谱目标岗位。
+   * 返回值：前端下拉可直接使用的岗位选项列表。
+   * 注意：路径图谱由 v2_manual_job_portraits 构建，范围小于 jobs 全量表；
+   *       这里刻意不读取 jobs，避免把未构建图谱的计算机岗位暴露为可查询目标。
+   */
+  async function listCareerPathTargets(): Promise<CareerPathTargetOptionsResponse> {
+    if (typeof graphRepository.listGraphTargetNodes !== "function") {
+      return { items: [] };
+    }
+
+    const nodes = await graphRepository.listGraphTargetNodes();
+    const portraits =
+      typeof repository.listManualJobPortraitsFromTable === "function"
+        ? await repository.listManualJobPortraitsFromTable()
+        : [];
+    const currentPortraitNames = new Set(
+      portraits.map((item) => normalizeCareerPathTargetName(item.job_name)),
+    );
+    const filteredNodes =
+      currentPortraitNames.size > 0
+        ? nodes.filter((node) => currentPortraitNames.has(normalizeCareerPathTargetName(node.title)))
+        : nodes;
+
+    return {
+      items: filteredNodes.map((node) => ({
+        job_id: node.job_id,
+        job_name: node.title,
+        category: node.family,
+        graph_version: "current",
+      })),
+    };
+  }
+
   return {
     runPipeline,
     runPipelineNow,
@@ -1444,6 +1488,7 @@ export function createJobsIntelligenceService(
     generateManualJobPortraitComic,
     getManualJobPortraitComic,
     generateCareerPathGraph,
+    listCareerPathTargets,
     getCareerPathGraph,
   };
 }

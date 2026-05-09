@@ -177,19 +177,10 @@ function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRe
   const payload = (row.payload as Record<string, unknown> | null) ?? {};
   const fallbackId = row.fallback_job_id == null ? null : Number(row.fallback_job_id);
   const resolvedId = row.job_id == null ? fallbackId : Number(row.job_id);
-  const stableId =
-    resolvedId ??
-    1_000_000_000 +
-      (Number.parseInt(
-        createHash("sha1")
-          .update(String(row.job_name ?? ""))
-          .digest("hex")
-          .slice(0, 8),
-        16,
-      ) %
-        900_000_000);
   return {
-    job_id: stableId,
+    // 这里必须只返回真实 jobs.id。图谱生成可以使用稳定伪 ID，但 HTTP 画像列表会被匹配/Agent 入口复用；
+    // 若把 hash 伪 ID 暴露给前端，写入 agent_tasks 时会违反 job_id 外键。
+    job_id: resolvedId,
     job_name: String(row.job_name),
     category: String(row.category),
     comic_image_url:
@@ -647,33 +638,10 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     const baseSelect = `
       SELECT
         j.*,
-        norm.normalized_title AS normalized_title_hint,
-        norm.normalized_job_family AS normalized_job_family_hint,
-        norm.confidence AS normalization_confidence_hint
+        NULL::text AS normalized_title_hint,
+        NULL::text AS normalized_job_family_hint,
+        NULL::double precision AS normalization_confidence_hint
       FROM jobs j
-      LEFT JOIN LATERAL (
-        SELECT
-          n.normalized_title,
-          n.normalized_job_family,
-          n.confidence
-        FROM job_normalized n
-        WHERE
-          (
-            j.normalized_source_key IS NOT NULL
-            AND (
-              n.dedup_key = j.normalized_source_key
-              OR n.normalized_payload ->> 'source_row_id' = j.normalized_source_key
-              OR n.normalized_payload ->> 'source_job_code' = j.normalized_source_key
-            )
-          )
-          OR n.normalized_title = j.title
-          OR (
-            j.source_row_id IS NOT NULL
-            AND n.normalized_payload ->> 'source_row_id' = j.source_row_id
-          )
-        ORDER BY n.confidence DESC, n.updated_at DESC
-        LIMIT 1
-      ) norm ON true
     `;
 
     const result = await pool.query(
@@ -763,33 +731,10 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
       `
         SELECT
           j.*,
-          norm.normalized_title AS normalized_title_hint,
-          norm.normalized_job_family AS normalized_job_family_hint,
-          norm.confidence AS normalization_confidence_hint
+          NULL::text AS normalized_title_hint,
+          NULL::text AS normalized_job_family_hint,
+          NULL::double precision AS normalization_confidence_hint
         FROM jobs j
-        LEFT JOIN LATERAL (
-          SELECT
-            n.normalized_title,
-            n.normalized_job_family,
-            n.confidence
-          FROM job_normalized n
-          WHERE
-            (
-              j.normalized_source_key IS NOT NULL
-              AND (
-                n.dedup_key = j.normalized_source_key
-                OR n.normalized_payload ->> 'source_row_id' = j.normalized_source_key
-                OR n.normalized_payload ->> 'source_job_code' = j.normalized_source_key
-              )
-            )
-            OR n.normalized_title = j.title
-            OR (
-              j.source_row_id IS NOT NULL
-              AND n.normalized_payload ->> 'source_row_id' = j.source_row_id
-            )
-          ORDER BY n.confidence DESC, n.updated_at DESC
-          LIMIT 1
-        ) norm ON true
         WHERE j.id = $1
         LIMIT 1
       `,

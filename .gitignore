@@ -50,3 +50,7 @@ Thumbs.db
 ppt-output/
 output/
 infographic/
+
+*.png
+
+.playwright-mcp/

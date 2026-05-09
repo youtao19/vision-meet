@@ -625,6 +625,17 @@ export type CareerPathV2GraphResponse = {
   transition_routes: CareerRouteRecommendation[];
 };
 
+export type CareerPathTargetOption = {
+  job_id: number;
+  job_name: string;
+  category: string;
+  graph_version: string;
+};
+
+export type CareerPathTargetOptionsResponse = {
+  items: CareerPathTargetOption[];
+};
+
 export type CareerPathV2GenerateRequest = {
   force_rebuild?: boolean;
   max_candidates_per_node?: number;
