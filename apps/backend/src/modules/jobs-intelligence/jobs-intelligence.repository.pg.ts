@@ -1214,10 +1214,21 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
         (
           SELECT j2.id
           FROM jobs j2
-          WHERE lower(trim(j2.title)) = lower(trim(p.job_name))
-            AND regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
+          WHERE 
+            lower(trim(j2.title)) = lower(trim(p.job_name))
+            OR (
+              regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
               regexp_replace(lower(trim(p.job_name)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g')
-          ORDER BY j2.id DESC
+            )
+            OR (
+              length(j2.title) >= 2 AND (
+                lower(p.job_name) LIKE '%' || lower(j2.title) || '%'
+                OR lower(j2.title) LIKE '%' || lower(p.job_name) || '%'
+              )
+            )
+          ORDER BY 
+            CASE WHEN lower(trim(j2.title)) = lower(trim(p.job_name)) THEN 0 ELSE 1 END ASC,
+            j2.id DESC
           LIMIT 1
         ) AS job_id
       FROM v2_manual_job_portraits p
@@ -1244,10 +1255,21 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
           (
             SELECT j2.id
             FROM jobs j2
-            WHERE lower(trim(j2.title)) = lower(trim(p.job_name))
-              AND regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
+            WHERE 
+              lower(trim(j2.title)) = lower(trim(p.job_name))
+              OR (
+                regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
                 regexp_replace(lower(trim(p.job_name)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g')
-            ORDER BY j2.id DESC
+              )
+              OR (
+                length(j2.title) >= 2 AND (
+                  lower(p.job_name) LIKE '%' || lower(j2.title) || '%'
+                  OR lower(j2.title) LIKE '%' || lower(p.job_name) || '%'
+                )
+              )
+            ORDER BY 
+              CASE WHEN lower(trim(j2.title)) = lower(trim(p.job_name)) THEN 0 ELSE 1 END ASC,
+              j2.id DESC
             LIMIT 1
           ) AS job_id
         FROM v2_manual_job_portraits p

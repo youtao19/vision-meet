@@ -54,3 +54,4 @@ infographic/
 *.png
 
 .playwright-mcp/
+.gemini

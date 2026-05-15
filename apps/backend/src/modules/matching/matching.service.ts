@@ -17,6 +17,7 @@ import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { createMatchFingerprint } from "../../shared/utils/match-fingerprint.js";
+import { isComputerRelatedCleanedJob } from "../jobs-intelligence/jobs-intelligence.computer-filter.js";
 import type {
   MatchResultCreateInput,
   MatchResultUniqueKey,
@@ -362,6 +363,16 @@ function buildActionsByDimension(dimension: DimensionKey): string[] {
   }
 }
 
+function attachJobTitle<T extends { job_title?: string | null }>(
+  record: T,
+  jobTitle: string,
+): T {
+  return {
+    ...record,
+    job_title: jobTitle,
+  };
+}
+
 /**
  * 作用：把标准岗位提示写入匹配证据，确保报告端能引用“岗位族”这一结构化依据。
  * 参数：hint 为岗位标准化结果，jobTitle 为岗位原始标题。
@@ -582,6 +593,21 @@ async function ensureJobProfileSnapshot(
   if (latestV2) {
     return mapV2ProfileToMatchingSnapshot(latestV2);
   }
+
+  // 业务校验：如果是非计算机相关岗位，直接拒绝匹配（对齐数据处理中心约束）
+  const isComputerRelated = isComputerRelatedCleanedJob({
+    title: job.title,
+    normalized_title: job.title, // 降级使用原始标题
+    job_family: "unknown",
+    industry: job.industry,
+    cleaned_text: job.job_description || "",
+    keywords: [],
+  });
+
+  if (!isComputerRelated) {
+    throw new HttpError(400, "INVALID_TARGET_JOB", "当前匹配中心仅支持计算机相关岗位的深度分析");
+  }
+
   return buildFallbackJobProfileSnapshot(job.title);
 }
 
@@ -674,10 +700,13 @@ export function createMatchingService(
     if (!input.force_recalculate) {
       const reusable = await matchingRepository.findReusableResult(uniqueKey);
       if (reusable) {
-        return {
-          ...reusable,
-          from_cache: true,
-        };
+        return attachJobTitle(
+          {
+            ...reusable,
+            from_cache: true,
+          },
+          job.title,
+        );
       }
     }
 
@@ -719,7 +748,8 @@ export function createMatchingService(
       }
     }
 
-    return matchingRepository.createMatchResult(
+    return attachJobTitle(
+      await matchingRepository.createMatchResult(
       buildMatchCreateInput({
         profile,
         jobProfileVersion: latestJobProfile.profile_version,
@@ -734,6 +764,8 @@ export function createMatchingService(
         evidenceRefs: mergedEvidenceRefs,
         jobId: job.id,
       }),
+      ),
+      job.title,
     );
   }
 

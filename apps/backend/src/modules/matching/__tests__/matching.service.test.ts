@@ -235,3 +235,28 @@ test("createMatch: 技能证据应影响职业技能匹配分并写入解释", a
     ),
   );
 });
+
+test("createMatch: 非计算机岗位在无画像时应抛出 HttpError", async () => {
+  const profile = buildStudentProfile({ id: 3, skills: ["Java"] });
+  const nonCompJob = buildJobRecord();
+  nonCompJob.title = "销售经理";
+  nonCompJob.industry = "房地产";
+
+  const service = createMatchingService(
+    createMatchingRepository(),
+    createProfileRepository(profile),
+    // 模拟 v2_job_profiles 未命中，触发 ensureJobProfileSnapshot 的计算机过滤
+    createJobsRepository(nonCompJob, null as unknown as JobProfileV2Record),
+    { scoringVersion: "test" },
+  );
+
+  await assert.rejects(
+    service.createMatch({
+      student_profile_id: profile.id,
+      job_id: nonCompJob.id,
+    }),
+    (err: any) => {
+      return err.status === 400 && err.code === "INVALID_TARGET_JOB";
+    },
+  );
+});

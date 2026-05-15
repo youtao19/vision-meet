@@ -26,6 +26,8 @@ const COMPUTER_FAMILY_PATTERNS = [
   /hardware/i,
   /embedded/i,
   /engineering/i,
+  /support/i,
+  /implementation/i,
   /软件/,
   /前端/,
   /后端/,
@@ -37,6 +39,8 @@ const COMPUTER_FAMILY_PATTERNS = [
   /云计算/,
   /嵌入式/,
   /硬件/,
+  /技术支持/,
+  /实施/,
 ];
 
 const TITLE_TECH_KEYWORDS = [
@@ -84,6 +88,13 @@ const TITLE_TECH_KEYWORDS = [
   "node",
   "web",
   "ui/ux",
+  "技术支持",
+  "实施工程师",
+  "实施顾问",
+  "dba",
+  "数据库管理员",
+  "系统管理员",
+  "运维工程师",
 ];
 
 const BODY_TECH_KEYWORDS = [

@@ -433,6 +433,7 @@ export type MatchResultSummary = {
   id: number;
   student_profile_id: number;
   job_id: number;
+  job_title?: string | null;
   job_profile_version: number;
   scoring_version: string;
   input_fingerprint: string;

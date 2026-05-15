@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import type {
   DimensionKey,
   JobRecord,
+  ManualJobPortraitRecord,
   MatchResultDetail,
   MatchResultSummary,
   StudentProfileRecord,
@@ -12,6 +13,7 @@ import type {
 
 import { createAgentTask } from "@/shared/api/agent";
 import { fetchJobs } from "@/shared/api/jobs";
+import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { createMatch, fetchMatchDetail, fetchMatchList } from "@/shared/api/matching";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchStudentProfiles } from "@/shared/api/profile";
@@ -19,6 +21,7 @@ import { fetchStudentProfiles } from "@/shared/api/profile";
 const router = useRouter();
 const profiles = ref<StudentProfileRecord[]>([]);
 const jobs = ref<JobRecord[]>([]);
+const manualPortraits = ref<ManualJobPortraitRecord[]>([]);
 const matches = ref<MatchResultSummary[]>([]);
 const selectedDetail = ref<MatchResultDetail | null>(null);
 
@@ -46,6 +49,18 @@ const queryForm = reactive({
 const uiState = reactive({
   error: "",
   success: "",
+});
+
+const targetJobs = computed(() => {
+  // 核心约束：目标岗位必须是已经构建了岗位画像的计算机相关岗位
+  // 这里通过 fetchManualJobPortraits 获取，它本身就是流水线清洗后的计算机岗位子集
+  return manualPortraits.value
+    .filter((p) => p.job_id != null)
+    .map((p) => ({
+      id: p.job_id as number,
+      title: p.job_name,
+      category: p.category,
+    }));
 });
 
 const DIMENSION_META: Record<
@@ -151,6 +166,50 @@ function dimensionLabel(key: DimensionKey): string {
   return DIMENSION_META[key]?.label ?? key;
 }
 
+function normalizeJobName(value: string): string {
+  return value.trim().toLowerCase().replace(/[（）()【】\[\]\s._-]+/g, "");
+}
+
+function resolveJobTitle(jobId: number): string {
+  const matched = targetJobs.value.find((job) => job.id === jobId);
+  if (matched) {
+    return matched.title;
+  }
+  return jobs.value.find((job) => job.id === jobId)?.title ?? `岗位 #${jobId}`;
+}
+
+function syncTargetJobFromProfile(): void {
+  const profileId = toPositiveInt(createForm.studentProfileId);
+  if (!profileId) {
+    return;
+  }
+
+  const profile = profiles.value.find((item) => item.id === profileId);
+  const targetRole = profile?.target_role?.trim();
+  if (!targetRole) {
+    return;
+  }
+
+  const normalizedTargetRole = normalizeJobName(targetRole);
+  if (!normalizedTargetRole) {
+    return;
+  }
+
+  const matchedJob =
+    targetJobs.value.find((job) => normalizeJobName(job.title) === normalizedTargetRole) ||
+    targetJobs.value.find((job) => {
+      const normalizedTitle = normalizeJobName(job.title);
+      return (
+        normalizedTitle.includes(normalizedTargetRole) ||
+        normalizedTargetRole.includes(normalizedTitle)
+      );
+    });
+
+  if (matchedJob) {
+    createForm.jobId = String(matchedJob.id);
+  }
+}
+
 function evidenceTagClass(item: string): string {
   if (item.includes("待补齐") || item.includes("缺少")) return "tag-risk";
   if (item.includes("命中") || item.includes("覆盖率")) return "tag-strong";
@@ -163,23 +222,27 @@ async function bootstrap(): Promise<void> {
   uiState.error = "";
 
   try {
-    const [profileResponse, jobsResponse] = await Promise.all([
+    const [profileResponse, jobsResponse, portraitResponse] = await Promise.all([
       fetchStudentProfiles(),
       fetchJobs({ limit: 100 }),
+      fetchManualJobPortraits(),
     ]);
 
     profiles.value = profileResponse.items;
     jobs.value = jobsResponse.items;
+    manualPortraits.value = portraitResponse.items;
 
     if (!createForm.studentProfileId && profiles.value[0]) {
       createForm.studentProfileId = String(profiles.value[0].id);
       queryForm.studentProfileId = String(profiles.value[0].id);
     }
 
-    if (!createForm.jobId && jobs.value[0]) {
-      createForm.jobId = String(jobs.value[0].id);
-      queryForm.jobId = String(jobs.value[0].id);
+    if (!createForm.jobId && targetJobs.value[0]) {
+      createForm.jobId = String(targetJobs.value[0].id);
+      queryForm.jobId = String(targetJobs.value[0].id);
     }
+
+    syncTargetJobFromProfile();
   } catch (error) {
     uiState.error = formatApiError(error);
   } finally {
@@ -322,6 +385,13 @@ onMounted(async () => {
   await bootstrap();
   await loadMatches();
 });
+
+watch(
+  () => createForm.studentProfileId,
+  () => {
+    syncTargetJobFromProfile();
+  },
+);
 </script>
 
 <template>
@@ -354,7 +424,7 @@ onMounted(async () => {
           目标岗位
           <select v-model="createForm.jobId" :disabled="loading.bootstrap || loading.create">
             <option value="">请选择</option>
-            <option v-for="job in jobs" :key="job.id" :value="String(job.id)">
+            <option v-for="job in targetJobs" :key="job.id" :value="String(job.id)">
               #{{ job.id }} {{ job.title }}
             </option>
           </select>
@@ -394,7 +464,10 @@ onMounted(async () => {
           <div class="panel-title-row">
             <div>
               <p class="eyebrow">Match Assessment</p>
-              <h3>匹配详情 #{{ selectedDetail.id }}</h3>
+              <h3>
+                匹配详情 #{{ selectedDetail.id }} ·
+                {{ selectedDetail.job_title ?? resolveJobTitle(selectedDetail.job_id) }}
+              </h3>
             </div>
             <span v-if="selectedDetail.from_cache" class="cache-tag">from_cache</span>
           </div>
@@ -544,7 +617,7 @@ onMounted(async () => {
           按岗位筛选
           <select v-model="queryForm.jobId" :disabled="loading.list">
             <option value="">全部</option>
-            <option v-for="job in jobs" :key="job.id" :value="String(job.id)">
+            <option v-for="job in targetJobs" :key="job.id" :value="String(job.id)">
               #{{ job.id }} {{ job.title }}
             </option>
           </select>
@@ -570,7 +643,7 @@ onMounted(async () => {
           <tr v-for="item in matches" :key="item.id">
             <td>{{ item.id }}</td>
             <td>{{ item.student_profile_id }}</td>
-            <td>{{ item.job_id }}</td>
+            <td>{{ item.job_title ?? resolveJobTitle(item.job_id) }}（#{{ item.job_id }}）</td>
             <td>{{ item.total_score }}</td>
             <td>{{ new Date(item.created_at).toLocaleString() }}</td>
             <td>

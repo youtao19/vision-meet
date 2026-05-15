@@ -25,6 +25,7 @@ function mapMatchResultDetail(row: Record<string, unknown>): MatchResultDetail {
     id: Number(row.id),
     student_profile_id: Number(row.student_profile_id),
     job_id: Number(row.job_id),
+    job_title: (row.job_title as string | null) ?? null,
     job_profile_version: Number(row.job_profile_version),
     scoring_version: String(row.scoring_version),
     input_fingerprint: String(row.input_fingerprint),
@@ -46,6 +47,7 @@ function toSummary(record: MatchResultDetail): MatchResultSummary {
     id: record.id,
     student_profile_id: record.student_profile_id,
     job_id: record.job_id,
+    job_title: record.job_title ?? null,
     job_profile_version: record.job_profile_version,
     scoring_version: record.scoring_version,
     input_fingerprint: record.input_fingerprint,
@@ -156,9 +158,10 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
     await ensureSchema();
     const result = await pool.query(
       `
-        SELECT *
-        FROM match_results
-        WHERE id = $1
+        SELECT mr.*, j.title AS job_title
+        FROM match_results mr
+        LEFT JOIN jobs j ON j.id = mr.job_id
+        WHERE mr.id = $1
         LIMIT 1
       `,
       [matchId],
@@ -175,23 +178,24 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
 
     if (params.student_profile_id !== undefined) {
       values.push(params.student_profile_id);
-      filters.push(`student_profile_id = $${values.length}`);
+      filters.push(`mr.student_profile_id = $${values.length}`);
     }
 
     if (params.job_id !== undefined) {
       values.push(params.job_id);
-      filters.push(`job_id = $${values.length}`);
+      filters.push(`mr.job_id = $${values.length}`);
     }
 
     const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
     const [countResult, listResult] = await Promise.all([
-      pool.query(`SELECT COUNT(*)::int AS total FROM match_results ${whereClause}`, values),
+      pool.query(`SELECT COUNT(*)::int AS total FROM match_results mr ${whereClause}`, values),
       pool.query(
         `
-          SELECT *
-          FROM match_results
+          SELECT mr.*, j.title AS job_title
+          FROM match_results mr
+          LEFT JOIN jobs j ON j.id = mr.job_id
           ${whereClause}
-          ORDER BY created_at DESC
+          ORDER BY mr.created_at DESC
           OFFSET $${values.length + 1}
           LIMIT $${values.length + 2}
         `,
@@ -211,15 +215,16 @@ export function createPgMatchingRepository(pool: Pool): MatchingRepository {
     await ensureSchema();
     const result = await pool.query(
       `
-        SELECT *
-        FROM match_results
+        SELECT mr.*, j.title AS job_title
+        FROM match_results mr
+        LEFT JOIN jobs j ON j.id = mr.job_id
         WHERE
-          student_profile_id = $1 AND
-          job_id = $2 AND
-          job_profile_version = $3 AND
-          scoring_version = $4 AND
-          input_fingerprint = $5
-        ORDER BY created_at DESC
+          mr.student_profile_id = $1 AND
+          mr.job_id = $2 AND
+          mr.job_profile_version = $3 AND
+          mr.scoring_version = $4 AND
+          mr.input_fingerprint = $5
+        ORDER BY mr.created_at DESC
         LIMIT 1
       `,
       [

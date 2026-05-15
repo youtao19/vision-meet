@@ -24,7 +24,7 @@ import { LegendComponent, TooltipComponent } from "echarts/components";
 import { init, use, type ECharts } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 
-import { fetchCareerPathGraph, fetchCareerPathTargets } from "@/shared/api/career-path";
+import { fetchCareerPathGraph, fetchCareerPathTargets, generateCareerPathGraph } from "@/shared/api/career-path";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { fetchStudentProfiles } from "@/shared/api/profile";
@@ -50,12 +50,14 @@ const insightTab = ref<"detail" | "routes">("detail");
 const loading = reactive({
   bootstrap: false,
   graph: false,
+  sync: false,
 });
 
 const form = reactive({
   jobId: "",
   studentProfileId: "",
   depth: 2,
+  useAgent: false,
 });
 
 const uiState = reactive({
@@ -444,6 +446,27 @@ async function loadGraph(): Promise<void> {
   }
 }
 
+async function rebuildGraph(): Promise<void> {
+  loading.sync = true;
+  uiState.error = "";
+  uiState.success = "";
+
+  try {
+    const result = await generateCareerPathGraph({
+      use_agent: form.useAgent,
+    });
+    uiState.success = `图谱重建成功！写入节点: ${result.nodes_written}, 边: ${result.edges_written}。`;
+
+    // 重新拉取目标列表
+    const targetResponse = await fetchCareerPathTargets();
+    graphTargets.value = targetResponse.items;
+  } catch (error) {
+    uiState.error = formatApiError(error);
+  } finally {
+    loading.sync = false;
+  }
+}
+
 async function searchGraph(): Promise<void> {
   const jobId = toPositiveInt(form.jobId);
   if (!jobId) {
@@ -583,6 +606,16 @@ onUnmounted(() => {
         <button class="primary-btn" :disabled="!canLoadGraph" @click="searchGraph">
           {{ loading.graph ? "加载中..." : "加载图谱" }}
         </button>
+
+        <div class="sync-actions">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="form.useAgent" :disabled="loading.sync" />
+            Agent 增强
+          </label>
+          <button class="seed-btn" :disabled="loading.sync" @click="rebuildGraph">
+            {{ loading.sync ? "同步中..." : "重建图谱快照" }}
+          </button>
+        </div>
       </div>
     </section>
 
@@ -807,6 +840,26 @@ onUnmounted(() => {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
+}
+
+.sync-actions {
+  grid-column: span 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  margin-top: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--glass-muted);
+  cursor: pointer;
 }
 
 label {
