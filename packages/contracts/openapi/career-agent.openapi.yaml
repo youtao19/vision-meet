@@ -2465,6 +2465,9 @@ components:
         target_position:
           type: string
           maxLength: 120
+        target_city:
+          type: string
+          maxLength: 80
 
     ResumeEducationInput:
       type: object
@@ -2482,6 +2485,15 @@ components:
         period:
           type: string
           maxLength: 80
+        gpa:
+          type: string
+          maxLength: 80
+        core_courses:
+          type: string
+          maxLength: 1000
+        honors:
+          type: string
+          maxLength: 1000
 
     ResumeExperienceInput:
       type: object
@@ -2496,12 +2508,24 @@ components:
         period:
           type: string
           maxLength: 80
+        type:
+          type: string
+          enum: [project, internship, competition, campus]
+        background:
+          type: string
+          maxLength: 1500
+        tech_stack:
+          type: string
+          maxLength: 1000
         responsibilities:
           type: string
           maxLength: 2000
         achievements:
           type: string
           maxLength: 2000
+        difficulties:
+          type: string
+          maxLength: 1500
 
     ResumeHtmlRequest:
       type: object
@@ -2527,6 +2551,15 @@ components:
         skills:
           type: string
           maxLength: 2000
+        certificates:
+          type: string
+          maxLength: 1000
+        awards:
+          type: string
+          maxLength: 1000
+        portfolio_links:
+          type: string
+          maxLength: 1000
 
     ResumeHtmlResponse:
       type: object

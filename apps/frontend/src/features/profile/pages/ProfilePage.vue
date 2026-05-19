@@ -86,6 +86,7 @@ const resumeBuilder = reactive({
     phone: "",
     email: "",
     targetPosition: "",
+    targetCity: "",
   },
   summary: "",
   education: {
@@ -93,15 +94,25 @@ const resumeBuilder = reactive({
     major: "",
     degree: "",
     period: "",
+    gpa: "",
+    coreCourses: "",
+    honors: "",
   },
   experience: {
     organization: "",
     role: "",
     period: "",
+    type: "project" as "project" | "internship" | "competition" | "campus",
+    background: "",
+    techStack: "",
     responsibilities: "",
     achievements: "",
+    difficulties: "",
   },
   skills: "",
+  certificates: "",
+  awards: "",
+  portfolioLinks: "",
 });
 
 const resumeUpload = reactive({
@@ -588,6 +599,7 @@ function buildResumeRequestPayload(): CreateResumeHtmlRequest {
       phone: resumeBuilder.basic.phone.trim(),
       email: resumeBuilder.basic.email.trim(),
       target_position: resumeBuilder.basic.targetPosition.trim(),
+      target_city: resumeBuilder.basic.targetCity.trim() || undefined,
     },
     summary: resumeBuilder.summary.trim() || undefined,
     educations: [
@@ -596,6 +608,9 @@ function buildResumeRequestPayload(): CreateResumeHtmlRequest {
         major: resumeBuilder.education.major.trim(),
         degree: resumeBuilder.education.degree.trim(),
         period: resumeBuilder.education.period.trim(),
+        gpa: resumeBuilder.education.gpa.trim() || undefined,
+        core_courses: resumeBuilder.education.coreCourses.trim() || undefined,
+        honors: resumeBuilder.education.honors.trim() || undefined,
       },
     ],
     experiences: [
@@ -603,11 +618,18 @@ function buildResumeRequestPayload(): CreateResumeHtmlRequest {
         organization: resumeBuilder.experience.organization.trim(),
         role: resumeBuilder.experience.role.trim(),
         period: resumeBuilder.experience.period.trim(),
+        type: resumeBuilder.experience.type,
+        background: resumeBuilder.experience.background.trim() || undefined,
+        tech_stack: resumeBuilder.experience.techStack.trim() || undefined,
         responsibilities: resumeBuilder.experience.responsibilities.trim(),
         achievements: resumeBuilder.experience.achievements.trim(),
+        difficulties: resumeBuilder.experience.difficulties.trim() || undefined,
       },
     ],
     skills: resumeBuilder.skills.trim(),
+    certificates: resumeBuilder.certificates.trim() || undefined,
+    awards: resumeBuilder.awards.trim() || undefined,
+    portfolio_links: resumeBuilder.portfolioLinks.trim() || undefined,
   };
 }
 
@@ -625,6 +647,9 @@ function validateResumeBuilder(): string[] {
   if (!resumeBuilder.basic.targetPosition.trim()) {
     errors.push("请填写目标职位");
   }
+  if (!resumeBuilder.basic.targetCity.trim()) {
+    errors.push("请填写意向城市");
+  }
   if (
     !resumeBuilder.education.school.trim() ||
     !resumeBuilder.education.major.trim() ||
@@ -633,17 +658,25 @@ function validateResumeBuilder(): string[] {
   ) {
     errors.push("请完整填写教育背景");
   }
+  if (!resumeBuilder.education.coreCourses.trim()) {
+    errors.push("请填写核心课程");
+  }
   if (
     !resumeBuilder.experience.organization.trim() ||
     !resumeBuilder.experience.role.trim() ||
     !resumeBuilder.experience.period.trim() ||
+    !resumeBuilder.experience.background.trim() ||
+    !resumeBuilder.experience.techStack.trim() ||
     !resumeBuilder.experience.responsibilities.trim() ||
     !resumeBuilder.experience.achievements.trim()
   ) {
-    errors.push("请完整填写工作/项目经历");
+    errors.push("请完整填写项目/实习经历");
   }
   if (!resumeBuilder.skills.trim()) {
     errors.push("请填写专业技能");
+  }
+  if (!resumeBuilder.certificates.trim() && !resumeBuilder.awards.trim()) {
+    errors.push("请至少填写证书或奖项/竞赛经历");
   }
   return errors;
 }
@@ -752,6 +785,14 @@ watch(
 
         <div class="grid two-col">
           <label>
+            意向城市
+            <input
+              v-model="resumeBuilder.basic.targetCity"
+              type="text"
+              placeholder="例如：杭州 / 上海 / 不限"
+            />
+          </label>
+          <label>
             电话
             <input
               v-model="resumeBuilder.basic.phone"
@@ -759,12 +800,23 @@ watch(
               placeholder="例如：138xxxx1234"
             />
           </label>
+        </div>
+
+        <div class="grid two-col">
           <label>
             邮箱
             <input
               v-model="resumeBuilder.basic.email"
               type="email"
               placeholder="例如：name@email.com"
+            />
+          </label>
+          <label>
+            成绩/排名（可写 GPA、绩点、专业排名）
+            <input
+              v-model="resumeBuilder.education.gpa"
+              type="text"
+              placeholder="例如：GPA 3.6/4.0，专业前 20%"
             />
           </label>
         </div>
@@ -803,59 +855,142 @@ watch(
           </label>
         </div>
 
+        <label>
+          核心课程
+          <textarea
+            v-model="resumeBuilder.education.coreCourses"
+            rows="2"
+            placeholder="例如：数据结构、操作系统、数据库系统、计算机网络、软件工程"
+          />
+        </label>
+
+        <label>
+          在校荣誉/奖学金（可选）
+          <textarea
+            v-model="resumeBuilder.education.honors"
+            rows="2"
+            placeholder="例如：校二等奖学金、优秀学生干部、蓝桥杯校赛一等奖"
+          />
+        </label>
+
         <div class="grid two-col">
           <label>
-            公司/项目
+            经历类型
+            <select v-model="resumeBuilder.experience.type">
+              <option value="project">项目经历</option>
+              <option value="internship">实习经历</option>
+              <option value="competition">竞赛经历</option>
+              <option value="campus">校园经历</option>
+            </select>
+          </label>
+          <label>
+            项目/公司/竞赛名称
             <input
               v-model="resumeBuilder.experience.organization"
               type="text"
-              placeholder="例如：XX 科技"
-            />
-          </label>
-          <label>
-            岗位
-            <input
-              v-model="resumeBuilder.experience.role"
-              type="text"
-              placeholder="例如：后端开发工程师"
+              placeholder="例如：校园招聘推荐系统 / XX 科技"
             />
           </label>
         </div>
 
         <div class="grid two-col">
+          <label>
+            担任角色
+            <input
+              v-model="resumeBuilder.experience.role"
+              type="text"
+              placeholder="例如：后端开发 / 数据分析 / 项目负责人"
+            />
+          </label>
           <label>
             经历时间
             <input
               v-model="resumeBuilder.experience.period"
               type="text"
-              placeholder="例如：2022.07 - 2025.03"
-            />
-          </label>
-          <label>
-            专业技能
-            <input
-              v-model="resumeBuilder.skills"
-              type="text"
-              placeholder="例如：Java Spring PostgreSQL"
+              placeholder="例如：2025.03 - 2025.06"
             />
           </label>
         </div>
 
         <label>
-          主要职责
+          项目/实习背景
           <textarea
-            v-model="resumeBuilder.experience.responsibilities"
+            v-model="resumeBuilder.experience.background"
             rows="3"
-            placeholder="例如：负责核心服务开发与性能优化"
+            placeholder="说明项目解决什么问题、服务什么对象、你为什么参与；例如：面向学生就业推荐场景，构建岗位画像与简历匹配模块"
           />
         </label>
 
         <label>
-          工作成果
+          技术栈/工具
+          <textarea
+            v-model="resumeBuilder.experience.techStack"
+            rows="2"
+            placeholder="例如：Vue 3、TypeScript、Node.js、Express、PostgreSQL、pgvector"
+          />
+        </label>
+
+        <label>
+          主要职责
+          <textarea
+            v-model="resumeBuilder.experience.responsibilities"
+            rows="4"
+            placeholder="分行填写你实际做过的事情；例如：设计岗位画像数据结构 / 编写匹配接口 / 接入前端页面"
+          />
+        </label>
+
+        <label>
+          难点与解决方式（可选）
+          <textarea
+            v-model="resumeBuilder.experience.difficulties"
+            rows="3"
+            placeholder="例如：岗位字段不统一，先做清洗归一化，再使用规则和向量检索提升匹配稳定性"
+          />
+        </label>
+
+        <label>
+          成果/数据/产出
           <textarea
             v-model="resumeBuilder.experience.achievements"
-            rows="3"
-            placeholder="例如：将核心接口响应从 300ms 优化到 90ms"
+            rows="4"
+            placeholder="尽量填写可验证结果，不确定就写实际产物；例如：完成画像生成闭环 / 支持本地演示部署 / 输出比赛材料"
+          />
+        </label>
+
+        <label>
+          专业技能
+          <textarea
+            v-model="resumeBuilder.skills"
+            rows="4"
+            placeholder="按类别分行填写；例如：后端：Node.js、Express、REST API；数据库：PostgreSQL、SQL；前端：Vue 3、TypeScript"
+          />
+        </label>
+
+        <div class="grid two-col">
+          <label>
+            证书
+            <textarea
+              v-model="resumeBuilder.certificates"
+              rows="3"
+              placeholder="例如：CET-4、计算机二级、软考初级"
+            />
+          </label>
+          <label>
+            奖项/竞赛
+            <textarea
+              v-model="resumeBuilder.awards"
+              rows="3"
+              placeholder="例如：互联网+ 校赛三等奖、蓝桥杯省赛二等奖"
+            />
+          </label>
+        </div>
+
+        <label>
+          作品链接/代码仓库/演示地址（可选）
+          <textarea
+            v-model="resumeBuilder.portfolioLinks"
+            rows="2"
+            placeholder="例如：GitHub: https://github.com/...；演示地址：https://..."
           />
         </label>
 
@@ -864,7 +999,7 @@ watch(
           <textarea
             v-model="resumeBuilder.summary"
             rows="3"
-            placeholder="例如：3 年后端经验，具备微服务拆分与高并发治理实践"
+            placeholder="例如：计算机专业学生，关注后端开发与数据应用，具备完整项目交付和文档表达能力"
           />
         </label>
 

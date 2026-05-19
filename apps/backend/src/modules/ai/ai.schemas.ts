@@ -16,6 +16,7 @@ export const aiResumeHtmlCreateSchema = z.object({
     phone: z.string().trim().min(1).max(40),
     email: z.string().trim().min(1).max(120),
     target_position: z.string().trim().min(1).max(120),
+    target_city: z.string().trim().max(80).optional(),
   }),
   summary: z.string().trim().max(1000).optional(),
   educations: z
@@ -25,6 +26,9 @@ export const aiResumeHtmlCreateSchema = z.object({
         major: z.string().trim().min(1).max(120),
         degree: z.string().trim().min(1).max(80),
         period: z.string().trim().min(1).max(80),
+        gpa: z.string().trim().max(80).optional(),
+        core_courses: z.string().trim().max(1000).optional(),
+        honors: z.string().trim().max(1000).optional(),
       }),
     )
     .min(1)
@@ -35,13 +39,20 @@ export const aiResumeHtmlCreateSchema = z.object({
         organization: z.string().trim().min(1).max(120),
         role: z.string().trim().min(1).max(120),
         period: z.string().trim().min(1).max(80),
+        type: z.enum(["project", "internship", "competition", "campus"]).optional(),
+        background: z.string().trim().max(1500).optional(),
+        tech_stack: z.string().trim().max(1000).optional(),
         responsibilities: z.string().trim().min(1).max(2000),
         achievements: z.string().trim().min(1).max(2000),
+        difficulties: z.string().trim().max(1500).optional(),
       }),
     )
     .min(1)
     .max(30),
   skills: z.string().trim().min(1).max(2000),
+  certificates: z.string().trim().max(1000).optional(),
+  awards: z.string().trim().max(1000).optional(),
+  portfolio_links: z.string().trim().max(1000).optional(),
 });
 
 export const aiResumeHtmlListQuerySchema = z.object({

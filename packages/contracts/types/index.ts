@@ -845,6 +845,7 @@ export type ResumeBasicInfoInput = {
   phone: string;
   email: string;
   target_position: string;
+  target_city?: string;
 };
 
 export type ResumeEducationInput = {
@@ -852,14 +853,21 @@ export type ResumeEducationInput = {
   major: string;
   degree: string;
   period: string;
+  gpa?: string;
+  core_courses?: string;
+  honors?: string;
 };
 
 export type ResumeExperienceInput = {
   organization: string;
   role: string;
   period: string;
+  type?: "project" | "internship" | "competition" | "campus";
+  background?: string;
+  tech_stack?: string;
   responsibilities: string;
   achievements: string;
+  difficulties?: string;
 };
 
 export type CreateResumeHtmlRequest = {
@@ -868,6 +876,9 @@ export type CreateResumeHtmlRequest = {
   educations: ResumeEducationInput[];
   experiences: ResumeExperienceInput[];
   skills: string;
+  certificates?: string;
+  awards?: string;
+  portfolio_links?: string;
 };
 
 export type ResumeHtmlResponse = {
