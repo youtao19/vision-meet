@@ -379,6 +379,9 @@ const profiles = ref<EnhancedJobProfile[]>([]);
 const selected = ref<EnhancedJobProfile | null>(null);
 const activeCategory = ref("all");
 const selectedJobName = ref("");
+const keyword = ref("");
+const abilityFilter = ref("all");
+const matchFilter = ref("all");
 
 const isDrawerOpen = ref(false);
 const activeDim = ref<any>(null);
@@ -392,8 +395,35 @@ const categoryOptions = computed(() => {
 });
 
 const visibleProfiles = computed(() => {
-  if (activeCategory.value === "all") return profiles.value;
-  return profiles.value.filter((item) => item.category === activeCategory.value);
+  return profiles.value.filter((item) => {
+    const matchesCategory =
+      activeCategory.value === "all" || item.category === activeCategory.value;
+    const query = keyword.value.trim().toLowerCase();
+    const matchesKeyword =
+      !query ||
+      item.job_name.toLowerCase().includes(query) ||
+      item.category.toLowerCase().includes(query) ||
+      (item.techStack ?? []).some((tech) => tech.toLowerCase().includes(query));
+    const score = profileMatchScore(item);
+    const matchesScore =
+      matchFilter.value === "all" ||
+      (matchFilter.value === "high" && score >= 80) ||
+      (matchFilter.value === "mid" && score >= 70 && score < 80) ||
+      (matchFilter.value === "base" && score < 70);
+    const matchesAbility =
+      abilityFilter.value === "all" ||
+      skillTags(item).some((tag) => tag.toLowerCase().includes(abilityFilter.value));
+
+    return matchesCategory && matchesKeyword && matchesScore && matchesAbility;
+  });
+});
+
+const relatedProfiles = computed(() => {
+  if (!selected.value) return [];
+  return profiles.value
+    .filter((item) => item.job_name !== selected.value?.job_name)
+    .filter((item) => item.category === selected.value?.category || skillTags(item).length > 0)
+    .slice(0, 7);
 });
 
 function openDrawer(dim: any) {
@@ -406,6 +436,109 @@ function closeDrawer() {
   document.body.style.overflow = "auto";
 }
 
+function categoryLabel(category: string): string {
+  if (category === "all") return "全部岗位";
+  const labelMap: Record<string, string> = {
+    software: "技术研发",
+    product: "产品设计",
+    qa: "测试质量",
+    hardware_qa: "硬件测试",
+    implementation: "实施交付",
+    network: "网络运维",
+    support: "运营支持",
+    data: "数据方向",
+    design: "产品设计",
+  };
+  return labelMap[category] ?? category.replace(/_/g, " ");
+}
+
+function profileMatchScore(profile: EnhancedJobProfile): number {
+  const dimensions = profile.enhancedDimensions ?? [];
+  const weighted = dimensions.reduce(
+    (acc, dim) => {
+      const weight = normalizeWeight(Number(dim.weight) || 0);
+      return {
+        score: acc.score + (Number(dim.level) || 0) * weight,
+        weight: acc.weight + weight,
+      };
+    },
+    { score: 0, weight: 0 },
+  );
+  const normalized = weighted.weight > 0 ? weighted.score / weighted.weight : profile.skills.level;
+  return Math.max(62, Math.min(96, Math.round((normalized / 5) * 100)));
+}
+
+function experienceText(profile: EnhancedJobProfile): string {
+  if (profile.experience.level >= 4) return "3-5年";
+  if (profile.experience.level <= 2) return "应届/1年以内";
+  return "1-3年";
+}
+
+function educationText(profile: EnhancedJobProfile): string {
+  return profile.certification.level <= 2 ? "大专及以上" : "本科及以上";
+}
+
+function salaryText(profile: EnhancedJobProfile): string {
+  const score = profileMatchScore(profile);
+  if (score >= 88) return "20K - 35K";
+  if (score >= 80) return "15K - 30K";
+  if (score >= 72) return "12K - 24K";
+  return "10K - 18K";
+}
+
+function skillTags(profile: EnhancedJobProfile): string[] {
+  const fromStack = profile.techStack ?? [];
+  if (fromStack.length > 0) return fromStack.slice(0, 9);
+  return profile.skills.description
+    .split(/[、，,；;。\s]+/g)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 9);
+}
+
+function responsibilityItems(profile: EnhancedJobProfile): string[] {
+  const base = profile.coreResponsibilities?.filter(Boolean) ?? [];
+  return [
+    ...base,
+    profile.experience.description || "围绕岗位目标沉淀可展示项目成果。",
+    profile.communication.description || "与业务和技术团队同步需求、进度和风险。",
+  ].slice(0, 5);
+}
+
+function abilityItems(profile: EnhancedJobProfile): string[] {
+  return [
+    profile.skills.description || "掌握岗位核心工具链和工程实践。",
+    profile.learning.description || "能持续学习并迁移到真实项目。",
+    profile.innovation.description || "能发现问题并提出改进方案。",
+    profile.stress.description || "能在复杂任务中保持稳定交付。",
+    profile.communication.description || "能清晰表达方案和项目价值。",
+  ].slice(0, 5);
+}
+
+function resetFilters(): void {
+  keyword.value = "";
+  activeCategory.value = "all";
+  abilityFilter.value = "all";
+  matchFilter.value = "all";
+}
+
+function applyFilterSelection(): void {
+  const firstMatchedProfile = visibleProfiles.value[0];
+  if (firstMatchedProfile) {
+    selectProfile(firstMatchedProfile);
+  }
+}
+
+function selectProfile(profile: EnhancedJobProfile): void {
+  selected.value = profile;
+  selectedJobName.value = profile.job_name;
+}
+
+function openComic(): void {
+  if (!selected.value?.comic_image_url) return;
+  window.open(resolveAssetUrl(selected.value.comic_image_url), "_blank", "noopener,noreferrer");
+}
+
 watch(activeCategory, () => {
   if (visibleProfiles.value.length > 0) {
     const firstJob = visibleProfiles.value[0];
@@ -416,7 +549,7 @@ watch(activeCategory, () => {
 });
 
 watch(selectedJobName, (newVal) => {
-  const target = visibleProfiles.value.find((p) => p.job_name === newVal);
+  const target = profiles.value.find((p) => p.job_name === newVal);
   if (target) selected.value = target;
 });
 
@@ -672,98 +805,134 @@ onMounted(loadProfiles);
 
 <template>
   <div class="job-profiles-container">
-    <header class="page-header-minimal">
-      <div class="header-content">
-        <div class="brand">
-          <div class="brand-logo">AI</div>
-          <span class="brand-name">岗位能力建模中心</span>
-        </div>
-        <div v-if="selected?.generatedMeta" class="agent-badge">
-          <span class="dot green"></span>
-          Agent 置信度: {{ (selected.generatedMeta.confidence * 100).toFixed(0) }}% | 数据源:
-          {{ selected.generatedMeta.sourceCount }}
-        </div>
+    <section class="profiles-toolbar">
+      <div>
+        <h2>岗位画像</h2>
+        <p>基于已构建岗位画像查看职责、能力、路径和岗位漫画。</p>
       </div>
-    </header>
+      <div class="toolbar-actions">
+        <button class="primary-btn" type="button">生成岗位画像报告</button>
+        <button class="ghost-btn" type="button">导出</button>
+      </div>
+    </section>
 
-    <!-- 顶部控制面板 -->
-    <section class="controls-panel card">
-      <div class="selectors-group">
-        <div class="control-item">
-          <label class="item-label">岗位分类</label>
-          <div class="select-wrapper">
-            <select v-model="activeCategory">
-              <option value="all">全部岗位</option>
-              <option
-                v-for="item in categoryOptions.filter((i) => i !== 'all')"
-                :key="item"
-                :value="item"
-              >
-                {{ item }}
-              </option>
-            </select>
-          </div>
-        </div>
-        <div class="control-item">
-          <label class="item-label">岗位名称</label>
-          <div class="select-wrapper">
-            <select v-model="selectedJobName">
-              <option v-for="item in visibleProfiles" :key="item.job_name" :value="item.job_name">
-                {{ item.job_name }}
-              </option>
-            </select>
-          </div>
-        </div>
+    <section class="profile-tabs">
+      <button class="active" type="button">系统内置</button>
+      <button type="button">我的岗位画像</button>
+    </section>
+
+    <section class="filters-card">
+      <label>
+        <span>岗位</span>
+        <select v-model="selectedJobName">
+          <option v-for="item in profiles" :key="item.job_name" :value="item.job_name">
+            {{ item.job_name }}
+          </option>
+        </select>
+      </label>
+      <label>
+        <span>能力标签</span>
+        <select v-model="abilityFilter">
+          <option value="all">请选择能力标签</option>
+          <option value="sql">SQL</option>
+          <option value="python">Python</option>
+          <option value="java">Java</option>
+          <option value="vue">Vue</option>
+        </select>
+      </label>
+      <label>
+        <span>匹配度</span>
+        <select v-model="matchFilter">
+          <option value="all">全部</option>
+          <option value="high">80% 以上</option>
+          <option value="mid">70% - 79%</option>
+          <option value="base">70% 以下</option>
+        </select>
+      </label>
+      <div class="keyword-search">
+        <span class="material-symbols-outlined">search</span>
+        <input v-model="keyword" type="search" placeholder="搜索岗位 / 技能" />
       </div>
-      <button class="btn-refresh" :disabled="loading.list" @click="loadProfiles">
-        <span class="icon">↻</span> 刷新数据
-      </button>
+      <button class="search-btn" type="button" @click="applyFilterSelection">搜索</button>
+      <button class="reset-btn" type="button" @click="resetFilters">重置</button>
     </section>
 
     <div v-if="uiState.error" class="notice-error">{{ uiState.error }}</div>
 
-    <!-- 主体区域 -->
-    <main v-if="selected" class="main-layout">
-      <!-- A. 岗位概览卡片 -->
-      <section class="job-overview-card">
-        <div class="decor-circle"></div>
-        <div class="overview-left">
-          <div class="title-row">
-            <h1 class="job-name-huge">{{ selected.job_name }}</h1>
-            <span class="job-level-tag">{{ selected.jobLevel || "初级" }}</span>
+    <main v-if="selected" class="profiles-workbench detail-only">
+      <section class="detail-dashboard">
+        <section class="selected-summary panel-card">
+          <div class="summary-icon">
+            <span class="material-symbols-outlined">monitoring</span>
           </div>
-          <div class="job-meta-row">
-            <span class="meta-tag"
-              ><i class="icon">💼</i> {{ selected.category }} /
-              {{ selected.jobFamily || "研发" }}</span
-            >
-            <span class="meta-tag"
-              ><i class="icon">🎓</i> {{ selected.jobStage || "校招/实习" }}</span
-            >
-          </div>
-          <p class="job-summary">{{ selected.summary }}</p>
-
-          <div class="tech-stack-section">
-            <h3 class="sub-h3">必备核心技术栈</h3>
-            <div class="tech-chips">
-              <span v-for="tech in selected.techStack" :key="tech" class="tech-chip">{{
-                tech
-              }}</span>
+          <div class="summary-main">
+            <div class="summary-title-row">
+              <h3>{{ selected.job_name }}</h3>
+              <span class="score-badge">匹配度 {{ profileMatchScore(selected) }}%</span>
+              <span class="favorite"
+                ><span class="material-symbols-outlined filled">star</span> 已收藏</span
+              >
+            </div>
+            <div class="summary-meta">
+              <span>所属行业：{{ categoryLabel(selected.category) }}</span>
+              <span>学历要求：{{ educationText(selected) }}</span>
+              <span>经验要求：{{ experienceText(selected) }}</span>
+              <span>更新时间：{{ selected.updated_at?.slice(0, 10) || "2025-05-14" }}</span>
             </div>
           </div>
-
-          <div class="industry-box">
-            <h4 class="box-title">行业上下文</h4>
-            <p>{{ selected.industryContext || "专注于互联网基础平台与高性能服务方向。" }}</p>
+          <div class="salary-card">
+            <span>薪资区间</span>
+            <strong>{{ salaryText(selected) }} <small>/ 月</small></strong>
+            <p>年薪范围：18W - 36W</p>
           </div>
-        </div>
+        </section>
 
-        <div class="overview-right">
-          <div class="job-comic-panel">
-            <div class="comic-panel-head">
-              <h3 class="sub-h3">岗位职责漫画</h3>
+        <section class="detail-grid">
+          <article class="info-card overview-card">
+            <h3>岗位概览</h3>
+            <p>{{ selected.summary }}</p>
+          </article>
+
+          <article class="info-card comic-card">
+            <div class="card-title-line">
+              <h3>岗位漫画</h3>
               <button
-                class="comic-generate-btn"
+                class="link-pill"
+                type="button"
+                :disabled="!selected.comic_image_url"
+                @click="openComic"
+              >
+                查看漫画
+              </button>
+            </div>
+            <div v-if="selected.comic_image_url" class="comic-image-shell">
+              <img
+                :src="resolveAssetUrl(selected.comic_image_url)"
+                :alt="`${selected.job_name}岗位漫画`"
+              />
+            </div>
+            <div v-else class="comic-placeholder" aria-label="岗位漫画预览占位">
+              <div class="comic-frame">
+                <span>Start</span>
+                <strong>{{ selected.job_name }}</strong>
+              </div>
+              <div class="comic-frame">
+                <span>技能清单</span>
+                <strong>{{ skillTags(selected).slice(0, 3).join(" / ") || "核心能力" }}</strong>
+              </div>
+              <div class="comic-frame">
+                <span>AHA!</span>
+                <strong>能力差距</strong>
+              </div>
+              <div class="comic-frame">
+                <span>岗位目标</span>
+                <strong>行动计划</strong>
+              </div>
+            </div>
+            <div class="comic-actions">
+              <button
+                class="primary-btn small"
+                type="button"
                 :disabled="Boolean(loading.comicJobName)"
                 @click="submitGenerateComic(Boolean(selected.comic_image_url))"
               >
@@ -772,67 +941,99 @@ onMounted(loadProfiles);
                     ? "生成中..."
                     : selected.comic_image_url
                       ? "重新生成"
-                      : "生成漫画"
+                      : "生成岗位漫画"
                 }}
               </button>
+              <button
+                class="ghost-btn small"
+                type="button"
+                :disabled="!selected.comic_image_url"
+                @click="openComic"
+              >
+                查看漫画
+              </button>
             </div>
-            <div v-if="selected.comic_image_url" class="comic-image-shell">
-              <img
-                :src="resolveAssetUrl(selected.comic_image_url)"
-                :alt="`${selected.job_name}需要做什么的漫画说明`"
-              />
-            </div>
-            <div v-else class="comic-empty-shell">
-              <span>暂无漫画</span>
-            </div>
-          </div>
-        </div>
-      </section>
+          </article>
 
-      <!-- B. 七维能力画像区 -->
-      <section class="dimensions-area">
-        <div class="area-header">
-          <h2>七维能力画像</h2>
-          <span class="area-hint">点击卡片查看详细标准与建议</span>
-        </div>
-        <div class="dimensions-grid-high">
-          <div
-            v-for="dim in selected.enhancedDimensions"
-            :key="dim.dimensionKey"
-            class="dim-card-high"
-            @click="openDrawer(dim)"
-          >
-            <div class="dim-card-top">
-              <div class="dim-icon-bg">{{ dim.icon }}</div>
-              <div class="dim-info">
-                <span class="dim-title-text">{{ dim.dimensionName }}</span>
-                <span class="dim-group-text">{{ dim.groupKey.replace("_", " ") }}</span>
-              </div>
-              <div class="dim-weight">
-                <span class="weight-num">{{ (dim.weight * 100).toFixed(0) }}%</span>
-                <span class="weight-lbl">权重</span>
-              </div>
+          <article class="info-card">
+            <h3>核心职责</h3>
+            <ol>
+              <li v-for="item in responsibilityItems(selected)" :key="item">{{ item }}</li>
+            </ol>
+            <button class="text-link" type="button">查看更多</button>
+          </article>
+
+          <article class="info-card">
+            <h3>能力要求</h3>
+            <ol>
+              <li v-for="item in abilityItems(selected)" :key="item">{{ item }}</li>
+            </ol>
+            <button class="text-link" type="button">查看更多</button>
+          </article>
+
+          <article class="info-card tags-card">
+            <h3>技能标签</h3>
+            <div class="tech-chips">
+              <span v-for="tech in skillTags(selected)" :key="tech" class="tech-chip">{{
+                tech
+              }}</span>
             </div>
-            <p class="dim-definition-text">{{ dim.definition }}</p>
-            <div class="dim-levels">
-              <div class="lvl-header">
-                <span>要求等级 (Lv.{{ dim.level }})</span>
-                <span :class="['imp-tag', dim.importance === '高' ? 'high' : 'mid']"
-                  >{{ dim.importance }}重要性</span
-                >
-              </div>
-              <div class="lvl-bar">
-                <div
-                  v-for="i in 5"
-                  :key="i"
-                  class="bar-seg"
-                  :class="{ active: i <= dim.level }"
-                ></div>
-              </div>
+          </article>
+
+          <article class="info-card path-card">
+            <h3>发展路径</h3>
+            <div class="career-steps">
+              <span>{{ selected.job_name }}</span>
+              <i></i>
+              <span>高级{{ selected.job_name }}</span>
+              <i></i>
+              <span>{{ categoryLabel(selected.category) }}专家</span>
+              <i></i>
+              <span>{{ categoryLabel(selected.category) }}经理</span>
             </div>
-            <div class="dim-hover-tip">查看能力详情 →</div>
+            <div class="step-years">
+              <span>1-3年</span>
+              <span>3-5年</span>
+              <span>5-8年</span>
+              <span>8年以上</span>
+            </div>
+          </article>
+
+          <article class="info-card related-card">
+            <div class="card-title-line">
+              <h3>相关岗位</h3>
+              <button class="text-link" type="button">查看更多</button>
+            </div>
+            <div class="related-tags">
+              <button
+                v-for="item in relatedProfiles"
+                :key="item.job_name"
+                type="button"
+                @click="selectProfile(item)"
+              >
+                {{ item.job_name }}
+              </button>
+            </div>
+          </article>
+        </section>
+
+        <section class="dimension-strip panel-card">
+          <div class="card-title-line">
+            <h3>七维能力画像</h3>
+            <span>点击查看详细标准</span>
           </div>
-        </div>
+          <div class="dimension-list">
+            <button
+              v-for="dim in selected.enhancedDimensions"
+              :key="dim.dimensionKey"
+              type="button"
+              @click="openDrawer(dim)"
+            >
+              <span>{{ dim.dimensionName }}</span>
+              <strong>Lv.{{ dim.level }}</strong>
+            </button>
+          </div>
+        </section>
       </section>
     </main>
 
@@ -1623,6 +1824,727 @@ onMounted(loadProfiles);
 @media (max-width: 600px) {
   .dimensions-grid-high {
     grid-template-columns: 1fr;
+  }
+}
+
+/* 新版岗位画像工作台：对应“岗位库 + 详情卡片 + 岗位漫画”的页面结构。 */
+.job-profiles-container {
+  --primary: #0b6ee8;
+  --primary-dark: #0759c7;
+  --success: #52b135;
+  --warning: #f59e0b;
+  --page-bg: #f7faff;
+  --card-bg: #ffffff;
+  --line: #dbe5f2;
+  --line-soft: #edf2f8;
+  --text-main: #0f1f3a;
+  --text-secondary: #43536b;
+  --text-muted: #7a889d;
+  width: 100%;
+  max-width: none;
+  min-height: auto;
+  margin: 0;
+  padding: 2px 8px 24px;
+  background: transparent;
+  color: var(--text-main);
+  font-family: "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+}
+
+.profiles-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.profiles-toolbar h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.profiles-toolbar p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.toolbar-actions,
+.comic-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.primary-btn,
+.ghost-btn,
+.search-btn,
+.reset-btn {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.primary-btn,
+.search-btn {
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 8px 18px rgba(11, 110, 232, 0.16);
+}
+
+.primary-btn:hover:not(:disabled),
+.search-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.ghost-btn,
+.reset-btn {
+  color: #1f3557;
+  background: #fff;
+  border-color: var(--line);
+}
+
+.primary-btn.small,
+.ghost-btn.small {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.profile-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 10px;
+}
+
+.profile-tabs button {
+  height: 34px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text-secondary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-tabs button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.profile-tabs button:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+.profile-tabs .active {
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.filters-card,
+.panel-card,
+.info-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 10px 28px rgba(37, 70, 112, 0.06);
+}
+
+.filters-card {
+  display: grid;
+  grid-template-columns:
+    minmax(240px, 1.35fr) minmax(180px, 0.9fr) minmax(140px, 0.7fr)
+    minmax(260px, 1.2fr) auto auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.filters-card label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.filters-card label span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.filters-card select,
+.keyword-search input,
+.pagination-bar select,
+.pagination-bar input {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.filters-card select {
+  padding: 0 10px;
+}
+
+.keyword-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.keyword-search .material-symbols-outlined {
+  color: #6b7b92;
+  font-size: 19px;
+}
+
+.keyword-search input {
+  height: auto;
+  padding: 0;
+  border: 0;
+  outline: none;
+}
+
+.profiles-workbench {
+  display: grid;
+  grid-template-columns: minmax(520px, 0.92fr) minmax(560px, 1.08fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.profiles-workbench.detail-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.job-library {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.category-tabs {
+  display: flex;
+  gap: 22px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line-soft);
+  overflow-x: auto;
+}
+
+.category-tabs button {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.category-tabs button.active {
+  color: var(--primary);
+}
+
+.category-tabs button.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--primary);
+}
+
+.library-count {
+  padding: 12px 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.job-table-row {
+  display: grid;
+  grid-template-columns:
+    minmax(120px, 1.25fr) minmax(80px, 0.82fr) minmax(76px, 0.78fr) minmax(76px, 0.78fr)
+    minmax(74px, 0.72fr) minmax(54px, 0.48fr);
+  align-items: center;
+  column-gap: 12px;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: #fff;
+  color: var(--text-main);
+  text-align: left;
+}
+
+.table-head {
+  min-height: 38px;
+  background: #fbfdff;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.table-body {
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.table-body:hover,
+.table-body.selected {
+  background: #f0f7ff;
+}
+
+.table-body.selected {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.job-title {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.match-cell {
+  display: grid;
+  gap: 5px;
+  color: #223149;
+  font-weight: 700;
+}
+
+.match-cell i {
+  width: 68px;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1f5;
+}
+
+.match-cell b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #29405f;
+}
+
+.row-actions .material-symbols-outlined,
+.favorite .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.filled {
+  color: #f59e0b;
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 500,
+    "GRAD" 0,
+    "opsz" 24;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pagination-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pagination-bar button.active {
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.pagination-bar select {
+  width: 86px;
+  height: 30px;
+}
+
+.pagination-bar input {
+  width: 44px;
+  height: 30px;
+  text-align: center;
+}
+
+.detail-dashboard {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.selected-summary {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(190px, 0.36fr);
+  gap: 16px;
+  align-items: center;
+  padding: 14px;
+}
+
+.summary-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #73b4ff, #0b6ee8);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 18px rgba(11, 110, 232, 0.2);
+}
+
+.summary-icon .material-symbols-outlined {
+  font-size: 30px;
+}
+
+.summary-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.summary-title-row h3,
+.info-card h3,
+.dimension-strip h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.score-badge {
+  border-radius: 4px;
+  padding: 3px 8px;
+  background: #dff4d8;
+  color: #2c7c1f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.favorite {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 18px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.salary-card {
+  min-height: 86px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.salary-card span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.salary-card strong {
+  display: block;
+  margin: 7px 0;
+  color: #f97316;
+  font-size: 20px;
+}
+
+.salary-card small,
+.salary-card p {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.salary-card p {
+  margin: 0;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.info-card {
+  min-width: 0;
+  padding: 14px;
+}
+
+.overview-card,
+.comic-card {
+  min-height: 300px;
+}
+
+.info-card p,
+.info-card li {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.info-card p {
+  margin: 14px 0 0;
+}
+
+.info-card ol {
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
+.card-title-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.link-pill,
+.text-link {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.link-pill {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 5px;
+  background: #eaf3ff;
+}
+
+.comic-image-shell {
+  width: 100%;
+  min-height: 0;
+  height: 230px;
+  margin-top: 10px;
+  border: 1px solid #b7c7da;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.comic-image-shell img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+  object-position: center;
+}
+
+.comic-placeholder {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  height: 230px;
+  margin-top: 10px;
+  border: 2px solid #111827;
+  background: #fff;
+}
+
+.comic-frame {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #111827;
+  color: #111827;
+  font-weight: 900;
+}
+
+.comic-frame span {
+  color: var(--primary);
+  font-size: 12px;
+}
+
+.comic-frame strong {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+.comic-actions {
+  margin-top: 10px;
+}
+
+.tech-chips,
+.related-tags,
+.dimension-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tech-chips {
+  margin-top: 12px;
+}
+
+.tech-chip,
+.related-tags button,
+.dimension-list button {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: #f9fbfe;
+  color: #2d405e;
+  font-size: 12px;
+}
+
+.career-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  align-items: center;
+  margin-top: 12px;
+  position: relative;
+}
+
+.career-steps span {
+  min-height: 42px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fbfdff;
+  color: #2d405e;
+  font-size: 12px;
+  text-align: center;
+}
+
+.career-steps i {
+  display: none;
+}
+
+.step-years {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+
+.related-card {
+  grid-column: 1 / -1;
+}
+
+.related-tags {
+  margin-top: 12px;
+}
+
+.related-tags button {
+  color: var(--primary);
+  border-color: #b9d7ff;
+  background: #f4f9ff;
+  cursor: pointer;
+}
+
+.dimension-strip {
+  padding: 12px 14px;
+}
+
+.dimension-strip .card-title-line span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.dimension-list {
+  margin-top: 12px;
+}
+
+.dimension-list button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.dimension-list strong {
+  color: var(--primary);
+}
+
+@media (max-width: 1280px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .profiles-toolbar,
+  .selected-summary {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .filters-card {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .filters-card {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar-actions,
+  .comic-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

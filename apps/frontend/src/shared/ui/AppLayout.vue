@@ -1,63 +1,86 @@
 <template>
   <div class="app-shell">
-    <header class="topbar">
-      <div class="brand-group">
-        <span class="brand-mark">预见遇见</span>
-        <span class="brand-subtitle">Career Agent Console</span>
+    <aside class="sidenav">
+      <RouterLink to="/" class="brand-card" aria-label="返回控制台">
+        <span class="brand-icon material-symbols-outlined">route</span>
+        <span class="brand-copy">
+          <span class="brand-mark">预见遇见</span>
+          <span class="brand-subtitle">Career Agent</span>
+        </span>
+      </RouterLink>
+
+      <nav class="nav-list">
+        <RouterLink
+          v-for="item in navItems"
+          :key="item.path"
+          :to="item.path"
+          class="nav-link"
+        >
+          <span class="material-symbols-outlined">{{ item.icon }}</span>
+          <span>{{ item.label }}</span>
+        </RouterLink>
+      </nav>
+
+      <div class="sidenav-footer">
+        <span class="material-symbols-outlined">verified</span>
+        <span>画像 · 匹配 · 报告闭环</span>
       </div>
-      <div class="topbar-actions">
-        <button class="icon-btn">
-          <span class="material-symbols-outlined">notifications</span>
-        </button>
-        <button class="icon-btn">
-          <span class="material-symbols-outlined">settings</span>
-        </button>
-      </div>
-    </header>
+    </aside>
 
     <div class="shell-body">
-      <aside class="sidenav">
-        <nav class="nav-list">
-          <RouterLink to="/" class="nav-link">
-            <span class="material-symbols-outlined">dashboard</span>
-            <span>控制台</span>
-          </RouterLink>
-          <RouterLink to="/pipeline" class="nav-link">
-            <span class="material-symbols-outlined">hub</span>
-            <span>数据处理中心</span>
-          </RouterLink>
-          <RouterLink to="/profile" class="nav-link">
-            <span class="material-symbols-outlined">person</span>
-            <span>学生画像中心</span>
-          </RouterLink>
-          <RouterLink to="/job-profiles" class="nav-link">
-            <span class="material-symbols-outlined">badge</span>
-            <span>岗位画像中心</span>
-          </RouterLink>
-          <RouterLink to="/career-paths" class="nav-link">
-            <span class="material-symbols-outlined">route</span>
-            <span>路径图谱中心</span>
-          </RouterLink>
+      <header class="topbar">
+        <div class="breadcrumb-group">
+          <div>
+            <p class="breadcrumb">工作台 / {{ currentTitle }}</p>
+            <h1>{{ currentTitle }}</h1>
+          </div>
+        </div>
 
-          <RouterLink to="/matching" class="nav-link">
-            <span class="material-symbols-outlined">compare_arrows</span>
-            <span>匹配分析中心</span>
+        <div class="topbar-actions">
+          <button class="icon-btn" type="button" aria-label="通知">
+            <span class="material-symbols-outlined">notifications</span>
+          </button>
+          <button class="icon-btn" type="button" aria-label="帮助">
+            <span class="material-symbols-outlined">help</span>
+          </button>
+          <RouterLink to="/report" class="icon-btn" aria-label="报告中心">
+            <span class="material-symbols-outlined">edit_note</span>
           </RouterLink>
-          <RouterLink to="/report" class="nav-link">
-            <span class="material-symbols-outlined">analytics</span>
-            <span>职业报告中心</span>
-          </RouterLink>
-        </nav>
-      </aside>
+        </div>
+      </header>
 
-      <main class="main-content">
-        <RouterView />
-      </main>
+      <main class="main-content"><RouterView /></main>
     </div>
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+/**
+ * 文件作用：应用级页面壳层。
+ * 职责说明：统一承载侧边导航、顶部上下文信息和页面内容出口；业务数据仍由各 feature 页面负责。
+ */
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+
+const route = useRoute();
+
+const navItems = [
+  { path: "/", label: "仪表盘", icon: "dashboard" },
+  { path: "/pipeline", label: "数据处理", icon: "hub" },
+  { path: "/profile", label: "学生画像", icon: "person" },
+  { path: "/resume-builder", label: "简历生成", icon: "description" },
+  { path: "/job-profiles", label: "岗位画像", icon: "badge" },
+  { path: "/career-paths", label: "路径图谱", icon: "route" },
+  { path: "/matching", label: "匹配分析", icon: "compare_arrows" },
+  { path: "/report", label: "职业报告", icon: "analytics" },
+] as const;
+
+const titleByPath: ReadonlyMap<string, string> = new Map(
+  navItems.map((item) => [item.path, item.label]),
+);
+
+const currentTitle = computed(() => titleByPath.get(route.path) ?? "工作台");
+</script>
 
 <style>
 :root {
@@ -136,114 +159,84 @@ body {
   background: radial-gradient(circle, rgba(126, 217, 255, 0.34) 0%, rgba(126, 217, 255, 0) 76%);
 }
 
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  height: 78px;
-  margin: 18px 18px 0;
-  padding: 0 22px;
-  border-radius: 24px;
-  border: 1px solid var(--glass-border);
-  background: var(--glass-panel);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  box-shadow:
-    inset 0 1px 0 var(--glass-stroke),
-    0 18px 42px rgba(48, 77, 131, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.brand-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.brand-mark {
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: var(--glass-title);
-}
-
-.brand-subtitle {
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(31, 58, 97, 0.58);
-}
-
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.icon-btn {
-  width: 42px;
-  height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.56);
-  border-radius: 14px;
-  background: var(--glass-panel-strong);
-  color: rgba(23, 53, 92, 0.68);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    transform var(--glass-transition),
-    box-shadow var(--glass-transition),
-    color var(--glass-transition);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
-}
-
-.icon-btn:hover {
-  transform: translateY(-1px);
-  color: var(--glass-primary);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.76),
-    0 12px 24px rgba(55, 90, 150, 0.12);
-}
-
 .shell-body {
-  display: flex;
-  min-height: calc(100vh - 96px);
+  min-height: 100vh;
+  padding: 0 14px 14px;
 }
 
 .sidenav {
   position: fixed;
-  top: 112px;
-  left: 18px;
-  width: 272px;
-  height: calc(100vh - 130px);
-  padding: 18px 14px;
-  border: 1px solid var(--glass-border);
-  border-radius: 28px;
-  background: var(--glass-panel);
-  backdrop-filter: blur(26px) saturate(170%);
-  -webkit-backdrop-filter: blur(26px) saturate(170%);
-  box-shadow:
-    inset 0 1px 0 var(--glass-stroke),
-    0 20px 42px rgba(43, 72, 126, 0.12);
-  display: none;
+  inset: 0 auto 0 0;
+  z-index: 60;
+  width: 220px;
+  padding: 18px 12px;
+  border-right: 1px solid rgba(31, 58, 97, 0.08);
+  background: rgba(255, 255, 255, 0.34);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  color: var(--glass-title);
+  text-decoration: none;
+}
+
+.brand-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: white;
+  background: linear-gradient(135deg, var(--glass-primary), var(--glass-primary-strong));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 18px rgba(36, 110, 190, 0.16);
+}
+
+.brand-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand-mark {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0;
+  color: var(--glass-title);
+}
+
+.brand-subtitle {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(31, 58, 97, 0.58);
 }
 
 .nav-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  height: 100%;
+  gap: 6px;
+  margin-top: 20px;
 }
 
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 18px;
+  gap: 11px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
   text-decoration: none;
   color: rgba(31, 58, 97, 0.76);
   font-size: 14px;
@@ -256,54 +249,124 @@ body {
 }
 
 .nav-link:hover {
-  transform: translateX(2px);
+  transform: none;
   color: var(--glass-title);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.22));
+  background: rgba(255, 255, 255, 0.38);
 }
 
 .nav-link.router-link-exact-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--glass-primary), var(--glass-primary-strong));
+  box-shadow: 0 10px 22px rgba(39, 102, 202, 0.18);
+}
+
+.nav-link .material-symbols-outlined {
+  font-size: 21px;
+}
+
+.nav-link.router-link-exact-active .material-symbols-outlined {
+  color: #ffffff;
+}
+
+.sidenav-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  color: rgba(31, 58, 97, 0.62);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.topbar {
+  position: relative;
+  z-index: 50;
+  min-height: 58px;
+  padding: 0 2px 0 4px;
+  border-bottom: 1px solid rgba(31, 58, 97, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: none;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.breadcrumb-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.menu-btn {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  color: rgba(23, 53, 92, 0.72);
+  background: transparent;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.breadcrumb {
+  margin: 0 0 3px;
+  color: rgba(31, 58, 97, 0.58);
+  font-size: 12px;
+}
+
+.topbar h1 {
+  margin: 0;
   color: var(--glass-title);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(219, 241, 255, 0.38));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.78),
-    0 14px 28px rgba(56, 92, 154, 0.14);
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(23, 53, 92, 0.68);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform var(--glass-transition),
+    box-shadow var(--glass-transition),
+    color var(--glass-transition);
+  box-shadow: none;
+}
+
+.icon-btn:hover {
+  transform: translateY(-1px);
+  color: var(--glass-primary);
+  background: rgba(255, 255, 255, 0.34);
+  box-shadow: none;
 }
 
 .main-content {
-  width: 100%;
-  min-height: 100%;
-  padding: 22px 22px 36px;
+  min-height: calc(100vh - 90px);
+  padding: 16px 0 24px;
 }
 
-@media (min-width: 768px) {
-  .sidenav {
-    display: flex;
-  }
-
-  .main-content {
-    margin-left: 290px;
-    padding: 24px 26px 40px;
-  }
-}
-
-@media (max-width: 767px) {
-  .topbar {
-    margin: 12px 12px 0;
-    height: 72px;
-    padding: 0 16px;
-  }
-
-  .brand-mark {
-    font-size: 24px;
-  }
-
-  .brand-subtitle {
-    font-size: 10px;
-    letter-spacing: 0.12em;
-  }
-
-  .main-content {
-    padding: 14px 12px 28px;
+@media (min-width: 960px) {
+  .shell-body {
+    margin-left: 220px;
   }
 }
 
