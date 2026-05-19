@@ -4,9 +4,9 @@
  */
 
 import type {
-  AgentStepTraceItem,
-  AgentToolName,
-  AgentWarningCode,
+  AiStepTraceItem,
+  PiToolName,
+  AiWarningCode,
   CareerReportRecord,
   JobRecord,
   KnowledgeSearchResultItem,
@@ -55,16 +55,16 @@ export type AiAgentRunOptions = {
 
 export type AiAgentRunResult = {
   model: string | null;
-  stepTrace: AgentStepTraceItem[];
+  stepTrace: AiStepTraceItem[];
   knowledgeHits: KnowledgeSearchResultItem[];
   matchResult: MatchResultDetail | null;
   report: CareerReportRecord | null;
   finalSummary: string | null;
-  warnings: AgentWarningCode[];
+  warnings: AiWarningCode[];
 };
 
 export type ToolExecutionSnapshot = {
-  tool: AgentToolName;
+  tool: PiToolName;
   title: string;
   startedAt: number;
   inputSummary: string;

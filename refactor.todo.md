@@ -9,6 +9,7 @@
 - AI 任务执行已收口到 `apps/backend/src/modules/ai/`。
 - 阶段 1 已完成：Pi 工具已迁移到 `apps/backend/src/modules/pi-tools/`，旧 `modules/ai/tools/` 已删除。
 - 前端 AI API 文件已从 `shared/api/agent.ts` 改名为 `shared/api/ai.ts`。
+- 阶段 2 已完成：contracts 的任务/步骤/告警公开类型已统一为 `Ai*`，工具类型改为 `PiToolName`，旧 `Agent*` 兼容类型已删除。
 
 ## 第一阶段：收口 AI / Pi 工具边界
 
@@ -28,16 +29,16 @@
 
 ## 第二阶段：清理 contracts 和旧命名
 
-- [ ] 将 contracts 中外部 API 命名统一为 `Ai*`。
-- [ ] 删除或替换 `CreateAgentTaskRequest`。
-- [ ] 删除或替换 `AgentTaskResponse`。
-- [ ] 删除或替换 `AgentChatRequest`。
-- [ ] 删除或替换 `AgentAnalyzeRequest`。
-- [ ] 将 `AgentToolName` 改为更准确的 `PiToolName` 或 `AiToolName`。
-- [ ] 外部响应类型统一为 `AiStepTraceItem`。
-- [ ] 内部工具类型优先使用 `PiToolName`。
-- [ ] 检查数据库字段和响应字段中不必要的 `agent` 命名。
-- [ ] 保留仍有业务含义的 `generation_mode: "agent"`，后续单独评估是否改名。
+- [x] 将 contracts 中外部 API 命名统一为 `Ai*`。
+- [x] 删除或替换 `CreateAgentTaskRequest`。
+- [x] 删除或替换 `AgentTaskResponse`。
+- [x] 删除或替换 `AgentChatRequest`。
+- [x] 删除或替换 `AgentAnalyzeRequest`。
+- [x] 将 `AgentToolName` 改为更准确的 `PiToolName` 或 `AiToolName`。
+- [x] 外部响应类型统一为 `AiStepTraceItem`。
+- [x] 内部工具类型优先使用 `PiToolName`。
+- [x] 检查数据库字段和响应字段中不必要的 `agent` 命名。
+- [x] 保留仍有业务含义的 `generation_mode: "agent"`，后续单独评估是否改名。
 
 ## 第三阶段：拆分 jobs-intelligence 大模块
 

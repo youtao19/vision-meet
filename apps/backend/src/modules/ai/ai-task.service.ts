@@ -1,7 +1,7 @@
 import type {
-  AgentPlanStep,
-  AgentStepTraceItem,
-  AgentWarningCode,
+  AiPlanStep,
+  AiStepTraceItem,
+  AiWarningCode,
   AiTaskResponse,
   AiTaskResult,
   AiTaskStatus,
@@ -38,14 +38,14 @@ type AiTaskRuntimeContext = {
   traceId: string;
 };
 
-type AgentExecutionState = {
+type AiExecutionState = {
   knowledgeHits: KnowledgeSearchResultItem[];
   matchResult: MatchResultDetail | null;
   report: CareerReportRecord | null;
-  warnings: AgentWarningCode[];
+  warnings: AiWarningCode[];
 };
 
-function appendWarning(warnings: AgentWarningCode[], warning: AgentWarningCode): void {
+function appendWarning(warnings: AiWarningCode[], warning: AiWarningCode): void {
   if (!warnings.includes(warning)) {
     warnings.push(warning);
   }
@@ -81,8 +81,8 @@ function buildPlan(input: {
   objective: string;
   deliverables: ReturnType<typeof normalizeDeliverables>;
   topK: number;
-}): AgentPlanStep[] {
-  const steps: AgentPlanStep[] = [
+}): AiPlanStep[] {
+  const steps: AiPlanStep[] = [
     {
       id: "plan",
       tool: "task_planning",
@@ -133,7 +133,7 @@ function buildFallbackSummary(input: {
   knowledgeHits: KnowledgeSearchResultItem[];
   matchResult: MatchResultDetail | null;
   report: CareerReportRecord | null;
-  warnings: AgentWarningCode[];
+  warnings: AiWarningCode[];
 }): string {
   const parts: string[] = [`任务目标：${input.objective}`];
 
@@ -186,7 +186,7 @@ function toTaskResponse(record: AiTaskRecord): AiTaskResponse {
 
 function deriveTaskStatus(input: {
   deliverables: ReturnType<typeof normalizeDeliverables>;
-  stepTrace: AgentStepTraceItem[];
+  stepTrace: AiStepTraceItem[];
   matchResult: MatchResultDetail | null;
   report: CareerReportRecord | null;
 }): AiTaskStatus {
@@ -232,13 +232,13 @@ export function createAiTaskService(dependencies: AiTaskServiceDependencies): Ai
       topK,
     });
 
-    const state: AgentExecutionState = {
+    const state: AiExecutionState = {
       knowledgeHits: [],
       matchResult: null,
       report: null,
       warnings: [],
     };
-    let stepTrace: AgentStepTraceItem[] = [];
+    let stepTrace: AiStepTraceItem[] = [];
     let resolvedModel: string | null = null;
 
     try {

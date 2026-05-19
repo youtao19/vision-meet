@@ -769,17 +769,17 @@ export type KnowledgeEvaluationResponse = {
   cases: KnowledgeEvaluationCaseResult[];
 };
 
-export type AgentWarningCode =
+export type AiWarningCode =
   | "EVIDENCE_INSUFFICIENT"
   | "KNOWLEDGE_SEARCH_FAILED"
   | "REPORT_GENERATION_FAILED"
   | "FINAL_SUMMARY_FALLBACK";
 
-export type AgentTaskStatus = "success" | "partial_success" | "failed";
+export type AiTaskStatus = "success" | "partial_success" | "failed";
 
-export type AgentDeliverable = "match_analysis" | "career_report";
+export type AiDeliverable = "match_analysis" | "career_report";
 
-export type AgentToolName =
+export type PiToolName =
   | "task_planning"
   | "context_lookup"
   | "knowledge_search"
@@ -787,55 +787,55 @@ export type AgentToolName =
   | "report_generation"
   | "final_answer";
 
-export type AgentStepTraceStatus = "success" | "warning" | "error" | "skipped";
+export type AiStepTraceStatus = "success" | "warning" | "error" | "skipped";
 
-export type AgentPlanStep = {
+export type AiPlanStep = {
   id: string;
-  tool: AgentToolName;
+  tool: PiToolName;
   title: string;
   purpose: string;
 };
 
-export type AgentStepTraceItem = {
+export type AiStepTraceItem = {
   step_id: string;
-  tool: AgentToolName;
+  tool: PiToolName;
   title: string;
-  status: AgentStepTraceStatus;
+  status: AiStepTraceStatus;
   duration_ms: number;
   input_summary: string;
   output_summary: string;
   error_code?: string;
 };
 
-export type CreateAgentTaskRequest = {
+export type CreateAiTaskRequest = {
   student_profile_id: number;
   job_id: number;
   objective?: string;
-  deliverables?: AgentDeliverable[];
+  deliverables?: AiDeliverable[];
   force_recalculate?: boolean;
   top_k?: number;
 };
 
-export type AgentTaskResult = {
+export type AiTaskResult = {
   summary: string;
   knowledge_hits: KnowledgeSearchResultItem[];
   match_result: MatchResultDetail | null;
   report: CareerReportRecord | null;
-  warnings: AgentWarningCode[];
+  warnings: AiWarningCode[];
 };
 
-export type AgentTaskResponse = {
+export type AiTaskResponse = {
   task_id: number;
   trace_id: string;
-  status: AgentTaskStatus;
+  status: AiTaskStatus;
   student_profile_id: number;
   job_id: number;
   objective: string;
-  deliverables: AgentDeliverable[];
+  deliverables: AiDeliverable[];
   model: string | null;
-  planned_steps: AgentPlanStep[];
-  step_trace: AgentStepTraceItem[];
-  result: AgentTaskResult;
+  planned_steps: AiPlanStep[];
+  step_trace: AiStepTraceItem[];
+  result: AiTaskResult;
   created_at: string;
   finished_at: string;
 };
@@ -908,21 +908,6 @@ export type ResumeHtmlListResponse = {
   items: ResumeHtmlListItem[];
 };
 
-/**
- * 文件作用：为旧命名保留兼容别名，避免前后端在本轮重构期间出现大面积断裂。
- * 注意：新代码应优先使用 Task / Step 语义，而不是 Analyze / ToolTrace 语义。
- */
-export type AgentToolTraceStatus = AgentStepTraceStatus;
-export type AgentToolTraceStep = AgentToolName;
-export type AgentToolTraceItem = AgentStepTraceItem;
-export type AgentChatRequest = CreateAgentTaskRequest;
-export type AgentChatResponse = AgentTaskResponse;
-export type AgentAnalyzeRequest = CreateAgentTaskRequest;
-export type AgentAnalyzeResponse = AgentTaskResponse;
-export type AiTaskStatus = AgentTaskStatus;
-export type CreateAiTaskRequest = CreateAgentTaskRequest;
-export type AiTaskResult = AgentTaskResult;
-export type AiTaskResponse = AgentTaskResponse;
 export type CreateAiResumeHtmlRequest = CreateResumeHtmlRequest;
 export type AiResumeHtmlResponse = ResumeHtmlResponse;
 export type AiChatRequest = CreateAiTaskRequest;

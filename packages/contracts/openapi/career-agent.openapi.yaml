@@ -385,14 +385,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AgentTaskRequest"
+              $ref: "#/components/schemas/AiTaskRequest"
       responses:
         "201":
           description: AI task completed or partially completed
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AgentTaskResponse"
+                $ref: "#/components/schemas/AiTaskResponse"
         "400":
           description: Invalid AI request
           content:
@@ -502,14 +502,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AgentTaskRequest"
+              $ref: "#/components/schemas/AiTaskRequest"
       responses:
         "201":
           description: AI task completed or partially completed
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AgentTaskResponse"
+                $ref: "#/components/schemas/AiTaskResponse"
         "400":
           description: Invalid AI request
           content:
@@ -545,7 +545,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AgentTaskResponse"
+                $ref: "#/components/schemas/AiTaskResponse"
         "404":
           description: AI task not found
           content:

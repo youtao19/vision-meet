@@ -6,7 +6,7 @@
 import fs from "node:fs";
 
 import type { AgentSessionEvent } from "@mariozechner/pi-coding-agent";
-import type { AgentStepTraceItem, AgentToolName, AgentWarningCode } from "@career/contracts/types";
+import type { AiStepTraceItem, PiToolName, AiWarningCode } from "@career/contracts/types";
 
 export {
   ensureCompatibleAgentBootstrap,
@@ -125,7 +125,7 @@ export function extractToolResultText(result: unknown): string {
     .trim();
 }
 
-export function buildToolOutputSummary(tool: AgentToolName, result: unknown): string {
+export function buildToolOutputSummary(tool: PiToolName, result: unknown): string {
   if (!result || typeof result !== "object") {
     return "工具未返回可摘要内容";
   }
@@ -171,7 +171,7 @@ export function buildToolOutputSummary(tool: AgentToolName, result: unknown): st
   return text ? text.slice(0, 120) : "工具执行完成";
 }
 
-export function mapRuntimeTool(toolName: string): { tool: AgentToolName; title: string } | null {
+export function mapRuntimeTool(toolName: string): { tool: PiToolName; title: string } | null {
   switch (toolName) {
     case "load_task_context":
       return {
@@ -198,7 +198,7 @@ export function mapRuntimeTool(toolName: string): { tool: AgentToolName; title: 
   }
 }
 
-export function appendWarning(warnings: AgentWarningCode[], warning: AgentWarningCode): void {
+export function appendWarning(warnings: AiWarningCode[], warning: AiWarningCode): void {
   if (!warnings.includes(warning)) {
     warnings.push(warning);
   }
@@ -232,8 +232,8 @@ export function readIntegerParam(params: unknown, key: string): number | undefin
 }
 
 export function createSessionSubscription(params: {
-  stepTrace: AgentStepTraceItem[];
-  warnings: AgentWarningCode[];
+  stepTrace: AiStepTraceItem[];
+  warnings: AiWarningCode[];
   assistantMessages: string[];
 }) {
   const executionMap = new Map<string, ToolExecutionSnapshot>();

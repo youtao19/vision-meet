@@ -1,10 +1,10 @@
 import type {
-  AgentDeliverable,
-  AgentPlanStep,
+  AiDeliverable,
+  AiPlanStep,
   CreateResumeHtmlRequest,
   ResumeHtmlListResponse,
   ResumeHtmlRecord,
-  AgentStepTraceItem,
+  AiStepTraceItem,
   AiTaskResult,
   AiTaskStatus,
 } from "@career/contracts/types";
@@ -20,11 +20,11 @@ export type AiTaskCreateInput = {
   student_profile_id: number;
   job_id: number;
   objective: string;
-  deliverables: AgentDeliverable[];
+  deliverables: AiDeliverable[];
   force_recalculate: boolean;
   top_k: number;
-  planned_steps: AgentPlanStep[];
-  step_trace: AgentStepTraceItem[];
+  planned_steps: AiPlanStep[];
+  step_trace: AiStepTraceItem[];
   result: AiTaskResult;
   error_code?: string;
   error_message?: string;

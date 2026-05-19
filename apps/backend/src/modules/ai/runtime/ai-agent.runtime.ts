@@ -13,7 +13,7 @@ import {
   ModelRegistry,
   SessionManager,
 } from "@mariozechner/pi-coding-agent";
-import type { AgentStepTraceItem, AgentWarningCode } from "@career/contracts/types";
+import type { AiStepTraceItem, AiWarningCode } from "@career/contracts/types";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
 import { createCorePiTools } from "../../pi-tools/pi-tools.registry.js";
@@ -80,8 +80,8 @@ export async function runAiTaskAgent(
     matchResult: null,
     report: null,
   };
-  const warnings: AgentWarningCode[] = [];
-  const stepTrace: AgentStepTraceItem[] = [
+  const warnings: AiWarningCode[] = [];
+  const stepTrace: AiStepTraceItem[] = [
     {
       step_id: "task_planning",
       tool: "task_planning",
