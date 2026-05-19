@@ -1,7 +1,7 @@
 /**
  * 文件作用：基于 pi-coding-agent SDK 执行职业任务型 Agent。
  * 职责边界：本文件只负责会话装配、工具注册、事件订阅和结果归集；
- * 具体的画像/岗位/知识/匹配/报告业务能力通过 `ai/tools` 和各领域 service 提供。
+ * 具体的画像/岗位/知识/匹配/报告业务能力通过 `pi-tools` 和各领域 service 提供。
  */
 
 import path from "node:path";
@@ -16,12 +16,7 @@ import {
 import type { AgentStepTraceItem, AgentWarningCode } from "@career/contracts/types";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
-import {
-  createLoadTaskContextTool,
-  createMatchTool,
-  createReportTool,
-  createSearchKnowledgeTool,
-} from "../tools/index.js";
+import { createCorePiTools } from "../../pi-tools/pi-tools.registry.js";
 import type {
   AiAgentDependencies,
   AiAgentRunOptions,
@@ -135,12 +130,7 @@ export async function runAiTaskAgent(
     sessionManager: SessionManager.create(options.cwd, taskSessionDir),
     resourceLoader,
     tools: [],
-    customTools: [
-      createLoadTaskContextTool(toolContext),
-      createSearchKnowledgeTool(toolContext),
-      createMatchTool(toolContext),
-      createReportTool(toolContext),
-    ],
+    customTools: createCorePiTools(toolContext),
   });
 
   if (!session.model) {

@@ -6,10 +6,10 @@
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 
-import { readBooleanParam } from "../runtime/ai-agent.utils.js";
-import type { AiToolFactoryContext } from "./ai-tool-context.js";
+import { readBooleanParam } from "../../ai/runtime/ai-agent.utils.js";
+import type { PiToolFactoryContext } from "../pi-tool-context.js";
 
-export function createMatchTool(context: AiToolFactoryContext): ToolDefinition {
+export function createMatchTool(context: PiToolFactoryContext): ToolDefinition {
   return {
     name: "create_match",
     label: "生成人岗匹配",

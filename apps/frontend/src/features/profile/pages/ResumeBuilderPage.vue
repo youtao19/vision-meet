@@ -7,7 +7,7 @@
 import { onMounted, reactive, ref } from "vue";
 import type { CreateResumeHtmlRequest, ResumeHtmlListItem } from "@career/contracts/types";
 
-import { createResumeHtml, getResumeHtmlRecord, listResumeHtmlRecords } from "@/shared/api/agent";
+import { createResumeHtml, getResumeHtmlRecord, listResumeHtmlRecords } from "@/shared/api/ai";
 import { ApiRequestError } from "@/shared/api/http";
 
 const resumeHistory = ref<ResumeHtmlListItem[]>([]);

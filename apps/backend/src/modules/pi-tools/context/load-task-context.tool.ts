@@ -6,9 +6,9 @@
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 
-import type { AiToolFactoryContext } from "./ai-tool-context.js";
+import type { PiToolFactoryContext } from "../pi-tool-context.js";
 
-export function createLoadTaskContextTool(context: AiToolFactoryContext): ToolDefinition {
+export function createLoadTaskContextTool(context: PiToolFactoryContext): ToolDefinition {
   return {
     name: "load_task_context",
     label: "加载任务上下文",

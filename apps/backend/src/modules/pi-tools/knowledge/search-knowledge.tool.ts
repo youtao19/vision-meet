@@ -11,10 +11,10 @@ import {
   buildDefaultKnowledgeQuery,
   readIntegerParam,
   readStringParam,
-} from "../runtime/ai-agent.utils.js";
-import type { AiToolFactoryContext } from "./ai-tool-context.js";
+} from "../../ai/runtime/ai-agent.utils.js";
+import type { PiToolFactoryContext } from "../pi-tool-context.js";
 
-export function createSearchKnowledgeTool(context: AiToolFactoryContext): ToolDefinition {
+export function createSearchKnowledgeTool(context: PiToolFactoryContext): ToolDefinition {
   return {
     name: "search_knowledge",
     label: "检索知识证据",

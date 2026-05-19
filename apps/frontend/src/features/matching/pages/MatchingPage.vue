@@ -11,7 +11,7 @@ import type {
   StudentProfileRecord,
 } from "@career/contracts/types";
 
-import { createAgentTask } from "@/shared/api/agent";
+import { createAiTask } from "@/shared/api/ai";
 import { fetchJobs } from "@/shared/api/jobs";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { createMatch, fetchMatchDetail, fetchMatchList } from "@/shared/api/matching";
@@ -315,7 +315,7 @@ async function submitAgentMatch(): Promise<void> {
   uiState.success = "";
 
   try {
-    const task = await createAgentTask({
+    const task = await createAiTask({
       student_profile_id: studentProfileId,
       job_id: jobId,
       deliverables: ["match_analysis"],

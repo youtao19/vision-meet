@@ -1,6 +1,6 @@
 import type {
-  AgentTaskResponse,
-  CreateAgentTaskRequest,
+  AiTaskResponse,
+  CreateAiTaskRequest,
   CreateResumeHtmlRequest,
   CreateAiPolishRequest,
   AiPolishResponse,
@@ -11,8 +11,8 @@ import type {
 
 import { requestJson } from "./http";
 
-export async function createAgentTask(payload: CreateAgentTaskRequest): Promise<AgentTaskResponse> {
-  return requestJson<AgentTaskResponse>("/api/v2/ai/tasks", {
+export async function createAiTask(payload: CreateAiTaskRequest): Promise<AiTaskResponse> {
+  return requestJson<AiTaskResponse>("/api/v2/ai/tasks", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

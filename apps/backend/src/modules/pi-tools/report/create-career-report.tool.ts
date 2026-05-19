@@ -6,9 +6,9 @@
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 
-import type { AiToolFactoryContext } from "./ai-tool-context.js";
+import type { PiToolFactoryContext } from "../pi-tool-context.js";
 
-export function createReportTool(context: AiToolFactoryContext): ToolDefinition {
+export function createCareerReportTool(context: PiToolFactoryContext): ToolDefinition {
   return {
     name: "create_report",
     label: "生成职业报告",
