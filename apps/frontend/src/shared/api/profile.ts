@@ -7,13 +7,13 @@ import type {
 import { requestJson } from "./http";
 
 export async function fetchStudentProfiles(): Promise<ListStudentProfilesResponse> {
-  return requestJson<ListStudentProfilesResponse>("/api/v1/profile");
+  return requestJson<ListStudentProfilesResponse>("/api/v2/profile");
 }
 
 export async function createStudentProfile(
   payload: CreateStudentProfileRequest,
 ): Promise<StudentProfileRecord> {
-  return requestJson<StudentProfileRecord>("/api/v1/profile", {
+  return requestJson<StudentProfileRecord>("/api/v2/profile", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -38,7 +38,7 @@ export async function createStudentProfileFromResume(input: {
     body.set("parse_mode", input.parseMode);
   }
 
-  return requestJson<StudentProfileRecord>("/api/v1/profile/resume", {
+  return requestJson<StudentProfileRecord>("/api/v2/profile/resume", {
     method: "POST",
     body,
   });

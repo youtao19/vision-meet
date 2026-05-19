@@ -16,5 +16,5 @@ export async function fetchJobs(
   if (options.keyword?.trim()) {
     query.set("keyword", options.keyword.trim());
   }
-  return requestJson<JobsListResponse>(`/api/v1/jobs?${query.toString()}`);
+  return requestJson<JobsListResponse>(`/api/v2/jobs?${query.toString()}`);
 }

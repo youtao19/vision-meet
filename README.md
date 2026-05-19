@@ -86,7 +86,7 @@ npm run jobs:pipeline:run
 
 6. 访问地址
 1. 后端健康检查：`http://127.0.0.1:8000/healthz`
-1. 后端 API：`http://127.0.0.1:8000/api/v1/jobs`
+1. 后端 API：`http://127.0.0.1:8000/api/v2/jobs`
 1. 前端：`http://127.0.0.1:5173`
 
 ## 接口文档
@@ -97,27 +97,27 @@ npm run jobs:pipeline:run
 
 ## 当前后端已实现 API
 
-1. `POST /api/v1/jobs/import`：岗位数据导入（csv/tsv/json/xls/xlsx）
-2. `GET /api/v1/jobs`：岗位列表查询
-3. `GET /api/v1/profile`：学生画像列表
-4. `POST /api/v1/profile`：手动创建学生画像
-5. `POST /api/v1/profile/resume`：简历上传创建学生画像
-6. `POST /api/v1/matches`：创建人岗匹配结果（支持复现/缓存语义）
-7. `GET /api/v1/matches`：匹配结果列表查询（按画像/岗位筛选）
-8. `GET /api/v1/matches/{match_id}`：匹配结果详情查询
-9. `POST /api/v1/knowledge/index`：索引岗位数据 / 简历文本 / 内部项目文档
-10. `POST /api/v1/knowledge/search`：执行知识检索（默认仅查 `career_runtime`）
-11. `POST /api/v1/knowledge/evaluations`：执行知识检索基线评测
-12. `POST /api/v1/reports`：基于匹配结果生成职业报告版本
-13. `GET /api/v1/reports?match_id={match_id}`：查询某个匹配结果下的报告版本列表
-14. `GET /api/v1/reports/{report_id}`：查询职业报告详情
-15. `PATCH /api/v1/reports/{report_id}`：保存职业报告结构化章节编辑结果
-16. `POST /api/v1/reports/{report_id}/exports`：生成并登记 PDF 导出产物
-17. `GET /api/v1/reports/{report_id}/exports`：查询当前报告版本的导出记录
-18. `GET /api/v1/report-exports/{export_id}/download`：下载已生成的 PDF 文件
-19. `POST /api/v1/agent/chat`：兼容旧聊天式入口，内部转到当前任务型 Agent
-20. `POST /api/v1/agent/tasks`：创建一次 Agent 任务（任务规划 -> 工具执行 -> 结果汇总）
-21. `GET /api/v1/agent/tasks/{task_id}`：查询单个 Agent 任务结果
+1. `POST /api/v2/jobs/import`：岗位数据导入（csv/tsv/json/xls/xlsx）
+2. `GET /api/v2/jobs`：岗位列表查询
+3. `GET /api/v2/profile`：学生画像列表
+4. `POST /api/v2/profile`：手动创建学生画像
+5. `POST /api/v2/profile/resume`：简历上传创建学生画像
+6. `POST /api/v2/matches`：创建人岗匹配结果（支持复现/缓存语义）
+7. `GET /api/v2/matches`：匹配结果列表查询（按画像/岗位筛选）
+8. `GET /api/v2/matches/{match_id}`：匹配结果详情查询
+9. `POST /api/v2/knowledge/index`：索引岗位数据 / 简历文本 / 内部项目文档
+10. `POST /api/v2/knowledge/search`：执行知识检索（默认仅查 `career_runtime`）
+11. `POST /api/v2/knowledge/evaluations`：执行知识检索基线评测
+12. `POST /api/v2/reports`：基于匹配结果生成职业报告版本
+13. `GET /api/v2/reports?match_id={match_id}`：查询某个匹配结果下的报告版本列表
+14. `GET /api/v2/reports/{report_id}`：查询职业报告详情
+15. `PATCH /api/v2/reports/{report_id}`：保存职业报告结构化章节编辑结果
+16. `POST /api/v2/reports/{report_id}/exports`：生成并登记 PDF 导出产物
+17. `GET /api/v2/reports/{report_id}/exports`：查询当前报告版本的导出记录
+18. `GET /api/v2/report-exports/{export_id}/download`：下载已生成的 PDF 文件
+19. `POST /api/v2/ai/tasks`：创建一次 AI 任务（任务规划 -> 工具执行 -> 结果汇总）
+20. `POST /api/v2/ai/chat`：AI 中枢聊天式兼容入口
+21. `GET /api/v2/ai/tasks/{task_id}`：查询单个 AI 任务结果
 22. `GET /healthz`：服务健康检查（含数据库连接摘要）
 
 ## V2 新增接口（岗位智能处理闭环）
@@ -127,11 +127,6 @@ npm run jobs:pipeline:run
 3. `GET /api/v2/career-paths/jobs/{job_id}`：查询 V2 自动图谱（晋升 + 换岗）。
 4. `POST /api/v2/matches`、`GET /api/v2/matches*`：V2 匹配接口（含路径建议和证据引用）。
 5. `POST /api/v2/reports`、`GET /api/v2/reports*`：V2 报告接口（含 `generator_mode` 与结构化行动计划）。
-
-## 已废弃接口（仅向后兼容）
-
-1. `GET /api/v1/career-paths/jobs/{job_id}` 已被 `GET /api/v2/career-paths/jobs/{job_id}` 替代；响应携带 `Deprecation: true`、`Sunset`（计划 2026-11-02）与 `Link: ... rel="successor-version"` 头，请按 sunset 日期之前完成迁移。
-2. matching/report 服务已不再依赖 V1 `career-path` 模块，统一转调 `jobs-intelligence` service，下线规划见 [`docs/图谱功能评审与优化建议.md`](./docs/图谱功能评审与优化建议.md)。
 
 ## 知识库说明
 
@@ -143,7 +138,7 @@ npm run jobs:pipeline:run
 
 ## Agent 说明
 
-1. 当前 `/api/v1/agent/tasks` 已切换为真实的 Pi SDK 运行时：后端不再手写固定 workflow，而是把 `load_task_context`、`search_knowledge`、`create_match`、`create_report` 封装成 Pi 可调用工具，由 Pi 决定调用顺序并返回最终总结。
+1. 当前 `/api/v2/ai/tasks` 使用真实的 Pi SDK 运行时：后端不再手写固定 workflow，而是把 `load_task_context`、`search_knowledge`、`create_match`、`create_report` 封装成 Pi 可调用工具，由 Pi 决定调用顺序并返回最终总结。
 2. Agent 默认使用独立配置目录 `~/.career-agent/pi-agent`，不会把其他项目目录当成自己的运行目录；如果独立目录缺少 `auth.json` 或 `models.json`，会优先从标准 Pi 目录 `~/.pi/agent` 复制缺失文件做一次兼容导入。若检测到 OpenClaw 主智能体目录 `~/.openclaw/agents/main/agent`，还会把其中的 `auth-profiles.json` 按 Pi `auth.json` 结构转换导入。后续运行仍以独立目录为准。如需自定义，可通过 `AGENT_PI_DIR`、`AGENT_SESSION_STORE_DIR`、`AGENT_MODEL`、`AGENT_THINKING_LEVEL` 覆盖。
 3. 当前职业报告生成已回到稳定可复现的模板链路，不再依赖独立聊天补全客户端。
 4. 若未显式设置 `AGENT_MODEL`，后端会优先沿用 `KIMI_MODEL`，其次才回退到 `MOONSHOT_MODEL`。
@@ -151,8 +146,7 @@ npm run jobs:pipeline:run
 6. 当前项目默认使用 `kimi-coding/k2p5`。也就是说，Agent 主链路优先按 Kimi Code 接入，对应 `KIMI_API_KEY` 或 `KIMICODE_API_KEY`。
 7. 若你确实需要兼容 Moonshot 开放平台 Kimi，仍可显式设置 `AGENT_MODEL=moonshot/kimi-k2.5`，此时使用 `MOONSHOT_API_KEY`。
 8. 若希望把当前 provider 的 API key 固化到项目独立 Agent 目录，可执行 `npm run agent:auth:kimi`。该脚本会按当前 `AGENT_MODEL` 选择正确的 provider 写入 `~/.career-agent/pi-agent/auth.json`；默认会写 `kimi-coding`，若显式切到 `moonshot` 才会补齐 Moonshot `models.json` 片段。
-9. 旧入口 `/api/v1/agent/chat` 现已直接复用任务型 Agent，便于历史前端和脚本平滑迁移；`/api/v1/agent/analyze` 仍继续兼容。
-10. 当前代码已通过 `npm run type-check`、`npm run build:backend` 和 `createApp()` 级别验证；如需单独做 Agent 联通性检查，可运行 `npm run agent:smoke`。
+9. 当前代码已通过 `npm run type-check`、`npm run build:backend` 和 `createApp()` 级别验证；如需单独做 Agent 联通性检查，可运行 `npm run agent:smoke`。
 
 ## 协作规范
 

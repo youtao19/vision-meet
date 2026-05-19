@@ -43,7 +43,7 @@ apps/backend/src/modules/ai/runtime/*
     ↓
 apps/backend/src/modules/ai/tools/*
     ↓
-既有业务模块 service（profile / matching / report / knowledge / jobs / career-path）
+既有业务模块 service（profile / matching / report / knowledge / jobs / jobs-intelligence）
     ↓
 repository / adapter / PostgreSQL / pgvector / Neo4j
 ```
@@ -85,10 +85,10 @@ repository / adapter / PostgreSQL / pgvector / Neo4j
 目标：把 Pi SDK 封成可复用的后端运行时，而不是到处直接创建 session。
 
 1. 新增运行时封装文件，例如：
-   `runtime/agent-runtime.ts`
-   `runtime/agent-session.factory.ts`
-   `runtime/agent-config.ts`
-   `runtime/agent-auth.ts`
+   `runtime/ai-agent.runtime.ts`
+   `runtime/ai-agent.runtime.ts`
+   `shared/config/env.ts`
+   `shared/agent/agent-bootstrap.ts`
 2. 用 `createAgentSession()` 或 `createAgentSessionRuntime()` 封装标准创建流程。
 3. 固定默认 `cwd`、`agentDir`、`AuthStorage`、`ModelRegistry`、`SettingsManager`。
 4. 通过 `systemPromptOverride` 注入系统业务身份，而不是复用默认 coding prompt。
@@ -118,7 +118,7 @@ repository / adapter / PostgreSQL / pgvector / Neo4j
    `retrieve_knowledge`
    `match_student_to_jobs`
    `generate_career_report`
-   `query_career_paths`
+   `query_v2_career_paths`
    `save_agent_artifact`
 3. 工具内部只能调用对应 domain 的 service，不得直接访问 repository。
 4. 工具输入输出统一结构化，避免把自由文本协议暴露给业务层。

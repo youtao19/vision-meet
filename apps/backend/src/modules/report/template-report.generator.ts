@@ -126,7 +126,7 @@ function buildCareerPath(input: ReportGeneratorInput): string {
     return `${index + 1}. ${route.title}；适配度 ${route.suitability_score} 分；${route.summary}${required ? `；关键技能：${required}` : ""}`;
   });
 
-  // V2 图谱没有 canonical_role 概念，直接退回岗位标题，避免在报告里漏出 V1 才有的字段命名。
+  // 当前图谱不再暴露 canonical_role，直接退回岗位标题，避免报告标题缺失。
   const anchorTitle = input.career_path.canonical_role_title ?? input.job.title;
   return [
     `当前岗位已映射到岗位画像【${anchorTitle}】，图谱深度 ${input.career_path.depth}。`,

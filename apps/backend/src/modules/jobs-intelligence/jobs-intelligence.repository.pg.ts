@@ -179,7 +179,7 @@ function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRe
   const resolvedId = row.job_id == null ? fallbackId : Number(row.job_id);
   return {
     // 这里必须只返回真实 jobs.id。图谱生成可以使用稳定伪 ID，但 HTTP 画像列表会被匹配/Agent 入口复用；
-    // 若把 hash 伪 ID 暴露给前端，写入 agent_tasks 时会违反 job_id 外键。
+    // 若把 hash 伪 ID 暴露给前端，写入 ai_tasks 时会违反 job_id 外键。
     job_id: resolvedId,
     job_name: String(row.job_name),
     category: String(row.category),

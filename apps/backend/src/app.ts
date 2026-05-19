@@ -4,8 +4,6 @@ import cors from "cors";
 import express from "express";
 
 import { createAiModule } from "./modules/ai/ai.module.js";
-import { createAgentModule } from "./modules/agent/agent.module.js";
-import { createCareerPathModule } from "./modules/career-path/career-path.module.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createPgJobsRepository } from "./modules/jobs/jobs.repository.pg.js";
 import { createJobsIntelligenceModule } from "./modules/jobs-intelligence/jobs-intelligence.module.js";
@@ -43,17 +41,6 @@ export function createApp(): express.Express {
   const matchingRepository = createPgMatchingRepository(appDataPool);
   const reportRepository = createPgReportRepository(appDataPool);
   const reportExportRepository = createPgReportExportRepository(appDataPool);
-  const careerPathModule = createCareerPathModule(
-    {
-      jobsRepository,
-      profileRepository,
-    },
-    {
-      uri: appEnv.NEO4J_URI,
-      username: appEnv.NEO4J_USERNAME,
-      password: appEnv.NEO4J_PASSWORD,
-    },
-  );
   const knowledgeModule = createKnowledgeModule({
     host: appEnv.PGHOST,
     port: appEnv.PGPORT,
@@ -98,12 +85,10 @@ export function createApp(): express.Express {
       profileRepository,
       jobsRepository,
       careerPathResolver: async ({ job_id }) => {
-        // 报告侧统一走 V2 jobs-intelligence 图谱，避免再依赖 V1 career-path 模块。
         try {
           const graph = await jobsIntelligenceService.getCareerPathGraph(job_id, 2);
           return {
             depth: graph.depth,
-            // V2 图谱无 canonical_role 概念，传 null 让模板退回岗位标题。
             canonical_role_title: null,
             promotion_routes: graph.promotion_routes,
             transition_routes: graph.transition_routes,
@@ -149,13 +134,13 @@ export function createApp(): express.Express {
   });
 
   app.use(
-    "/api/v1/jobs",
+    "/api/v2/jobs",
     createJobsModule({
       pool: appDataPool,
     }),
   );
   app.use(
-    "/api/v1/profile",
+    "/api/v2/profile",
     createProfileModule({
       pool: appDataPool,
       env: appEnv,
@@ -165,12 +150,7 @@ export function createApp(): express.Express {
         knowledgeModule.service.indexResumeProfile({ profile, resumeInput }),
     }),
   );
-  app.use("/api/v1/knowledge", knowledgeModule.router);
-  // V1 path-graph 仅向后兼容历史调用方，路由会带 Deprecation/Sunset/Link 头；新调用方请使用 /api/v2/career-paths/*。
-  app.use("/api/v1/career-paths", careerPathModule.router);
-  app.use("/api/v1/matches", createMatchingRouter(matchingService));
-  app.use("/api/v1/reports", createReportRouter(reportService));
-  app.use("/api/v1/report-exports", createReportExportDownloadRouter(reportService));
+  app.use("/api/v2/knowledge", knowledgeModule.router);
   app.use(
     "/api/v2",
     createJobsIntelligenceModule({
@@ -207,27 +187,6 @@ export function createApp(): express.Express {
       },
     ),
   );
-  app.use(
-    "/api/v1/agent",
-    createAgentModule(
-      {
-        profileRepository,
-        jobsRepository,
-        knowledgeService: knowledgeModule.service,
-        matchingService,
-        reportService,
-      },
-      {
-        pool: appDataPool,
-        piAgentDir: appEnv.AGENT_PI_DIR,
-        sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
-        model: appEnv.AGENT_MODEL,
-        thinkingLevel: appEnv.AGENT_THINKING_LEVEL,
-        cwd: process.cwd(),
-      },
-    ),
-  );
-
   app.use(
     (error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       const traceId = (res.locals.trace_id as string | undefined) || randomUUID();

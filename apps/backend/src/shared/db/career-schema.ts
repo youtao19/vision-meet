@@ -116,28 +116,6 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
     `);
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS agent_tasks (
-        id BIGSERIAL PRIMARY KEY,
-        trace_id TEXT NOT NULL,
-        model TEXT,
-        status TEXT NOT NULL,
-        student_profile_id BIGINT NOT NULL REFERENCES student_profiles(id) ON DELETE CASCADE,
-        job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-        objective TEXT NOT NULL,
-        deliverables TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-        force_recalculate BOOLEAN NOT NULL DEFAULT FALSE,
-        top_k INTEGER NOT NULL,
-        planned_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
-        step_trace JSONB NOT NULL DEFAULT '[]'::jsonb,
-        result JSONB NOT NULL,
-        error_code TEXT,
-        error_message TEXT,
-        created_at TIMESTAMPTZ NOT NULL,
-        finished_at TIMESTAMPTZ NOT NULL
-      )
-    `);
-
-    await pool.query(`
       CREATE TABLE IF NOT EXISTS ai_resume_html_records (
         id BIGSERIAL PRIMARY KEY,
         trace_id TEXT NOT NULL,

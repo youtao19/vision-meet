@@ -1,11 +1,11 @@
 import type {
   AgentPlanStep,
   AgentStepTraceItem,
-  AgentTaskResponse,
-  AgentTaskResult,
-  AgentTaskStatus,
   AgentWarningCode,
-  CreateAgentTaskRequest,
+  AiTaskResponse,
+  AiTaskResult,
+  AiTaskStatus,
+  CreateAiTaskRequest,
   KnowledgeSearchResultItem,
   MatchResultDetail,
   CareerReportRecord,
@@ -17,11 +17,11 @@ import type { ProfileRepository } from "../profile/profile.repository.js";
 import type { ReportService } from "../report/report.service.js";
 import type { KnowledgeService } from "../knowledge/knowledge.service.js";
 import { HttpError } from "../../shared/errors/http-error.js";
-import { runPiCareerAgent } from "./agent.pi.js";
-import type { AgentRepository, AgentTaskRecord } from "./agent.repository.js";
+import type { AiRepository, AiTaskRecord } from "./ai.repository.js";
+import { runAiTaskAgent } from "./runtime/ai-agent.runtime.js";
 
-type AgentServiceDependencies = {
-  agentRepository: AgentRepository;
+type AiTaskServiceDependencies = {
+  aiRepository: AiRepository;
   profileRepository: ProfileRepository;
   jobsRepository: JobsRepository;
   knowledgeService: KnowledgeService;
@@ -34,7 +34,7 @@ type AgentServiceDependencies = {
   cwd?: string;
 };
 
-type TaskRuntimeContext = {
+type AiTaskRuntimeContext = {
   traceId: string;
 };
 
@@ -51,7 +51,7 @@ function appendWarning(warnings: AgentWarningCode[], warning: AgentWarningCode):
   }
 }
 
-function normalizeDeliverables(input?: CreateAgentTaskRequest["deliverables"]) {
+function normalizeDeliverables(input?: CreateAiTaskRequest["deliverables"]) {
   const normalized: Array<"match_analysis" | "career_report"> = Array.from(
     new Set(input ?? ["match_analysis", "career_report"]),
   );
@@ -166,7 +166,7 @@ function buildFallbackSummary(input: {
   return parts.join("");
 }
 
-function toTaskResponse(record: AgentTaskRecord): AgentTaskResponse {
+function toTaskResponse(record: AiTaskRecord): AiTaskResponse {
   return {
     task_id: record.id,
     trace_id: record.trace_id,
@@ -189,7 +189,7 @@ function deriveTaskStatus(input: {
   stepTrace: AgentStepTraceItem[];
   matchResult: MatchResultDetail | null;
   report: CareerReportRecord | null;
-}): AgentTaskStatus {
+}): AiTaskStatus {
   if (!input.matchResult) {
     return "failed";
   }
@@ -206,22 +206,19 @@ function deriveTaskStatus(input: {
 }
 
 /**
- * 文件作用：基于 pi-coding-agent 驱动职业任务型 Agent。
+ * 文件作用：基于 pi-coding-agent 驱动 AI 中枢任务。
  * 整体思路：由 Pi 决定工具调用顺序，后端只负责装配业务工具、持久化步骤轨迹和收敛最终产物。
  */
-export interface AgentService {
-  createTask(
-    input: CreateAgentTaskRequest,
-    runtime: TaskRuntimeContext,
-  ): Promise<AgentTaskResponse>;
-  getTask(taskId: number): Promise<AgentTaskResponse>;
+export interface AiTaskService {
+  createTask(input: CreateAiTaskRequest, runtime: AiTaskRuntimeContext): Promise<AiTaskResponse>;
+  getTask(taskId: number): Promise<AiTaskResponse>;
 }
 
-export function createAgentService(dependencies: AgentServiceDependencies): AgentService {
+export function createAiTaskService(dependencies: AiTaskServiceDependencies): AiTaskService {
   async function createTask(
-    input: CreateAgentTaskRequest,
-    runtime: TaskRuntimeContext,
-  ): Promise<AgentTaskResponse> {
+    input: CreateAiTaskRequest,
+    runtime: AiTaskRuntimeContext,
+  ): Promise<AiTaskResponse> {
     const startedAt = new Date().toISOString();
     const deliverables = normalizeDeliverables(input.deliverables);
     const objective = normalizeObjective({
@@ -245,7 +242,7 @@ export function createAgentService(dependencies: AgentServiceDependencies): Agen
     let resolvedModel: string | null = null;
 
     try {
-      const piResult = await runPiCareerAgent(
+      const piResult = await runAiTaskAgent(
         {
           profileRepository: dependencies.profileRepository,
           jobsRepository: dependencies.jobsRepository,
@@ -284,7 +281,7 @@ export function createAgentService(dependencies: AgentServiceDependencies): Agen
         appendWarning(state.warnings, "REPORT_GENERATION_FAILED");
       }
 
-      const result: AgentTaskResult = {
+      const result: AiTaskResult = {
         summary:
           piResult.finalSummary ||
           buildFallbackSummary({
@@ -307,7 +304,7 @@ export function createAgentService(dependencies: AgentServiceDependencies): Agen
         report: state.report,
       });
 
-      const record = await dependencies.agentRepository.createTask({
+      const record = await dependencies.aiRepository.createTask({
         trace_id: runtime.traceId,
         model: resolvedModel,
         status,
@@ -335,7 +332,7 @@ export function createAgentService(dependencies: AgentServiceDependencies): Agen
               error instanceof Error ? error.message : "Pi Agent 任务执行失败",
             );
 
-      const fallbackResult: AgentTaskResult = {
+      const fallbackResult: AiTaskResult = {
         summary: buildFallbackSummary({
           objective,
           knowledgeHits: state.knowledgeHits,
@@ -356,7 +353,7 @@ export function createAgentService(dependencies: AgentServiceDependencies): Agen
 
       // 失败快照表带有 profile/job 外键。输入本身非法时直接返回原始错误，避免用落库失败掩盖真正原因。
       if (profileExists && jobExists) {
-        await dependencies.agentRepository.createTask({
+        await dependencies.aiRepository.createTask({
           trace_id: runtime.traceId,
           model: resolvedModel,
           status: "failed",
@@ -380,10 +377,10 @@ export function createAgentService(dependencies: AgentServiceDependencies): Agen
     }
   }
 
-  async function getTask(taskId: number): Promise<AgentTaskResponse> {
-    const record = await dependencies.agentRepository.getTaskById(taskId);
+  async function getTask(taskId: number): Promise<AiTaskResponse> {
+    const record = await dependencies.aiRepository.getTaskById(taskId);
     if (!record) {
-      throw new HttpError(404, "AGENT_TASK_NOT_FOUND", "Agent 任务不存在");
+      throw new HttpError(404, "AI_TASK_NOT_FOUND", "AI 任务不存在");
     }
 
     return toTaskResponse(record);

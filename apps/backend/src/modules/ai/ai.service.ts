@@ -14,9 +14,9 @@ import type { KnowledgeService } from "../knowledge/knowledge.service.js";
 import type { MatchingService } from "../matching/matching.service.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import type { ReportService } from "../report/report.service.js";
-import { createAgentService } from "../agent/agent.service.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import type { AiRepository } from "./ai.repository.js";
+import { createAiTaskService } from "./ai-task.service.js";
 import { runResumeHtmlAgent } from "./runtime/ai-resume.runtime.js";
 
 type AiServiceDependencies = {
@@ -58,8 +58,8 @@ export interface AiService {
 }
 
 export function createAiService(dependencies: AiServiceDependencies): AiService {
-  const agentService = createAgentService({
-    agentRepository: dependencies.aiRepository,
+  const taskService = createAiTaskService({
+    aiRepository: dependencies.aiRepository,
     profileRepository: dependencies.profileRepository,
     jobsRepository: dependencies.jobsRepository,
     knowledgeService: dependencies.knowledgeService,
@@ -73,7 +73,7 @@ export function createAiService(dependencies: AiServiceDependencies): AiService 
   });
 
   return {
-    createTask: (input, runtime) => agentService.createTask(input, runtime),
+    createTask: (input, runtime) => taskService.createTask(input, runtime),
     generateResumeHtml: async (input, runtime) => {
       const generated = await runResumeHtmlAgent({
         input,
@@ -121,6 +121,6 @@ export function createAiService(dependencies: AiServiceDependencies): AiService 
       }
       return record;
     },
-    getTask: (taskId) => agentService.getTask(taskId),
+    getTask: (taskId) => taskService.getTask(taskId),
   };
 }

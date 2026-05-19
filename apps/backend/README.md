@@ -54,24 +54,24 @@ cp apps/backend/.env.example apps/backend/.env
 ## API
 
 - `GET /healthz`
-- `POST /api/v1/jobs/import`
-- `GET /api/v1/jobs`
-- `GET /api/v1/profile`
-- `POST /api/v1/profile`
-- `POST /api/v1/profile/resume`
-- `POST /api/v1/matches`
-- `GET /api/v1/matches`
-- `GET /api/v1/matches/{match_id}`
-- `POST /api/v1/knowledge/index`
-- `POST /api/v1/knowledge/search`
-- `POST /api/v1/knowledge/evaluations`
-- `POST /api/v1/reports`
-- `GET /api/v1/reports?match_id={match_id}`
-- `GET /api/v1/reports/{report_id}`
-- `PATCH /api/v1/reports/{report_id}`
-- `POST /api/v1/reports/{report_id}/exports`
-- `GET /api/v1/reports/{report_id}/exports`
-- `GET /api/v1/report-exports/{export_id}/download`
+- `POST /api/v2/jobs/import`
+- `GET /api/v2/jobs`
+- `GET /api/v2/profile`
+- `POST /api/v2/profile`
+- `POST /api/v2/profile/resume`
+- `POST /api/v2/matches`
+- `GET /api/v2/matches`
+- `GET /api/v2/matches/{match_id}`
+- `POST /api/v2/knowledge/index`
+- `POST /api/v2/knowledge/search`
+- `POST /api/v2/knowledge/evaluations`
+- `POST /api/v2/reports`
+- `GET /api/v2/reports?match_id={match_id}`
+- `GET /api/v2/reports/{report_id}`
+- `PATCH /api/v2/reports/{report_id}`
+- `POST /api/v2/reports/{report_id}/exports`
+- `GET /api/v2/reports/{report_id}/exports`
+- `GET /api/v2/report-exports/{export_id}/download`
 
 详细说明见：
 
@@ -87,7 +87,7 @@ cp apps/backend/.env.example apps/backend/.env
 - `modules/matching/matching.repository.pg.ts`
 - `modules/report/report.repository.pg.ts`
 - `modules/report/report-export.repository.pg.ts`
-- `modules/agent/agent.repository.pg.ts`
+- `modules/ai/ai.repository.pg.ts`
 
 知识检索仍由 `modules/knowledge/knowledge.repository.pg.ts` 负责，并使用 pgvector 承载向量索引。
 
@@ -106,4 +106,4 @@ npm run knowledge:eval
 
 - `knowledge:index:jobs` 只索引岗位数据到 `career_runtime`
 - `knowledge:index:project-docs` 只索引 `docs/*.md` 到 `internal_project_docs`
-- 简历文本不需要单独脚本，走 `POST /api/v1/profile/resume` 时会自动同步入库
+- 简历文本不需要单独脚本，走 `POST /api/v2/profile/resume` 时会自动同步入库

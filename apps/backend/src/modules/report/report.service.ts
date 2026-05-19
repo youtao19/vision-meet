@@ -26,7 +26,7 @@ import type { ReportRepository } from "./report.repository.js";
 
 /**
  * 作用：解析“目标岗位 + 学生画像”对应的图谱推荐。
- * 设计原因：报告侧只关心“能不能拿到推荐路径”，不应直接依赖 V1/V2 任意一方的 service。
+ * 设计原因：报告侧只关心“能不能拿到推荐路径”，不应直接依赖具体图谱 service。
  * 调用约定：实现需要自行处理图谱不可用 / 命中失败等场景，并返回 null（视为图谱缺失）。
  */
 export type ReportCareerPathResolver = (input: {

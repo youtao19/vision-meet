@@ -1,14 +1,25 @@
 import { z } from "zod";
 
-import { agentTaskCreateSchema, agentTaskIdParamsSchema } from "../agent/agent.schemas.js";
-
 /**
  * 文件作用：定义 AI 中枢统一入口的协议层校验规则。
- * 设计边界：当前先沿用既有任务型 Agent 输入结构，等后续扩展多任务协议时再在这里拆分。
+ * 设计边界：schema 只负责入口参数约束，任务规划与工具调用交给 service/runtime。
  */
-export const aiTaskCreateSchema = agentTaskCreateSchema;
+export const aiTaskCreateSchema = z.object({
+  student_profile_id: z.coerce.number().int().min(1),
+  job_id: z.coerce.number().int().min(1),
+  objective: z.string().trim().max(200).optional(),
+  deliverables: z
+    .array(z.enum(["match_analysis", "career_report"]))
+    .min(1)
+    .max(2)
+    .optional(),
+  force_recalculate: z.coerce.boolean().default(false),
+  top_k: z.coerce.number().int().min(1).max(10).default(5),
+});
 
-export const aiTaskIdParamsSchema = agentTaskIdParamsSchema;
+export const aiTaskIdParamsSchema = z.object({
+  task_id: z.coerce.number().int().min(1),
+});
 
 export const aiResumeHtmlCreateSchema = z.object({
   basic: z.object({

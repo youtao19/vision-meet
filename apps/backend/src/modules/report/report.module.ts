@@ -30,7 +30,7 @@ export type ReportServiceDependencies = {
   jobsRepository: JobsRepository;
   /**
    * 作用：注入图谱推荐解析器。
-   * 设计说明：报告侧不再耦合 V1 career-path service，由 app 层将 V2 jobs-intelligence
+   * 设计说明：报告侧不直接耦合图谱实现，由 app 层将 jobs-intelligence
    * service（或将来的图谱实现）适配成 ReportCareerPathResolver。
    */
   careerPathResolver?: ReportCareerPathResolver;
