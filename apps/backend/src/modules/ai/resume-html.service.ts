@@ -8,6 +8,7 @@ import type {
 import { HttpError } from "../../shared/errors/http-error.js";
 import { generateResumeHtmlWithPi } from "../pi-tools/resume/resume-html.generator.js";
 import type { AiRepository } from "./ai.repository.js";
+import { buildResumeQualityWarnings } from "./resume-html.quality.js";
 import type { AiThinkingLevel } from "./runtime/ai-agent.types.js";
 
 /**
@@ -92,9 +93,12 @@ export function createResumeHtmlService(
       html: generated.html,
     });
 
+    const qualityWarnings = buildResumeQualityWarnings(input);
+
     return {
       ...generated,
       resume_id: record.id,
+      quality_warnings: qualityWarnings,
     };
   }
 

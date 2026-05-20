@@ -21,6 +21,30 @@ export const aiTaskIdParamsSchema = z.object({
   task_id: z.coerce.number().int().min(1),
 });
 
+/**
+ * 创建 AI 简历 HTML 的入参校验。
+ *
+ * basic：
+ * - 必填：姓名、手机号、邮箱、目标岗位
+ * - 选填：目标城市
+ *
+ * summary：
+ * - 选填：个人总结
+ *
+ * educations：
+ * - 必填：学校、专业、学历、就读时间
+ * - 选填：GPA、核心课程、荣誉奖项
+ * - 数量限制：至少 1 条，最多 20 条
+ *
+ * experiences：
+ * - 选填：允许没有项目/实习经历；填写时必须有组织名称、角色、经历时间、负责内容、成果
+ * - 选填：经历类型、背景、技术栈、难点
+ * - 数量限制：最多 30 条
+ *
+ * 其他：
+ * - 必填：技能
+ * - 选填：证书、获奖经历、作品链接
+ */
 export const aiResumeHtmlCreateSchema = z.object({
   basic: z.object({
     name: z.string().trim().min(1).max(80),
@@ -58,7 +82,6 @@ export const aiResumeHtmlCreateSchema = z.object({
         difficulties: z.string().trim().max(1500).optional(),
       }),
     )
-    .min(1)
     .max(30),
   skills: z.string().trim().min(1).max(2000),
   certificates: z.string().trim().max(1000).optional(),

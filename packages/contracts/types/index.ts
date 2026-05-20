@@ -870,6 +870,17 @@ export type ResumeExperienceInput = {
   difficulties?: string;
 };
 
+export type ResumeQualityWarningCode =
+  | "NO_EXPERIENCE"
+  | "ODD_EDUCATION_PERIOD"
+  | "INVALID_PORTFOLIO_LINK"
+  | "TARGET_ROLE_MISMATCH";
+
+export type ResumeQualityWarning = {
+  code: ResumeQualityWarningCode;
+  message: string;
+};
+
 export type CreateResumeHtmlRequest = {
   basic: ResumeBasicInfoInput;
   summary?: string;
@@ -887,6 +898,7 @@ export type ResumeHtmlResponse = {
   model: string | null;
   html: string;
   generated_at: string;
+  quality_warnings?: ResumeQualityWarning[];
 };
 
 export type ResumeHtmlRecord = {

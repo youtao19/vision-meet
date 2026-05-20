@@ -34,7 +34,7 @@ export type GeneratedResumeHtml = Omit<ResumeHtmlResponse, "resume_id">;
 /**
  * 简历生成默认超时时间。
  */
-const RESUME_AGENT_TIMEOUT_MS = 60000;
+const RESUME_AGENT_TIMEOUT_MS = 180000;
 
 /**
  * 调用 Pi Agent 生成简历 HTML。
