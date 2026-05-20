@@ -6,6 +6,8 @@
   - 必须按 `src/app`、`src/features`、`src/shared` 分层。
 - `apps/backend/`：后端应用（Node.js + Express + TypeScript）。
   - 必须按 `src/modules/<domain>` + `src/shared` 组织。
+  - `src/modules/ai/` 放 AI 入口与 AI 子服务。
+  - `src/modules/pi-tools/` 放 Pi 工具能力；AI 能力型工具可内聚 prompt、parser、generator。
 - `packages/contracts/`：前后端共享契约（OpenAPI、共享类型），禁止前后端重复定义接口类型。
 - `infra/`：基础设施编排文件（如 `docker-compose`）。
 - `data/`：原始数据文件（如 `岗位数据.xls`）。
@@ -28,6 +30,10 @@
 - 每个 domain 至少包含：`*.route.ts`、`*.schemas.ts`、`*.service.ts`、`*.repository.ts`。
 - 数据源实现必须通过适配器文件（如 `*.repository.json.ts`、未来 `*.repository.pg.ts`）注入。
 - `route` 层禁止直接访问存储；必须经 `service -> repository`。
+- 确定性业务接口采用 `route -> service -> pi-tools capability -> service -> repository`。
+- 业务前后置、持久化、状态流转写在具体 `service`。
+- prompt、模型调用、结果解析放在对应 `pi-tools/<domain>/` 能力目录。
+- 不做本地假成功兜底；Pi/Agent 超时、报错或输出不合规必须失败。
 
 3. 契约：
 
@@ -56,6 +62,7 @@
 - 前端导入优先使用 `@/` 别名。
 - 后端模块文件建议命名：`jobs.route.ts`、`jobs.service.ts`、`jobs.repository.ts`。
 - 提交前至少执行 `npm run type-check`，保证前后端与 contracts 一致。
+- 编码、审查、重构默认遵守 `$karpathy-guidelines`：先说明假设，保持简单，只做必要修改，给出可验证结果。
 
 ## 测试规范
 
@@ -75,82 +82,5 @@
 - 不要提交密钥或凭证；本地配置放在 `.env`。
 - 必须维护 `apps/backend/.env.example`、`apps/frontend/.env.example`。
 - 配置读取必须集中管理并做校验（建议 zod），禁止业务代码到处直读 `process.env`。
-
-
-## 高质量中文注释规范（默认生效）
-
-- 从现在开始，生成代码默认遵循“高质量中文注释”规范；除非明确说明“这次不要注释”。
-
-### 总目标
-
-注释不是翻译代码，而是帮助快速理解：
-
-1. 这段代码在做什么。
-2. 为什么这样设计。
-3. 关键逻辑与业务规则。
-4. 哪些地方容易出错。
-5. 后续改动应该优先看哪里。
-
-### 总规则
-
-1. 代码必须可直接运行，不能为了注释牺牲正确性、性能和可维护性。
-2. 注释必须使用中文，简洁、准确、有信息量。
-3. 不写“变量定义/这里判断”这类低信息注释。
-4. 能靠命名看懂的内容，不重复写注释。
-5. 注释重点写：设计意图、边界条件、异常分支、易错点、取舍原因。
-6. 命名优先清晰（变量/函数/类），先提升代码自解释性，再补注释。
-7. 对初学者不易理解的写法（如闭包、泛型约束、并发/异步细节、框架机制）要额外解释。
-8. 复杂流程先给“整体思路”，再给代码。
-9. 注释密度按复杂度调整：简单逻辑少注释，复杂逻辑详细注释。
-
-### 文件级要求
-
-1. 文件开头写“文件作用说明”。
-2. 说明该文件在项目中的职责。
-3. 如与其他模块有关键依赖，简要说明依赖关系与边界。
-
-### 函数级要求（优化版）
-
-以下函数必须写函数注释（写在函数上方）：
-
-- 对外暴露的公共接口函数。
-- 业务关键函数。
-- 有副作用函数（I/O、数据库、网络、状态修改、权限判断等）。
-- 逻辑复杂或不直观的函数。
-
-函数注释至少包含：
-
-1. 函数作用。
-2. 参数含义。
-3. 返回值含义。
-4. 重要注意点（边界、异常、性能、幂等性等）。
-
-明显简单、无副作用、语义直白的小函数可省略函数注释。
-
-### 类级要求
-
-1. 每个类上方说明类职责与使用场景。
-2. 若有核心状态/关键属性，说明其含义、生命周期和约束。
-
-### 代码块要求
-
-1. 关键代码块上方写块注释；行内注释仅用于特别关键的一行。
-2. 以下内容优先注释：框架配置、数据库操作、异步流程、权限校验、参数校验、异常处理、状态流转、业务规则判断。
-
-### 禁止事项
-
-1. 禁止无信息量伪注释。
-2. 禁止为“看起来详细”而重复代码字面意思。
-3. 禁止只给代码不解释关键流程（复杂改动场景）。
-4. 禁止省略关键逻辑注释。
-
-## Active Technologies
-
-- TypeScript 5.x（Node.js 20+、Vue 3） + Express、multer、zod、Vue Router、Pinia、Fetch API (001-student-profile-matching)
-- 当前 JSON adapter（学生画像 + 匹配结果）；演进目标 PostgreSQL + pgvector + Neo4j (001-student-profile-matching)
-
-## Recent Changes
-
-- 001-student-profile-matching: Added TypeScript 5.x（Node.js 20+、Vue 3） + Express、multer、zod、Vue Router、Pinia、Fetch API
 
 Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.

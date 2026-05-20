@@ -23,7 +23,9 @@ function readRecord(params: unknown): Record<string, unknown> {
  * 参数：context 注入简历生成服务；Pi 侧传完整简历结构。
  * 返回：简历记录 ID、模型和 HTML 生成时间，HTML 正文放在 details 中避免最终总结过长。
  */
-export function createGenerateResumeHtmlTool(context: GenerateResumeHtmlToolContext): ToolDefinition {
+export function createGenerateResumeHtmlTool(
+  context: GenerateResumeHtmlToolContext,
+): ToolDefinition {
   return {
     name: "generate_resume_html",
     label: "生成简历",

@@ -14,11 +14,31 @@ import type { KnowledgeService } from "../knowledge/knowledge.service.js";
 import type { MatchingService } from "../matching/matching.service.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import type { ReportService } from "../report/report.service.js";
-import { HttpError } from "../../shared/errors/http-error.js";
 import type { AiRepository } from "./ai.repository.js";
 import { createAiTaskService } from "./ai-task.service.js";
-import { runResumeHtmlAgent } from "./runtime/ai-resume.runtime.js";
+import { createPolishService } from "./polish.service.js";
+import { createResumeHtmlService } from "./resume-html.service.js";
+import type { AiThinkingLevel } from "./runtime/ai-agent.types.js";
 
+/**
+ * AI 服务依赖。
+ *
+ * 必填：
+ * - aiRepository：AI 任务和简历 HTML 记录的数据访问
+ * - profileRepository：学生画像数据访问
+ * - jobsRepository：岗位数据访问
+ * - knowledgeService：知识库服务
+ * - matchingService：岗位匹配服务
+ * - reportService：报告生成服务
+ *
+ * 选填：
+ * - piAgentDir：Pi Agent 工作目录
+ * - sessionStoreDir：Agent 会话存储目录
+ * - model：指定使用的模型
+ * - thinkingLevel：模型思考强度
+ * - resumeTimeoutMs：简历生成超时时间
+ * - cwd：运行命令时的工作目录
+ */
 type AiServiceDependencies = {
   aiRepository: AiRepository;
   profileRepository: ProfileRepository;
@@ -29,7 +49,7 @@ type AiServiceDependencies = {
   piAgentDir?: string;
   sessionStoreDir?: string;
   model?: string;
-  thinkingLevel?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  thinkingLevel?: AiThinkingLevel;
   resumeTimeoutMs?: number;
   cwd?: string;
 };
@@ -57,70 +77,21 @@ export interface AiService {
   getTask(taskId: number): Promise<AiTaskResponse>;
 }
 
+/**
+ * 创建 AI 服务。
+ * 作用：把任务生成、简历生成、文本润色等子服务组合成统一入口。
+ */
 export function createAiService(dependencies: AiServiceDependencies): AiService {
-  const taskService = createAiTaskService({
-    aiRepository: dependencies.aiRepository,
-    profileRepository: dependencies.profileRepository,
-    jobsRepository: dependencies.jobsRepository,
-    knowledgeService: dependencies.knowledgeService,
-    matchingService: dependencies.matchingService,
-    reportService: dependencies.reportService,
-    piAgentDir: dependencies.piAgentDir,
-    sessionStoreDir: dependencies.sessionStoreDir,
-    model: dependencies.model,
-    thinkingLevel: dependencies.thinkingLevel,
-    cwd: dependencies.cwd,
-  });
+  const taskService = createAiTaskService(dependencies);
+  const resumeHtmlService = createResumeHtmlService(dependencies);
+  const polishService = createPolishService(dependencies);
 
   return {
     createTask: (input, runtime) => taskService.createTask(input, runtime),
-    generateResumeHtml: async (input, runtime) => {
-      const generated = await runResumeHtmlAgent({
-        input,
-        traceId: runtime.traceId,
-        cwd: dependencies.cwd || process.cwd(),
-        piAgentDir: dependencies.piAgentDir,
-        sessionStoreDir: dependencies.sessionStoreDir,
-        model: dependencies.model,
-        thinkingLevel: dependencies.thinkingLevel || "medium",
-        timeoutMs: dependencies.resumeTimeoutMs,
-      });
-
-      const record = await dependencies.aiRepository.createResumeHtmlRecord({
-        trace_id: runtime.traceId,
-        model: generated.model,
-        basic_name: input.basic.name,
-        target_position: input.basic.target_position,
-        summary: input.summary || null,
-        input_payload: input,
-        html: generated.html,
-      });
-
-      return {
-        ...generated,
-        resume_id: record.id,
-      };
-    },
-    listResumeHtmlRecords: (offset, limit) =>
-      dependencies.aiRepository.listResumeHtmlRecords({ offset, limit }),
-    polishText: async (input, runtime) => {
-      const { runPolishAgent } = await import("./runtime/ai-polish.runtime.js");
-      return runPolishAgent({
-        input,
-        traceId: runtime.traceId,
-        piAgentDir: dependencies.piAgentDir,
-        sessionStoreDir: dependencies.sessionStoreDir,
-        model: dependencies.model,
-        cwd: dependencies.cwd || process.cwd(),
-      });
-    },
-    getResumeHtmlRecordById: async (resumeId) => {
-      const record = await dependencies.aiRepository.getResumeHtmlRecordById(resumeId);
-      if (!record) {
-        throw new HttpError(404, "AI_RESUME_HTML_NOT_FOUND", "简历记录不存在");
-      }
-      return record;
-    },
+    generateResumeHtml: (input, runtime) => resumeHtmlService.generateResumeHtml(input, runtime),
+    listResumeHtmlRecords: (offset, limit) => resumeHtmlService.listResumeHtmlRecords(offset, limit),
+    polishText: (input, runtime) => polishService.polishText(input, runtime),
+    getResumeHtmlRecordById: (resumeId) => resumeHtmlService.getResumeHtmlRecordById(resumeId),
     getTask: (taskId) => taskService.getTask(taskId),
   };
 }
