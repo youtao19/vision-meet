@@ -1,21 +1,35 @@
+/**
+ * 文件作用：承载学生画像领域核心业务逻辑。
+ * 边界说明：service 负责字段归一、证据过滤、评分、摘要和落库编排；简历图片解析的 prompt/Agent 调用放在 pi-tools/profile。
+ */
+
 import type {
   CreateStudentProfileFromResumeRequest,
   CreateStudentProfileRequest,
   DimensionScores,
   ListStudentProfilesResponse,
-  StudentProfileExperience,
+  StudentProfileCertificate,
+  StudentProfileEducation,
+  StudentProfileEvaluation,
+  StudentProfileEvidence,
+  StudentProfileExperienceItem,
+  StudentProfileParseMeta,
+  StudentProfilePreference,
   StudentProfileRecord,
   StudentProfileSelfAssessment,
+  StudentProfileSkill,
 } from "@career/contracts/types";
 
-import { HttpError } from "../../shared/errors/http-error.js";
+import type { AppEnv } from "../../shared/config/env.js";
 import { buildSha256Digest } from "../../shared/utils/match-fingerprint.js";
 import type { JobsRepository } from "../jobs/jobs.repository.js";
+import type { AgentExtractedProfile } from "../pi-tools/profile/parse-resume-profile.parser.js";
+import { parseResumeProfileWithPi } from "../pi-tools/profile/parse-resume-profile.generator.js";
 import type { ProfileRepository, StudentProfileCreateInput } from "./profile.repository.js";
 
 /**
- * 文件作用：承载学生画像领域核心业务逻辑。
- * 依赖关系：仅依赖 ProfileRepository 抽象，不接触具体存储实现。
+ * 学生画像服务接口。
+ * 逻辑：对外提供列表、表单创建和简历创建三条业务能力。
  */
 export interface ProfileService {
   listProfiles(): Promise<ListStudentProfilesResponse>;
@@ -25,16 +39,24 @@ export interface ProfileService {
   ): Promise<StudentProfileRecord>;
 }
 
+/**
+ * 简历画像创建后的回调。
+ * 逻辑：用于把创建成功的画像通知其他模块；当前 service 不关心 hook 的具体副作用。
+ */
 export type ResumeProfileCreatedHook = (params: {
   profile: StudentProfileRecord;
   resumeInput: CreateStudentProfileFromResumeRequest;
 }) => Promise<void> | void;
 
-const SCORE_WEIGHTS = {
-  base_requirements: 0.2,
-  professional_skills: 0.45,
-  professional_quality: 0.2,
-  development_potential: 0.15,
+/**
+ * service 运行时依赖。
+ * 逻辑：env/cwd 给 Pi 能力使用，jobsRepository 用于目标岗位标准化，hook 用于创建后通知。
+ */
+type ProfileRuntimeOptions = {
+  env?: AppEnv;
+  cwd?: string;
+  jobsRepository?: JobsRepository;
+  onResumeProfileCreated?: ResumeProfileCreatedHook;
 };
 
 const DEFAULT_SELF_ASSESSMENT: StudentProfileSelfAssessment = {
@@ -44,684 +66,638 @@ const DEFAULT_SELF_ASSESSMENT: StudentProfileSelfAssessment = {
   innovation: 3,
 };
 
-const EMPTY_EXPERIENCE: StudentProfileExperience = {
-  internship_count: 0,
-  project_count: 0,
-  competition_count: 0,
+const SCORE_WEIGHTS = {
+  base_requirements: 0.2,
+  professional_skills: 0.45,
+  professional_quality: 0.2,
+  development_potential: 0.15,
 };
 
-const RESUME_SKILL_KEYWORDS = [
-  "typescript",
-  "vue",
-  "react",
-  "node",
-  "express",
-  "python",
-  "java",
-  "sql",
-  "linux",
-  "docker",
-  "沟通",
-  "协作",
-  "测试",
-  "算法",
-  "数据分析",
-  "机器学习",
-];
+const SENSITIVE_EVIDENCE_FIELD_PATTERN =
+  /(phone|mobile|tel|email|mail|qq|wechat|weixin|id_card|identity|contact|电话|邮箱|身份证|微信|联系方式)/i;
+const SENSITIVE_EVIDENCE_QUOTE_PATTERN =
+  /([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(1[3-9]\d{9})/i;
+const PROFILE_EVIDENCE_FIELD_PATTERN =
+  /^(basic_info\.name|preference\.|education|skills|certificates|experiences|self_assessment|summary)/;
 
-const RESUME_CERTIFICATE_KEYWORDS = [
-  "英语六级",
-  "英语四级",
-  "pmp",
-  "软考",
-  "教师资格证",
-  "计算机二级",
-];
-
-const TARGET_ROLE_PLACEHOLDER_SET = new Set([
-  "待定岗位",
-  "待定职位",
-  "待定",
-  "未定岗位",
-  "未定职位",
-  "未知岗位",
-  "未知职位",
-  "目标岗位",
-  "目标职位",
-  "意向岗位",
-  "意向职位",
-]);
-
-const RESUME_ROLE_INFERENCE_RULES = [
-  {
-    targetRole: "前端开发工程师",
-    keywords: ["vue", "react", "javascript", "typescript", "html", "css", "前端"],
-  },
-  {
-    targetRole: "后端开发工程师",
-    keywords: ["node", "express", "java", "spring", "mysql", "sql", "后端", "服务端"],
-  },
-  {
-    targetRole: "数据分析师",
-    keywords: ["python", "sql", "数据分析", "excel", "bi", "pandas", "可视化"],
-  },
-  {
-    targetRole: "测试工程师",
-    keywords: ["测试", "test", "pytest", "jmeter", "接口测试", "自动化测试"],
-  },
-  {
-    targetRole: "产品经理",
-    keywords: ["产品", "需求分析", "prd", "axure", "用户研究", "原型"],
-  },
-];
-
-const RESUME_NAME_BLOCKLIST = /(电话|手机|邮箱|教育背景|项目经历|工作经历|求职意向|目标岗位|专业技能|个人优势|联系方式|个人简历|简历|resume|cv|候选人|工程师|开发|实习|校招|春招|秋招|软件|Java|后端|前端|测试|产品|数据)/i;
-
-type MissingItemRule = {
-  key: string;
-  isMissing: boolean;
-};
-
+/**
+ * 限制百分制分数范围。
+ * 逻辑：所有评分最终都收敛到 0-100 的整数，避免前端展示异常值。
+ */
 function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function levelToScore(level: number): number {
-  return level * 20;
-}
-
-function uniqueNonEmpty(items: string[]): string[] {
-  const result: string[] = [];
-  const seen = new Set<string>();
-  items.forEach((item) => {
-    const normalized = item.trim();
-    if (!normalized) {
-      return;
-    }
-    const lowered = normalized.toLowerCase();
-    if (seen.has(lowered)) {
-      return;
-    }
-    seen.add(lowered);
-    result.push(normalized);
-  });
-  return result;
-}
-
-function normalizeOptionalText(value?: string): string | null {
-  if (!value) {
-    return null;
+/**
+ * 限制 1-5 等级范围。
+ * 逻辑：Agent 或表单可能给字符串/小数/越界值，这里统一转成画像评分可用的整数等级。
+ */
+function clampLevel(value: unknown, fallback = 3): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
   }
-  const normalized = value.trim();
-  return normalized ? normalized : null;
-}
-
-function isPlaceholderTargetRole(value?: string | null): boolean {
-  if (!value) {
-    return true;
-  }
-
-  const normalized = value.trim().replace(/\s+/g, "");
-  return !normalized || TARGET_ROLE_PLACEHOLDER_SET.has(normalized);
-}
-
-function cleanResumeFieldCandidate(value: string): string | null {
-  const normalized = value
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const primarySegment = normalized
-    .split(/\s*(?:\||｜|\/|／|,|，|;|；)\s*/)[0]
-    ?.replace(/\s*(?:意向城市|目标城市|工作地点).*/i, "")
-    .replace(/\s*[\(（【[].*$/, "")
-    .trim();
-
-  return primarySegment || null;
+  return Math.max(1, Math.min(5, Math.round(parsed)));
 }
 
 /**
- * 从简历里提取“标签: 值”形式的字段。
- * 注意：这里按行起始匹配，避免把 PDF/Word 原始二进制里的字体名、资源名误识别为姓名或岗位。
+ * 去除空字符串和重复项。
+ * 逻辑：保留第一次出现的原始写法，用小写 key 去重，适合技能、城市、行业和 warning 列表。
  */
-function extractResumeLabeledField(content: string, labels: string[]): string | null {
-  const pattern = new RegExp(
-    `^(?:[-*•#>\\d.()\\s]*)?(?:${labels.join("|")})\\s*[:：]\\s*(.+)$`,
-    "i",
-  );
-  const lines = content
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  for (const line of lines) {
-    const match = line.match(pattern);
-    if (!match?.[1]) {
+function uniqueNonEmpty(items: Array<string | null | undefined>): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    const normalized = item?.trim();
+    if (!normalized) {
       continue;
     }
-
-    const candidate = cleanResumeFieldCandidate(match[1]);
-    if (candidate) {
-      return candidate;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) {
+      continue;
     }
+    seen.add(key);
+    result.push(normalized);
   }
-
-  return null;
+  return result;
 }
 
-function normalizeExperience(input?: Partial<StudentProfileExperience>): StudentProfileExperience {
+/**
+ * 把未知输入转成文本数组。
+ * 逻辑：数组直接逐项清洗；字符串按中文分号、英文分号或换行拆分，用于兼容 Agent 常见输出。
+ */
+function toTextList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return uniqueNonEmpty(value.map((item) => String(item)));
+  }
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return [];
+  }
+  return uniqueNonEmpty(normalized.split(/[；;\n]+/));
+}
+
+/**
+ * 规范化单个文本字段。
+ * 逻辑：非字符串视为空值，字符串压缩空白后为空也视为空值。
+ */
+function normalizeText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized || null;
+}
+
+/**
+ * 规范化证据引用 ID。
+ * 逻辑：只有数组才会被接收，并复用统一去重规则。
+ */
+function normalizeEvidenceRefs(refs: unknown): string[] {
+  return Array.isArray(refs) ? uniqueNonEmpty(refs.map((item) => String(item))) : [];
+}
+
+/**
+ * 补齐证据 ID。
+ * 逻辑：Agent 可能不给 id，按顺序生成 ev-1 这类稳定 ID，方便字段引用。
+ */
+function ensureEvidenceIds(evidences: StudentProfileEvidence[]): StudentProfileEvidence[] {
+  return evidences.map((item, index) => ({
+    ...item,
+    id: item.id || `ev-${index + 1}`,
+  }));
+}
+
+/**
+ * 判断证据是否包含敏感信息。
+ * 逻辑：字段路径命中联系方式类字段，或引用原文看起来像邮箱/手机号时，都不进入画像展示证据。
+ */
+function isSensitiveEvidence(evidence: StudentProfileEvidence): boolean {
+  return (
+    SENSITIVE_EVIDENCE_FIELD_PATTERN.test(evidence.field_path) ||
+    SENSITIVE_EVIDENCE_QUOTE_PATTERN.test(evidence.quote)
+  );
+}
+
+/**
+ * 判断证据字段是否属于画像主体。
+ * 逻辑：只保留画像相关字段路径，丢弃联系方式、附件元数据等不参与画像解释的内容。
+ */
+function isProfileEvidenceField(fieldPath: string): boolean {
+  return PROFILE_EVIDENCE_FIELD_PATTERN.test(fieldPath);
+}
+
+/**
+ * 规范化证据列表。
+ * 逻辑：清洗 id/source/field_path/quote/confidence，再过滤空证据、非画像字段和敏感证据。
+ */
+function normalizeEvidences(input?: StudentProfileEvidence[]): StudentProfileEvidence[] {
+  return ensureEvidenceIds(
+    (input || [])
+      .map((item, index) => ({
+        id: normalizeText(item.id) || `ev-${index + 1}`,
+        source: item.source || "manual",
+        field_path: normalizeText(item.field_path) || "profile",
+        quote: normalizeText(item.quote) || "",
+        confidence: clampScore((item.confidence || 0.6) * 100) / 100,
+      }))
+      .filter((item) => item.quote && isProfileEvidenceField(item.field_path) && !isSensitiveEvidence(item)),
+  );
+}
+
+/**
+ * 创建表单录入证据。
+ * 逻辑：手动创建画像没有原始简历证据，就用用户填写的关键字段生成可解释证据片段。
+ */
+function createManualEvidence(fieldPath: string, quote: string, index: number): StudentProfileEvidence {
   return {
-    internship_count: input?.internship_count ?? EMPTY_EXPERIENCE.internship_count,
-    project_count: input?.project_count ?? EMPTY_EXPERIENCE.project_count,
-    competition_count: input?.competition_count ?? EMPTY_EXPERIENCE.competition_count,
+    id: `manual-${index}`,
+    source: "manual",
+    field_path: fieldPath,
+    quote,
+    confidence: 1,
   };
 }
 
+/**
+ * 为手动画像生成默认证据。
+ * 逻辑：从姓名、目标岗位、教育、技能、经历和证书中挑选非空字段，转成统一 evidence 结构。
+ */
+function buildManualEvidences(input: CreateStudentProfileRequest): StudentProfileEvidence[] {
+  const quotes = [
+    [input.basic_info.name, "basic_info.name"],
+    [input.preference.target_role, "preference.target_role"],
+    [input.education.school || "", "education.school"],
+    [input.education.major || "", "education.major"],
+    [input.education.level || "", "education.level"],
+    [input.skills.map((item) => item.name).join("、"), "skills"],
+    [(input.experiences || []).map((item) => item.title).join("、"), "experiences"],
+    [(input.certificates || []).map((item) => item.name).join("、"), "certificates"],
+  ];
+
+  return quotes
+    .filter(([quote]) => quote && quote.trim())
+    .map(([quote, fieldPath], index) => createManualEvidence(fieldPath, quote, index + 1));
+}
+
+/**
+ * 规范化教育信息。
+ * 逻辑：允许学校、学历、专业和毕业年份缺失；毕业年份只接收合理年份，证据引用保持数组。
+ */
+function normalizeEducation(input?: Partial<StudentProfileEducation>): StudentProfileEducation {
+  return {
+    school: normalizeText(input?.school) || null,
+    level: normalizeText(input?.level) || null,
+    major: normalizeText(input?.major) || null,
+    graduation_year:
+      typeof input?.graduation_year === "number" && input.graduation_year >= 2000
+        ? input.graduation_year
+        : null,
+    evidence_refs: normalizeEvidenceRefs(input?.evidence_refs),
+  };
+}
+
+/**
+ * 规范化求职偏好。
+ * 逻辑：目标岗位保留单值字符串，城市和行业做去重清洗。
+ */
+function normalizePreference(input: StudentProfilePreference): StudentProfilePreference {
+  return {
+    target_role: normalizeText(input.target_role) || "",
+    preferred_cities: uniqueNonEmpty(input.preferred_cities || []),
+    preferred_industries: uniqueNonEmpty(input.preferred_industries || []),
+  };
+}
+
+/**
+ * 规范化技能列表。
+ * 逻辑：丢弃无名称技能，分类缺省为 other，等级收敛到 1-5。
+ */
+function normalizeSkills(input?: StudentProfileSkill[]): StudentProfileSkill[] {
+  return (input || [])
+    .map((item) => ({
+      name: normalizeText(item.name) || "",
+      category: item.category || "other",
+      level: clampLevel(item.level),
+      evidence_refs: normalizeEvidenceRefs(item.evidence_refs),
+    }))
+    .filter((item) => item.name);
+}
+
+/**
+ * 规范化证书列表。
+ * 逻辑：证书名称必需，发证方和获得时间缺失时写 null，避免空字符串污染结构。
+ */
+function normalizeCertificates(input?: StudentProfileCertificate[]): StudentProfileCertificate[] {
+  return (input || [])
+    .map((item) => ({
+      name: normalizeText(item.name) || "",
+      issuer: normalizeText(item.issuer) || null,
+      acquired_at: normalizeText(item.acquired_at) || null,
+      evidence_refs: normalizeEvidenceRefs(item.evidence_refs),
+    }))
+    .filter((item) => item.name);
+}
+
+/**
+ * 从对象中按候选 key 读取第一个有效字符串。
+ * 逻辑：用于兼容 Agent 可能输出的 description/name/project_name 等别名字段。
+ */
+function readStringField(source: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = normalizeText(source[key]);
+    if (value) {
+      return value;
+    }
+  }
+  return null;
+}
+
+/**
+ * 从对象中按候选 key 读取第一个有效字符串数组。
+ * 逻辑：数组和分号/换行分隔字符串都能被归一成数组，提升模型输出容错性。
+ */
+function readStringListField(source: Record<string, unknown>, keys: string[]): string[] {
+  for (const key of keys) {
+    const value = toTextList(source[key]);
+    if (value.length > 0) {
+      return value;
+    }
+  }
+  return [];
+}
+
+/**
+ * 规范化经历类型。
+ * 逻辑：优先识别实习和竞赛关键词，无法识别时按项目经历处理。
+ */
+function normalizeExperienceKind(value: unknown): StudentProfileExperienceItem["kind"] {
+  const normalized = normalizeText(value)?.toLowerCase() || "";
+  if (normalized.includes("intern") || normalized.includes("实习")) {
+    return "internship";
+  }
+  if (normalized.includes("competition") || normalized.includes("竞赛") || normalized.includes("比赛")) {
+    return "competition";
+  }
+  return "project";
+}
+
+/**
+ * 规范化项目、实习和竞赛经历。
+ * 逻辑：兼容模型常见别名字段，把描述并入 responsibilities，把成果类字段并入 outcomes。
+ */
+function normalizeExperiences(input?: unknown[]): StudentProfileExperienceItem[] {
+  return (input || [])
+    .map((raw) => {
+      const item = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+      const description = readStringField(item, ["description", "project_intro", "intro", "summary"]);
+      return {
+        kind: normalizeExperienceKind(readStringField(item, ["kind", "type", "category"])),
+        title: readStringField(item, ["title", "name", "project_name", "experience_name"]) || "",
+        organization: readStringField(item, ["organization", "company", "school", "team"]),
+        role: readStringField(item, ["role", "position", "job_role", "duty_role"]),
+        period: readStringField(item, ["period", "time", "date_range", "duration"]),
+        tech_stack: readStringListField(item, ["tech_stack", "technologies", "stack", "tools"]),
+        // 模型有时把项目介绍放在 description，这里并入职责，避免经历标题存在但内容丢失。
+        responsibilities: uniqueNonEmpty([
+          ...readStringListField(item, ["responsibilities", "duties", "work"]),
+          ...(description ? [description] : []),
+        ]),
+        outcomes: readStringListField(item, ["outcomes", "achievements", "highlights", "results"]),
+        evidence_refs: normalizeEvidenceRefs(item.evidence_refs),
+      };
+    })
+    .filter((item) => item.title);
+}
+
+/**
+ * 规范化自评能力。
+ * 逻辑：缺失项按默认 3 分处理，已填写项统一限制在 1-5。
+ */
 function normalizeSelfAssessment(
   input?: Partial<StudentProfileSelfAssessment>,
 ): StudentProfileSelfAssessment {
   return {
-    communication: input?.communication ?? DEFAULT_SELF_ASSESSMENT.communication,
-    learning: input?.learning ?? DEFAULT_SELF_ASSESSMENT.learning,
-    stress_tolerance: input?.stress_tolerance ?? DEFAULT_SELF_ASSESSMENT.stress_tolerance,
-    innovation: input?.innovation ?? DEFAULT_SELF_ASSESSMENT.innovation,
+    communication: clampLevel(input?.communication, DEFAULT_SELF_ASSESSMENT.communication),
+    learning: clampLevel(input?.learning, DEFAULT_SELF_ASSESSMENT.learning),
+    stress_tolerance: clampLevel(input?.stress_tolerance, DEFAULT_SELF_ASSESSMENT.stress_tolerance),
+    innovation: clampLevel(input?.innovation, DEFAULT_SELF_ASSESSMENT.innovation),
   };
 }
 
 /**
- * 计算学生画像四维得分。
- * 注意点：评分必须保持确定性，不能引入随机项，否则会破坏后续匹配可复现性。
+ * 将 1-5 等级映射为百分制分数。
+ * 逻辑：四维评分内部统一用 0-100 分计算。
+ */
+function levelToScore(level: number): number {
+  return clampScore(level * 20);
+}
+
+/**
+ * 计算画像四维评分。
+ * 逻辑：基础要求看教育和证书，职业技能看技能等级、项目和实习，职业素养看沟通/抗压，
+ * 发展潜力看学习/创新并叠加竞赛经历。
  */
 function calculateDimensionScores(params: {
-  skills: string[];
-  certificates: string[];
-  experience: StudentProfileExperience;
+  education: StudentProfileEducation;
+  skills: StudentProfileSkill[];
+  certificates: StudentProfileCertificate[];
+  experiences: StudentProfileExperienceItem[];
   selfAssessment: StudentProfileSelfAssessment;
-  educationLevel: string | null;
-  graduationYear: number | null;
-  personalSummary: string | null;
 }): DimensionScores {
-  const baseRequirements = clampScore(
-    35 +
-      Math.min(params.certificates.length * 12, 30) +
-      Math.min(params.experience.internship_count * 10, 30) +
-      (params.educationLevel ? 5 : 0) +
-      (params.graduationYear ? 5 : 0),
-  );
-
-  const professionalSkills = clampScore(
-    30 +
-      Math.min(params.skills.length * 9, 45) +
-      Math.min(params.experience.project_count * 8, 16) +
-      Math.min(params.certificates.length * 3, 9),
-  );
-
-  const professionalQuality = clampScore(
-    ((levelToScore(params.selfAssessment.communication) +
-      levelToScore(params.selfAssessment.stress_tolerance)) /
-      2) *
-      0.85 +
-      (params.personalSummary ? 15 : 0),
-  );
-
-  const developmentPotential = clampScore(
-    ((levelToScore(params.selfAssessment.learning) +
-      levelToScore(params.selfAssessment.innovation)) /
-      2) *
-      0.75 +
-      Math.min(params.experience.competition_count * 8, 16) +
-      Math.min(params.experience.project_count * 4, 8),
-  );
+  const projectCount = params.experiences.filter((item) => item.kind === "project").length;
+  const internshipCount = params.experiences.filter((item) => item.kind === "internship").length;
+  const competitionCount = params.experiences.filter((item) => item.kind === "competition").length;
+  const skillAverage =
+    params.skills.length > 0
+      ? params.skills.reduce((sum, item) => sum + item.level, 0) / params.skills.length
+      : 0;
 
   return {
-    base_requirements: baseRequirements,
-    professional_skills: professionalSkills,
-    professional_quality: professionalQuality,
-    development_potential: developmentPotential,
+    // 基础要求采用保底分加资料完备项，避免缺少证书时直接归零。
+    base_requirements: clampScore(
+      30 +
+        (params.education.level ? 15 : 0) +
+        (params.education.major ? 15 : 0) +
+        (params.education.graduation_year ? 10 : 0) +
+        Math.min(params.certificates.length * 10, 30),
+    ),
+    // 职业技能更重视技能等级和真实经历数量，是竞争力评分里权重最高的一维。
+    professional_skills: clampScore(
+      25 + skillAverage * 12 + Math.min(projectCount * 8, 24) + Math.min(internshipCount * 8, 16),
+    ),
+    professional_quality: clampScore(
+      (levelToScore(params.selfAssessment.communication) +
+        levelToScore(params.selfAssessment.stress_tolerance)) /
+        2,
+    ),
+    development_potential: clampScore(
+      (levelToScore(params.selfAssessment.learning) +
+        levelToScore(params.selfAssessment.innovation)) /
+        2 +
+        Math.min(competitionCount * 8, 16),
+    ),
   };
 }
 
-function calculateCompleteness(input: CreateStudentProfileRequest): {
-  completenessScore: number;
-  missingItems: string[];
-} {
-  const checks: MissingItemRule[] = [
-    { key: "education_level", isMissing: !input.education_level?.trim() },
-    { key: "major", isMissing: !input.major?.trim() },
-    { key: "graduation_year", isMissing: input.graduation_year === undefined },
-    { key: "certificates", isMissing: !input.certificates || input.certificates.length === 0 },
-    {
-      key: "experience.internship_count",
-      isMissing: !input.experience || input.experience.internship_count === undefined,
-    },
-    {
-      key: "experience.project_count",
-      isMissing: !input.experience || input.experience.project_count === undefined,
-    },
-    {
-      key: "experience.competition_count",
-      isMissing: !input.experience || input.experience.competition_count === undefined,
-    },
-    {
-      key: "self_assessment.communication",
-      isMissing: !input.self_assessment || input.self_assessment.communication === undefined,
-    },
-    {
-      key: "self_assessment.learning",
-      isMissing: !input.self_assessment || input.self_assessment.learning === undefined,
-    },
-    {
-      key: "self_assessment.stress_tolerance",
-      isMissing: !input.self_assessment || input.self_assessment.stress_tolerance === undefined,
-    },
-    {
-      key: "self_assessment.innovation",
-      isMissing: !input.self_assessment || input.self_assessment.innovation === undefined,
-    },
-    { key: "personal_summary", isMissing: !input.personal_summary?.trim() },
-  ];
+/**
+ * 计算完整度、竞争力和缺失项。
+ * 逻辑：先按关键字段生成 missing_items，再用四维评分按权重合成竞争力分。
+ */
+function calculateEvaluation(params: {
+  education: StudentProfileEducation;
+  skills: StudentProfileSkill[];
+  certificates: StudentProfileCertificate[];
+  experiences: StudentProfileExperienceItem[];
+  selfAssessment: StudentProfileSelfAssessment;
+  evidences: StudentProfileEvidence[];
+  parseWarnings?: string[];
+}): StudentProfileEvaluation {
+  const missingItems: string[] = [];
+  if (!params.education.level) missingItems.push("education.level");
+  if (!params.education.major) missingItems.push("education.major");
+  if (!params.education.graduation_year) missingItems.push("education.graduation_year");
+  if (params.skills.length === 0) missingItems.push("skills");
+  if (params.experiences.length === 0) missingItems.push("experiences");
+  if (params.certificates.length === 0) missingItems.push("certificates");
+  if (params.evidences.length === 0) missingItems.push("evidences");
 
-  const missingItems = checks.filter((check) => check.isMissing).map((check) => check.key);
-  const completenessScore = clampScore(
-    ((checks.length - missingItems.length) / checks.length) * 100,
-  );
-  return { completenessScore, missingItems };
-}
-
-function calculateCompetitiveness(dimensionScores: DimensionScores): number {
-  return clampScore(
+  const totalChecks = 7;
+  const dimensionScores = calculateDimensionScores(params);
+  const completenessScore = clampScore(((totalChecks - missingItems.length) / totalChecks) * 100);
+  const competitivenessScore = clampScore(
     dimensionScores.base_requirements * SCORE_WEIGHTS.base_requirements +
       dimensionScores.professional_skills * SCORE_WEIGHTS.professional_skills +
       dimensionScores.professional_quality * SCORE_WEIGHTS.professional_quality +
       dimensionScores.development_potential * SCORE_WEIGHTS.development_potential,
   );
-}
-
-/**
- * 判断候选文本是否像“真实姓名”。
- * 注意点：这里显式排除简历栏目、岗位词与“简历/resume”等噪声词，避免把标题或文件名中的岗位描述误判为姓名。
- */
-function isLikelyResumeNameCandidate(value: string): boolean {
-  if (!value || RESUME_NAME_BLOCKLIST.test(value)) {
-    return false;
-  }
-
-  return (
-    /^[\u4e00-\u9fa5·]{2,5}$/.test(value) ||
-    /^[A-Za-z]+(?:\s+[A-Za-z]+){0,2}$/.test(value)
-  );
-}
-
-/**
- * 从单行标题或文件名片段中提取姓名。
- * 参数：
- * - rawText: 原始候选文本，可能同时包含姓名、岗位、简历字样等混合信息。
- * 返回：
- * - 若命中较可信的中文/英文姓名则返回清洗后的姓名，否则返回 null。
- * 注意点：优先尝试整段命中，再拆分常见分隔符，兼容“张三 | 后端开发工程师”“王小明-简历”等标题格式。
- */
-function extractResumeNameFromLooseText(rawText: string): string | null {
-  const cleaned = rawText
-    .replace(/^姓名\s*[:：]?\s*/i, "")
-    .replace(/^name\s*[:：]?\s*/i, "")
-    .replace(/\.[A-Za-z0-9]+$/g, "")
-    // 部分 PDF 会把姓名渲染成 “[ 吴友桃 ] | 全栈开发工程师”，这里只去掉括号外壳，不能连内容一起删除。
-    .replace(/[【\[]/g, " ")
-    .replace(/[】\]]/g, " ")
-    .replace(/[（(].*?[）)]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!cleaned || cleaned.length > 40 || /[@:：/\\]/.test(cleaned)) {
-    return null;
-  }
-
-  if (isLikelyResumeNameCandidate(cleaned)) {
-    return cleaned;
-  }
-
-  const leadingChineseName = cleaned.match(/^([\u4e00-\u9fa5·]{2,5})(?:\s+|[|｜,，;；·•\-_].*)$/);
-  if (leadingChineseName?.[1] && isLikelyResumeNameCandidate(leadingChineseName[1])) {
-    return leadingChineseName[1];
-  }
-
-  const leadingEnglishName = cleaned.match(
-    /^([A-Za-z]+(?:\s+[A-Za-z]+){0,2})(?:\s*[-|｜,，;；·•_].*)$/,
-  );
-  if (leadingEnglishName?.[1] && isLikelyResumeNameCandidate(leadingEnglishName[1])) {
-    return leadingEnglishName[1];
-  }
-
-  const segments = cleaned
-    .split(/\s*(?:\||｜|,|，|;|；|·|•|-|—|_)\s*/g)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  for (const segment of segments) {
-    if (isLikelyResumeNameCandidate(segment)) {
-      return segment;
-    }
-  }
-
-  return null;
-}
-
-/**
- * 从文件名中兜底提取姓名。
- * 参数：
- * - fileName: 上传简历时保留下来的原始文件名。
- * 返回：
- * - 当文件名中存在较明确姓名时返回姓名，否则返回 null。
- * 注意点：很多学生简历会命名为“张三-后端开发工程师-简历.pdf”，正文即使解析不完整，也可以先借助文件名避免落成匿名候选人。
- */
-function extractResumeNameFromFileName(fileName?: string): string | null {
-  if (!fileName) {
-    return null;
-  }
-
-  const normalizedName = fileName
-    .split(/[\\/]/)
-    .pop()
-    ?.replace(/\.[^.]+$/, "")
-    .replace(/(?:个人)?简历/gi, " ")
-    .replace(/\b(?:resume|cv)\b/gi, " ")
-    .replace(/最新版|最终版|终版|更新版|附件|副本/g, " ")
-    .replace(/\d{4}[._-]?\d{1,2}[._-]?\d{1,2}/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!normalizedName) {
-    return null;
-  }
-
-  return extractResumeNameFromLooseText(normalizedName);
-}
-
-/**
- * 从简历文本中提取候选人姓名。
- * 参数：
- * - content: 已转纯文本并完成基础清洗的简历正文。
- * - fileName: 原始上传文件名，用于正文解析失败时做兜底。
- * 返回：
- * - 提取成功返回姓名，否则返回 null。
- * 注意点：提取顺序为“标签字段 -> 顶部标题行 -> 文件名”，尽量优先使用正文中的显式信息，最后才退回文件名猜测。
- */
-function extractResumeName(content: string, fileName?: string): string | null {
-  const labeledName = extractResumeLabeledField(content, ["姓名", "Name"]);
-  if (labeledName) {
-    return labeledName;
-  }
-
-  const topLines = content
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 8);
-
-  for (const line of topLines) {
-    if (
-      line.length > 24 ||
-      /[@:：/\\]/.test(line) ||
-      /(电话|手机|邮箱|教育背景|项目经历|工作经历|求职意向|目标岗位|专业技能|个人优势)/i.test(line)
-    ) {
-      continue;
-    }
-
-    const candidate = extractResumeNameFromLooseText(line);
-    if (candidate) {
-      return candidate;
-    }
-  }
-
-  return extractResumeNameFromFileName(fileName);
-}
-
-function extractResumeMajor(content: string): string | null {
-  return extractResumeLabeledField(content, ["专业", "Major"]);
-}
-
-function extractResumeGraduationYear(content: string): number | undefined {
-  const match = content.match(/(20\d{2})\s*(?:届|毕业|graduation)?/i);
-  if (!match) {
-    return undefined;
-  }
-  const parsed = Number(match[1]);
-  return parsed >= 2000 && parsed <= 2100 ? parsed : undefined;
-}
-
-function extractResumeSkills(content: string): string[] {
-  const lowered = content.toLowerCase();
-  const matched = RESUME_SKILL_KEYWORDS.filter((keyword) =>
-    lowered.includes(keyword.toLowerCase()),
-  );
-  return uniqueNonEmpty(matched);
-}
-
-function extractResumeCertificates(content: string): string[] {
-  const lowered = content.toLowerCase();
-  const matched = RESUME_CERTIFICATE_KEYWORDS.filter((keyword) =>
-    lowered.includes(keyword.toLowerCase()),
-  );
-  return uniqueNonEmpty(matched);
-}
-
-function countRegexMatches(content: string, regex: RegExp): number {
-  const matched = content.match(regex);
-  return matched ? matched.length : 0;
-}
-
-function extractResumeTargetRole(content: string): string | null {
-  return extractResumeLabeledField(content, [
-    "目标岗位",
-    "目标职位",
-    "意向岗位",
-    "意向职位",
-    "岗位意向",
-    "求职意向",
-    "求职方向",
-    "应聘岗位",
-    "应聘职位",
-    "Target Position",
-    "Target Role",
-  ]);
-}
-
-function inferTargetRoleFromResume(content: string, skills: string[]): string | null {
-  const searchableText = `${content}\n${skills.join("\n")}`.toLowerCase();
-
-  let bestMatch: { targetRole: string; score: number } | null = null;
-  for (const rule of RESUME_ROLE_INFERENCE_RULES) {
-    const score = rule.keywords.reduce((total, keyword) => {
-      return searchableText.includes(keyword.toLowerCase()) ? total + 1 : total;
-    }, 0);
-
-    if (score <= 0) {
-      continue;
-    }
-
-    if (!bestMatch || score > bestMatch.score) {
-      bestMatch = {
-        targetRole: rule.targetRole,
-        score,
-      };
-    }
-  }
-
-  return bestMatch?.targetRole ?? null;
-}
-
-async function resolveResumeTargetRole(params: {
-  resumeInput: CreateStudentProfileFromResumeRequest;
-  normalizedContent: string;
-  skills: string[];
-  jobsRepository?: JobsRepository;
-}): Promise<string> {
-  const candidates = uniqueNonEmpty(
-    [
-      params.resumeInput.target_role,
-      extractResumeTargetRole(params.normalizedContent) ?? "",
-      inferTargetRoleFromResume(params.normalizedContent, params.skills) ?? "",
-    ].filter((item) => !isPlaceholderTargetRole(item)),
-  );
-
-  for (const candidate of candidates) {
-    if (!params.jobsRepository) {
-      return candidate;
-    }
-
-    const matchedJob = await params.jobsRepository.findBestJobByTargetRole(candidate);
-    if (matchedJob) {
-      return matchedJob.title;
-    }
-  }
-
-  if (candidates.length > 0) {
-    return candidates[0];
-  }
-
-  return "待定岗位";
-}
-
-/**
- * 将简历文本映射为标准画像输入。
- * 关键点：strict 模式下若无法识别关键技能会直接报 422，避免生成误导性画像。
- */
-async function buildProfileInputFromResume(
-  resumeInput: CreateStudentProfileFromResumeRequest,
-  jobsRepository?: JobsRepository,
-): Promise<CreateStudentProfileRequest> {
-  const normalizedContent = resumeInput.file_content
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/\r\n/g, "\n");
-  const skills = extractResumeSkills(normalizedContent);
-
-  if (resumeInput.parse_mode === "strict" && skills.length === 0) {
-    throw new HttpError(422, "RESUME_PARSE_FAILED", "严格模式下未识别到可用技能");
-  }
-
-  const certificates = extractResumeCertificates(normalizedContent);
-  const projectCount = Math.max(1, countRegexMatches(normalizedContent, /(项目|project)/gi));
-  const internshipCount = countRegexMatches(normalizedContent, /(实习|intern)/gi);
-  const competitionCount = countRegexMatches(normalizedContent, /(竞赛|比赛|competition)/gi);
-
-  const autoName = extractResumeName(normalizedContent, resumeInput.file_name);
-  const autoMajor = extractResumeMajor(normalizedContent);
-  const autoGraduationYear = extractResumeGraduationYear(normalizedContent);
-  const targetRole = await resolveResumeTargetRole({
-    resumeInput,
-    normalizedContent,
-    skills,
-    jobsRepository,
-  });
-
-  const topLines = normalizedContent
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 3)
-    .join("；");
 
   return {
-    name: (resumeInput.name || autoName || "匿名候选人").trim(),
-    target_role: targetRole,
-    major: autoMajor ?? undefined,
-    graduation_year: autoGraduationYear,
-    skills: skills.length > 0 ? skills : ["学习能力"],
-    certificates,
-    experience: {
-      internship_count: internshipCount,
-      project_count: projectCount,
-      competition_count: competitionCount,
-    },
-    self_assessment: {
-      communication: 3,
-      learning: 4,
-      stress_tolerance: 3,
-      innovation: 3,
-    },
-    personal_summary: topLines || undefined,
-  };
-}
-
-/**
- * 持久化学生画像。
- * 参数：
- * - input: 标准画像输入。
- * - sourceType/sourceDigest: 数据来源标记与可追踪摘要。
- */
-async function createProfileRecord(
-  repository: ProfileRepository,
-  input: CreateStudentProfileRequest,
-  sourceType: "manual" | "resume",
-  sourceDigest: string,
-): Promise<StudentProfileRecord> {
-  const skills = uniqueNonEmpty(input.skills);
-  const certificates = uniqueNonEmpty(input.certificates || []);
-  const experience = normalizeExperience(input.experience);
-  const selfAssessment = normalizeSelfAssessment(input.self_assessment);
-  const educationLevel = normalizeOptionalText(input.education_level);
-  const major = normalizeOptionalText(input.major);
-  const personalSummary = normalizeOptionalText(input.personal_summary);
-  const graduationYear = input.graduation_year ?? null;
-
-  const dimensionScores = calculateDimensionScores({
-    skills,
-    certificates,
-    experience,
-    selfAssessment,
-    educationLevel,
-    graduationYear,
-    personalSummary,
-  });
-  const { completenessScore, missingItems } = calculateCompleteness(input);
-  const competitivenessScore = calculateCompetitiveness(dimensionScores);
-
-  const recordInput: StudentProfileCreateInput = {
-    source_type: sourceType,
-    source_digest: sourceDigest,
-    name: input.name.trim(),
-    target_role: input.target_role.trim(),
-    education_level: educationLevel,
-    major,
-    graduation_year: graduationYear,
-    skills,
-    certificates,
-    experience,
-    self_assessment: selfAssessment,
     dimension_scores: dimensionScores,
     completeness_score: completenessScore,
     competitiveness_score: competitivenessScore,
     missing_items: missingItems,
-    personal_summary: personalSummary,
-    summary: `目标岗位【${input.target_role}】画像已生成：完整度 ${completenessScore}，竞争力 ${competitivenessScore}。`,
+    warnings: params.parseWarnings || [],
   };
-
-  return repository.createStudentProfile(recordInput);
 }
 
-export function createProfileService(
-  repository: ProfileRepository,
-  options: {
-    jobsRepository?: JobsRepository;
-    onResumeProfileCreated?: ResumeProfileCreatedHook;
-  } = {},
-): ProfileService {
-  async function createProfile(input: CreateStudentProfileRequest): Promise<StudentProfileRecord> {
-    const sourceDigest = buildSha256Digest({
-      source_type: "manual",
-      payload: input,
-    });
-
-    return createProfileRecord(repository, input, "manual", sourceDigest);
+/**
+ * 生成画像摘要。
+ * 逻辑：用户或 Agent 已给 summary 时优先使用；否则基于姓名、目标岗位、经历数、技能和评分生成一句概览。
+ */
+function buildSummary(params: {
+  name: string;
+  targetRole: string;
+  skills: StudentProfileSkill[];
+  experiences: StudentProfileExperienceItem[];
+  evaluation: StudentProfileEvaluation;
+  providedSummary?: string;
+}): string {
+  const provided = normalizeText(params.providedSummary);
+  if (provided) {
+    return provided;
   }
 
+  const skillPreview = params.skills
+    .slice(0, 5)
+    .map((item) => item.name)
+    .join("、");
+  const targetText = params.targetRole ? `目标岗位为 ${params.targetRole}，` : "";
+  return `${params.name} ${targetText}已沉淀 ${params.experiences.length} 段经历${
+    skillPreview ? `，核心技能包括 ${skillPreview}` : ""
+  }。画像完整度 ${params.evaluation.completeness_score}，竞争力 ${params.evaluation.competitiveness_score}。`;
+}
+
+/**
+ * 从证据字段反推经历列表。
+ * 逻辑：当 Agent 没有直接返回 experiences，但返回了 experiences[0].title 这类证据路径时，
+ * 按索引聚合证据并尽量恢复项目经历，避免简历项目被完全丢弃。
+ */
+function buildExperiencesFromEvidences(evidences: StudentProfileEvidence[]): StudentProfileExperienceItem[] {
+  const grouped = new Map<number, Record<string, string>>();
+  const fieldPattern = /^experiences\[(\d+)\]\.([a-z_]+)$/i;
+
+  for (const evidence of evidences) {
+    const match = evidence.field_path.match(fieldPattern);
+    if (!match?.[1] || !match[2]) {
+      continue;
+    }
+    const index = Number(match[1]);
+    if (!Number.isInteger(index)) {
+      continue;
+    }
+    const current = grouped.get(index) || {};
+    current[match[2]] = evidence.quote;
+    grouped.set(index, current);
+  }
+
+  return normalizeExperiences(
+    Array.from(grouped.entries())
+      .sort(([left], [right]) => left - right)
+      .map(([, item]) => ({
+        kind: "project",
+        title: item.title || item.name || item.project_name,
+        role: item.role,
+        responsibilities: item.description,
+        outcomes: item.achievements || item.outcomes,
+        tech_stack: item.tech_stack,
+      })),
+  );
+}
+
+/**
+ * 将 Agent 抽取结果映射为标准画像创建输入。
+ * 逻辑：先清洗证据和经历，再补齐教育、技能、证书、自评等结构；经历为空时尝试从证据恢复。
+ */
+function toProfileInputFromAgent(extracted: AgentExtractedProfile): CreateStudentProfileRequest {
+  const evidences = normalizeEvidences(
+    extracted.evidences?.map((item, index) => ({
+      id: normalizeText(item.id) || `ev-${index + 1}`,
+      source: item.source || "resume_text",
+      field_path: item.field_path,
+      quote: item.quote,
+      confidence: item.confidence ?? 0.7,
+    })) as StudentProfileEvidence[],
+  );
+  const experiences = normalizeExperiences(extracted.experiences as unknown[]);
+
+  return {
+    basic_info: {
+      name: normalizeText(extracted.basic_info.name) || "匿名候选人",
+    },
+    preference: {
+      target_role: normalizeText(extracted.preference?.target_role) || "",
+      preferred_cities: uniqueNonEmpty(extracted.preference?.preferred_cities || []),
+      preferred_industries: uniqueNonEmpty(extracted.preference?.preferred_industries || []),
+    },
+    education: normalizeEducation(extracted.education),
+    skills: normalizeSkills(extracted.skills as StudentProfileSkill[]),
+    certificates: normalizeCertificates(extracted.certificates as StudentProfileCertificate[]),
+    experiences: experiences.length > 0 ? experiences : buildExperiencesFromEvidences(evidences),
+    self_assessment: normalizeSelfAssessment(extracted.self_assessment),
+    evidences,
+    summary: extracted.summary,
+  };
+}
+
+/**
+ * 标准化目标岗位名称。
+ * 逻辑：如果注入了岗位仓储，就用岗位库做最佳匹配；未命中时保留原始岗位文本。
+ */
+async function normalizeTargetRole(
+  targetRole: string,
+  jobsRepository?: JobsRepository,
+): Promise<string> {
+  if (!jobsRepository) {
+    return targetRole;
+  }
+  if (!targetRole.trim()) {
+    return "";
+  }
+  const matchedJob = await jobsRepository.findBestJobByTargetRole(targetRole);
+  return matchedJob?.title || targetRole;
+}
+
+/**
+ * 创建并持久化画像记录。
+ * 逻辑：这是表单和简历两条入口共用的收口点，统一完成归一化、证据处理、评分、摘要和 repository 写入。
+ */
+async function createProfileRecord(params: {
+  repository: ProfileRepository;
+  input: CreateStudentProfileRequest;
+  sourceType: "manual" | "resume";
+  sourceDigest: string;
+  parseMeta: StudentProfileParseMeta;
+  jobsRepository?: JobsRepository;
+}): Promise<StudentProfileRecord> {
+  const basicInfo = {
+    name: normalizeText(params.input.basic_info.name) || "匿名候选人",
+  };
+  const preference = normalizePreference(params.input.preference);
+  preference.target_role = await normalizeTargetRole(preference.target_role, params.jobsRepository);
+
+  const education = normalizeEducation(params.input.education);
+  const skills = normalizeSkills(params.input.skills);
+  const certificates = normalizeCertificates(params.input.certificates);
+  const experiences = normalizeExperiences(params.input.experiences);
+  const selfAssessment = normalizeSelfAssessment(params.input.self_assessment);
+  const evidences = normalizeEvidences(
+    params.input.evidences && params.input.evidences.length > 0
+      ? params.input.evidences
+      : buildManualEvidences(params.input),
+  );
+  // 评分必须基于最终入库结构计算，确保页面、匹配和报告看到的分数与画像内容一致。
+  const evaluation = calculateEvaluation({
+    education,
+    skills,
+    certificates,
+    experiences,
+    selfAssessment,
+    evidences,
+    parseWarnings: params.parseMeta.warnings,
+  });
+  const summary = buildSummary({
+    name: basicInfo.name,
+    targetRole: preference.target_role,
+    skills,
+    experiences,
+    evaluation,
+    providedSummary: params.input.summary,
+  });
+
+  const recordInput: StudentProfileCreateInput = {
+    source_type: params.sourceType,
+    source_digest: params.sourceDigest,
+    basic_info: basicInfo,
+    preference,
+    education,
+    skills,
+    certificates,
+    experiences,
+    self_assessment: selfAssessment,
+    evidences,
+    evaluation,
+    parse_meta: params.parseMeta,
+    summary,
+  };
+
+  return params.repository.createStudentProfile(recordInput);
+}
+
+/**
+ * 创建学生画像 service。
+ * 逻辑：闭包内持有仓储和运行时依赖，对外暴露列表、手动创建和简历创建能力。
+ */
+export function createProfileService(
+  repository: ProfileRepository,
+  options: ProfileRuntimeOptions = {},
+): ProfileService {
+  /**
+   * 通过表单创建学生画像。
+   * 逻辑：根据表单 payload 计算 source_digest，标记 parser=manual，然后走统一 createProfileRecord。
+   */
+  async function createProfile(input: CreateStudentProfileRequest): Promise<StudentProfileRecord> {
+    const sourceDigest = buildSha256Digest({ source_type: "manual", payload: input });
+    return createProfileRecord({
+      repository,
+      input,
+      sourceType: "manual",
+      sourceDigest,
+      jobsRepository: options.jobsRepository,
+      parseMeta: {
+        parser: "manual",
+        model: null,
+        confidence: 1,
+        warnings: [],
+      },
+    });
+  }
+
+  /**
+   * 通过简历图片创建学生画像。
+   * 逻辑：先对上传输入生成摘要指纹，再调用 pi-tools/profile 解析图片为结构化 JSON，
+   * 最后覆盖用户手填的姓名/目标岗位候选并走统一画像入库流程。
+   */
   async function createProfileFromResume(
     input: CreateStudentProfileFromResumeRequest,
   ): Promise<StudentProfileRecord> {
@@ -729,17 +705,45 @@ export function createProfileService(
       source_type: "resume",
       file_name: input.file_name,
       file_content: input.file_content,
+      file_images: input.file_images?.map((item) => ({
+        mimeType: item.mimeType,
+        size: item.data.length,
+      })),
       target_role: input.target_role,
       name: input.name,
       parse_mode: input.parse_mode ?? "tolerant",
     });
-    const mappedInput = await buildProfileInputFromResume(input, options.jobsRepository);
-    const profile = await createProfileRecord(repository, mappedInput, "resume", digest);
+    const { extracted, model } = await parseResumeProfileWithPi({
+      input,
+      env: options.env,
+      cwd: options.cwd,
+    });
+    const mappedInput = toProfileInputFromAgent(extracted);
+    // 用户显式填写的候选信息优先级高于 Agent 识别结果，避免图片 OCR 误读覆盖人工选择。
+    if (input.name?.trim()) {
+      mappedInput.basic_info.name = input.name.trim();
+    }
+    if (input.target_role?.trim()) {
+      mappedInput.preference.target_role = input.target_role.trim();
+    }
+
+    const profile = await createProfileRecord({
+      repository,
+      input: mappedInput,
+      sourceType: "resume",
+      sourceDigest: digest,
+      jobsRepository: options.jobsRepository,
+      parseMeta: {
+        parser: "agent",
+        model,
+        confidence: Math.max(0, Math.min(1, extracted.confidence ?? 0.75)),
+        warnings: uniqueNonEmpty(extracted.warnings || []),
+      },
+    });
+
+    // 创建后 hook 只在画像落库成功后触发，避免下游模块处理失败画像。
     if (options.onResumeProfileCreated) {
-      await options.onResumeProfileCreated({
-        profile,
-        resumeInput: input,
-      });
+      await options.onResumeProfileCreated({ profile, resumeInput: input });
     }
     return profile;
   }

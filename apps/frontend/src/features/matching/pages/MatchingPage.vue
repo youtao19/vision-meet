@@ -17,6 +17,7 @@ import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { createMatch, fetchMatchDetail, fetchMatchList } from "@/shared/api/matching";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchStudentProfiles } from "@/shared/api/profile";
+import { profileName, profileTargetRole } from "@/features/profile/model/profile-selectors";
 
 const router = useRouter();
 const profiles = ref<StudentProfileRecord[]>([]);
@@ -185,7 +186,7 @@ function syncTargetJobFromProfile(): void {
   }
 
   const profile = profiles.value.find((item) => item.id === profileId);
-  const targetRole = profile?.target_role?.trim();
+  const targetRole = profile ? profileTargetRole(profile).trim() : "";
   if (!targetRole) {
     return;
   }
@@ -415,7 +416,7 @@ watch(
           >
             <option value="">请选择</option>
             <option v-for="profile in profiles" :key="profile.id" :value="String(profile.id)">
-              #{{ profile.id }} {{ profile.name }}（{{ profile.target_role }}）
+              #{{ profile.id }} {{ profileName(profile) }}（{{ profileTargetRole(profile) || "暂未选择目标岗位" }}）
             </option>
           </select>
         </label>
@@ -608,7 +609,7 @@ watch(
           <select v-model="queryForm.studentProfileId" :disabled="loading.list">
             <option value="">全部</option>
             <option v-for="profile in profiles" :key="profile.id" :value="String(profile.id)">
-              #{{ profile.id }} {{ profile.name }}
+              #{{ profile.id }} {{ profileName(profile) }}
             </option>
           </select>
         </label>

@@ -13,6 +13,16 @@ import { computed, onMounted, ref } from "vue";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { fetchMatchList } from "@/shared/api/matching";
 import { fetchStudentProfiles } from "@/shared/api/profile";
+import {
+  profileCertificateNames,
+  profileCompleteness,
+  profileCompetitiveness,
+  profileGraduationYear,
+  profileMajor,
+  profileName,
+  profileSkillNames,
+  profileTargetRole,
+} from "@/features/profile/model/profile-selectors";
 
 const loading = ref(true);
 const loadError = ref("");
@@ -31,7 +41,7 @@ const averageMatchScore = computed(() => {
 
 const averageCompleteness = computed(() => {
   if (!profiles.value.length) return 0;
-  const total = profiles.value.reduce((sum, item) => sum + item.completeness_score, 0);
+  const total = profiles.value.reduce((sum, item) => sum + profileCompleteness(item), 0);
   return Math.round(total / profiles.value.length);
 });
 
@@ -181,7 +191,7 @@ onMounted(() => {
         <header class="panel-head">
           <div>
             <p>学生画像</p>
-            <h3>{{ latestProfile?.name || "暂无学生画像" }}</h3>
+            <h3>{{ latestProfile ? profileName(latestProfile) : "暂无学生画像" }}</h3>
           </div>
           <RouterLink to="/profile">编辑</RouterLink>
         </header>
@@ -197,25 +207,25 @@ onMounted(() => {
               <span class="material-symbols-outlined">person</span>
             </div>
             <div>
-              <strong>{{ latestProfile.target_role }}</strong>
-              <span>{{ latestProfile.major || "专业未填写" }} · {{ latestProfile.graduation_year || "届别未填" }}</span>
+              <strong>{{ profileTargetRole(latestProfile) || "暂未选择目标岗位" }}</strong>
+              <span>{{ profileMajor(latestProfile) || "专业未填写" }} · {{ profileGraduationYear(latestProfile) || "届别未填" }}</span>
             </div>
           </div>
           <div class="tag-row">
-            <span v-for="skill in latestProfile.skills.slice(0, 6)" :key="skill">{{ skill }}</span>
+            <span v-for="skill in profileSkillNames(latestProfile).slice(0, 6)" :key="skill">{{ skill }}</span>
           </div>
           <dl class="profile-facts">
             <div>
               <dt>完整度</dt>
-              <dd>{{ latestProfile.completeness_score }}%</dd>
+              <dd>{{ profileCompleteness(latestProfile) }}%</dd>
             </div>
             <div>
               <dt>竞争力</dt>
-              <dd>{{ latestProfile.competitiveness_score }}%</dd>
+              <dd>{{ profileCompetitiveness(latestProfile) }}%</dd>
             </div>
             <div>
               <dt>证书</dt>
-              <dd>{{ latestProfile.certificates.length }} 项</dd>
+              <dd>{{ profileCertificateNames(latestProfile).length }} 项</dd>
             </div>
           </dl>
         </template>

@@ -1,0 +1,263 @@
+{
+  "job": {
+    "name": "前端开发工程师",
+    "category": "计算机/互联网",
+    "description": "负责 Web 页面、后台管理系统、移动端界面与前端交互逻辑开发，提升用户体验与页面性能。",
+    "educationRequirements": [
+      "计算机科学与技术",
+      "软件工程",
+      "数字媒体技术",
+      "网络工程"
+    ],
+    "skills": [
+      "HTML",
+      "CSS",
+      "JavaScript",
+      "TypeScript",
+      "Vue3",
+      "React",
+      "Vite",
+      "Pinia",
+      "Git",
+      "Axios",
+      "组件化开发",
+      "接口联调",
+      "响应式布局",
+      "前端工程化",
+      "浏览器调试"
+    ],
+    "softSkills": [
+      "审美能力",
+      "沟通能力",
+      "学习能力",
+      "逻辑思维",
+      "用户体验意识",
+      "团队协作能力"
+    ],
+    "certificates": [],
+    "innovationAbility": "高",
+    "learningAbility": "高",
+    "stressResistance": "中",
+    "communicationAbility": "高",
+    "internshipAbility": "建议参与完整前端项目或独立开发网页应用",
+    "careerPath": [
+      "初级前端开发工程师",
+      "中级前端开发工程师",
+      "高级前端开发工程师",
+      "前端架构师",
+      "技术负责人"
+    ],
+    "subIndustries": [
+      {
+        "industry": "Web互联网",
+        "description": "负责互联网平台、社区、电商、内容平台等 Web 系统开发。",
+        "representCompanies": [
+          "腾讯",
+          "字节跳动",
+          "美团",
+          "知乎"
+        ],
+        "skills": [
+          "Vue3",
+          "React",
+          "TypeScript",
+          "前端工程化",
+          "SSR",
+          "性能优化",
+          "组件封装",
+          "状态管理"
+        ],
+        "softSkills": [
+          "沟通能力",
+          "团队协作能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "高",
+        "learningAbility": "高",
+        "stressResistance": "中高",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有完整 Web 项目经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "技术更新快",
+          "用户体验要求高",
+          "强调性能优化"
+        ],
+        "recommendedProjects": [
+          "社区平台",
+          "电商前台",
+          "博客系统"
+        ]
+      },
+      {
+        "industry": "后台管理系统",
+        "description": "负责企业后台、ERP、OA、CRM 等系统开发。",
+        "representCompanies": [
+          "阿里云",
+          "金蝶",
+          "用友",
+          "钉钉"
+        ],
+        "skills": [
+          "Element Plus",
+          "权限管理",
+          "RBAC",
+          "动态路由",
+          "表格开发",
+          "表单设计",
+          "数据可视化",
+          "Excel导入导出"
+        ],
+        "softSkills": [
+          "需求理解能力",
+          "沟通能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "中高",
+        "stressResistance": "中",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有后台管理系统项目经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "业务逻辑复杂",
+          "企业客户导向",
+          "需求变化频繁"
+        ],
+        "recommendedProjects": [
+          "OA系统",
+          "ERP系统",
+          "酒店管理后台"
+        ]
+      },
+      {
+        "industry": "移动端H5",
+        "description": "负责移动端网页、小程序与 Hybrid App 页面开发。",
+        "representCompanies": [
+          "小红书",
+          "拼多多",
+          "得物",
+          "京东"
+        ],
+        "skills": [
+          "UniApp",
+          "移动端适配",
+          "微信小程序",
+          "性能优化",
+          "懒加载",
+          "跨端开发",
+          "触摸事件",
+          "响应式布局"
+        ],
+        "softSkills": [
+          "用户体验意识",
+          "学习能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中高",
+        "internshipAbility": "建议有小程序或移动端项目经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "用户量大",
+          "性能要求高",
+          "适配设备多"
+        ],
+        "recommendedProjects": [
+          "商城小程序",
+          "移动端社区",
+          "外卖H5"
+        ]
+      },
+      {
+        "industry": "数据可视化",
+        "description": "负责大屏、BI平台与数据图表可视化开发。",
+        "representCompanies": [
+          "阿里云",
+          "华为云",
+          "百度",
+          "帆软"
+        ],
+        "skills": [
+          "ECharts",
+          "D3.js",
+          "Canvas",
+          "SVG",
+          "Three.js",
+          "数据处理",
+          "地图可视化",
+          "图表开发"
+        ],
+        "softSkills": [
+          "审美能力",
+          "逻辑分析能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "高",
+        "learningAbility": "中高",
+        "stressResistance": "中",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有数据大屏项目经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "强调视觉效果",
+          "偏展示型项目",
+          "数据驱动"
+        ],
+        "recommendedProjects": [
+          "数据大屏",
+          "BI分析平台",
+          "地图可视化系统"
+        ]
+      },
+      {
+        "industry": "AI前端",
+        "description": "负责 AI 产品界面、Agent交互页面与AI应用前端开发。",
+        "representCompanies": [
+          "OpenAI",
+          "DeepSeek",
+          "字节跳动AI",
+          "百度AI"
+        ],
+        "skills": [
+          "流式输出",
+          "Markdown渲染",
+          "AI SDK",
+          "聊天界面开发",
+          "SSE",
+          "Agent UI",
+          "Prompt交互",
+          "多轮对话状态管理"
+        ],
+        "softSkills": [
+          "创新能力",
+          "学习能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "极高",
+        "learningAbility": "极高",
+        "stressResistance": "中高",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有AI应用开发经验",
+        "salaryLevel": "极高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "技术更新极快",
+          "产品变化快",
+          "交互创新密集"
+        ],
+        "recommendedProjects": [
+          "AI聊天系统",
+          "Agent平台",
+          "AI写作助手"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,263 @@
+{
+  "job": {
+    "name": "UI/UX设计师",
+    "category": "设计/用户体验",
+    "description": "负责产品界面设计、用户体验设计、交互设计与视觉规范制定，提升产品易用性与用户体验。",
+    "educationRequirements": [
+      "数字媒体技术",
+      "视觉传达设计",
+      "艺术设计",
+      "计算机科学与技术",
+      "工业设计"
+    ],
+    "skills": [
+      "Figma",
+      "Sketch",
+      "Photoshop",
+      "Illustrator",
+      "交互设计",
+      "用户体验设计",
+      "界面设计",
+      "原型设计",
+      "设计规范",
+      "色彩搭配",
+      "排版设计",
+      "用户调研",
+      "组件化设计",
+      "设计系统"
+    ],
+    "softSkills": [
+      "审美能力",
+      "沟通能力",
+      "用户思维",
+      "学习能力",
+      "创新能力",
+      "团队协作能力"
+    ],
+    "certificates": [],
+    "innovationAbility": "极高",
+    "learningAbility": "高",
+    "stressResistance": "中",
+    "communicationAbility": "高",
+    "internshipAbility": "建议参与完整产品设计项目或独立完成UI作品集",
+    "careerPath": [
+      "UI设计师",
+      "UX设计师",
+      "高级设计师",
+      "设计负责人",
+      "设计总监"
+    ],
+    "subIndustries": [
+      {
+        "industry": "互联网UI设计",
+        "description": "负责互联网产品、社区、电商与内容平台的界面设计。",
+        "representCompanies": [
+          "腾讯",
+          "字节跳动",
+          "美团",
+          "小红书"
+        ],
+        "skills": [
+          "Figma",
+          "设计系统",
+          "组件化设计",
+          "移动端设计",
+          "视觉规范",
+          "交互动效",
+          "响应式设计",
+          "用户体验优化"
+        ],
+        "softSkills": [
+          "沟通能力",
+          "用户思维"
+        ],
+        "certificates": [],
+        "innovationAbility": "高",
+        "learningAbility": "高",
+        "stressResistance": "中高",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有互联网产品设计作品",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "用户体验要求高",
+          "产品更新快",
+          "强调视觉一致性"
+        ],
+        "recommendedProjects": [
+          "社区APP设计",
+          "电商平台设计",
+          "后台管理系统设计"
+        ]
+      },
+      {
+        "industry": "AI产品设计",
+        "description": "负责AI聊天系统、Agent平台与AI应用交互设计。",
+        "representCompanies": [
+          "OpenAI",
+          "DeepSeek",
+          "百度AI",
+          "字节AI"
+        ],
+        "skills": [
+          "AI交互设计",
+          "聊天界面设计",
+          "Agent UX",
+          "流式交互",
+          "Prompt交互",
+          "Figma",
+          "设计系统",
+          "用户体验分析"
+        ],
+        "softSkills": [
+          "创新能力",
+          "学习能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "极高",
+        "learningAbility": "极高",
+        "stressResistance": "中",
+        "communicationAbility": "高",
+        "internshipAbility": "建议参与AI产品设计项目",
+        "salaryLevel": "极高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "交互形态变化快",
+          "创新需求高",
+          "AI体验导向"
+        ],
+        "recommendedProjects": [
+          "AI助手界面",
+          "Agent工作台",
+          "AI职业规划系统设计"
+        ]
+      },
+      {
+        "industry": "游戏UI设计",
+        "description": "负责游戏界面、游戏交互与活动页面设计。",
+        "representCompanies": [
+          "腾讯游戏",
+          "网易游戏",
+          "米哈游",
+          "完美世界"
+        ],
+        "skills": [
+          "游戏UI",
+          "动效设计",
+          "视觉设计",
+          "图标设计",
+          "界面布局",
+          "用户交互",
+          "Photoshop",
+          "Figma"
+        ],
+        "softSkills": [
+          "创新能力",
+          "审美能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "极高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有游戏UI作品集",
+        "salaryLevel": "高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "强调视觉表现",
+          "风格化明显",
+          "创意需求高"
+        ],
+        "recommendedProjects": [
+          "游戏登录界面",
+          "游戏活动页面",
+          "角色UI设计"
+        ]
+      },
+      {
+        "industry": "企业SaaS设计",
+        "description": "负责ERP、OA、CRM等企业后台系统设计。",
+        "representCompanies": [
+          "用友",
+          "金蝶",
+          "钉钉",
+          "泛微"
+        ],
+        "skills": [
+          "后台系统设计",
+          "信息层级设计",
+          "数据可视化",
+          "表单设计",
+          "组件设计",
+          "设计规范",
+          "Figma",
+          "交互逻辑"
+        ],
+        "softSkills": [
+          "业务理解能力",
+          "沟通能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "中高",
+        "stressResistance": "中",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有后台系统设计经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "强调业务逻辑",
+          "信息复杂",
+          "企业用户导向"
+        ],
+        "recommendedProjects": [
+          "ERP后台设计",
+          "OA系统设计",
+          "数据平台设计"
+        ]
+      },
+      {
+        "industry": "电商视觉设计",
+        "description": "负责电商平台页面、活动专题与营销视觉设计。",
+        "representCompanies": [
+          "淘宝",
+          "京东",
+          "拼多多",
+          "唯品会"
+        ],
+        "skills": [
+          "Banner设计",
+          "营销视觉",
+          "专题页设计",
+          "Photoshop",
+          "视觉排版",
+          "活动页面设计",
+          "色彩搭配",
+          "电商设计"
+        ],
+        "softSkills": [
+          "审美能力",
+          "创新能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "高",
+        "learningAbility": "中高",
+        "stressResistance": "中高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有电商视觉作品集",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "活动节奏快",
+          "强调转化率",
+          "营销导向明显"
+        ],
+        "recommendedProjects": [
+          "电商首页设计",
+          "活动专题页",
+          "营销Banner设计"
+        ]
+      }
+    ]
+  }
+}

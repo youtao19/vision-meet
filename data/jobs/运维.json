@@ -1,0 +1,280 @@
+{
+  "job": {
+    "name": "运维工程师",
+    "category": "运维/DevOps/云计算",
+    "description": "负责服务器部署、系统监控、自动化运维、云平台管理与系统稳定性保障，确保业务系统安全稳定运行。",
+    "educationRequirements": [
+      "计算机科学与技术",
+      "网络工程",
+      "软件工程",
+      "信息安全"
+    ],
+    "skills": [
+      "Linux",
+      "Shell",
+      "Docker",
+      "Docker Compose",
+      "Nginx",
+      "Git",
+      "CI/CD",
+      "Redis",
+      "MySQL",
+      "PostgreSQL",
+      "服务器部署",
+      "日志分析",
+      "系统监控",
+      "网络基础",
+      "HTTPS",
+      "Cloudflare",
+      "故障排查"
+    ],
+    "softSkills": [
+      "问题排查能力",
+      "抗压能力",
+      "学习能力",
+      "责任心",
+      "逻辑分析能力",
+      "团队协作能力"
+    ],
+    "certificates": [
+      "RHCE",
+      "阿里云ACP",
+      "AWS Certified SysOps Administrator"
+    ],
+    "innovationAbility": "中高",
+    "learningAbility": "高",
+    "stressResistance": "极高",
+    "communicationAbility": "中",
+    "internshipAbility": "建议参与服务器部署、Docker项目或云平台实践",
+    "careerPath": [
+      "运维工程师",
+      "高级运维工程师",
+      "DevOps工程师",
+      "SRE工程师",
+      "云原生架构师"
+    ],
+    "subIndustries": [
+      {
+        "industry": "互联网运维",
+        "description": "负责互联网业务系统部署、监控与线上稳定性保障。",
+        "representCompanies": [
+          "腾讯",
+          "字节跳动",
+          "美团",
+          "网易"
+        ],
+        "skills": [
+          "Linux",
+          "Nginx",
+          "Docker",
+          "Redis",
+          "日志分析",
+          "系统监控",
+          "自动化部署",
+          "故障排查"
+        ],
+        "softSkills": [
+          "抗压能力",
+          "责任心"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "高",
+        "stressResistance": "极高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有服务器部署经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "线上压力大",
+          "强调稳定性",
+          "故障响应要求高"
+        ],
+        "recommendedProjects": [
+          "服务器监控平台",
+          "自动化部署系统",
+          "日志分析平台"
+        ]
+      },
+      {
+        "industry": "DevOps",
+        "description": "负责CI/CD、自动化部署与开发运维协同。",
+        "representCompanies": [
+          "阿里云",
+          "华为云",
+          "腾讯云",
+          "AWS中国"
+        ],
+        "skills": [
+          "GitHub Actions",
+          "Jenkins",
+          "CI/CD",
+          "Docker",
+          "Kubernetes",
+          "Shell",
+          "自动化脚本",
+          "DevOps流程"
+        ],
+        "softSkills": [
+          "沟通能力",
+          "学习能力"
+        ],
+        "certificates": [
+          "AWS DevOps",
+          "CKA"
+        ],
+        "innovationAbility": "高",
+        "learningAbility": "极高",
+        "stressResistance": "高",
+        "communicationAbility": "中高",
+        "internshipAbility": "建议有CI/CD项目经验",
+        "salaryLevel": "极高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "自动化程度高",
+          "强调开发协同",
+          "云原生发展快"
+        ],
+        "recommendedProjects": [
+          "CI/CD平台",
+          "自动化部署系统",
+          "DevOps工作流平台"
+        ]
+      },
+      {
+        "industry": "云计算运维",
+        "description": "负责云服务器、云平台与云资源管理。",
+        "representCompanies": [
+          "阿里云",
+          "腾讯云",
+          "华为云",
+          "AWS中国"
+        ],
+        "skills": [
+          "云服务器",
+          "VPC",
+          "对象存储",
+          "负载均衡",
+          "Cloudflare",
+          "Linux",
+          "Docker",
+          "监控告警"
+        ],
+        "softSkills": [
+          "学习能力",
+          "问题分析能力"
+        ],
+        "certificates": [
+          "阿里云ACP",
+          "AWS SAA"
+        ],
+        "innovationAbility": "高",
+        "learningAbility": "极高",
+        "stressResistance": "中高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有云平台实践经验",
+        "salaryLevel": "极高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "云原生发展快",
+          "企业需求增长明显",
+          "技术更新快"
+        ],
+        "recommendedProjects": [
+          "云部署平台",
+          "服务器管理系统",
+          "云监控系统"
+        ]
+      },
+      {
+        "industry": "SRE稳定性工程",
+        "description": "负责系统高可用、高并发与稳定性建设。",
+        "representCompanies": [
+          "Google中国",
+          "字节跳动",
+          "腾讯",
+          "阿里巴巴"
+        ],
+        "skills": [
+          "Prometheus",
+          "Grafana",
+          "Kubernetes",
+          "监控告警",
+          "容量规划",
+          "高可用架构",
+          "故障恢复",
+          "自动化运维"
+        ],
+        "softSkills": [
+          "抗压能力",
+          "系统分析能力"
+        ],
+        "certificates": [
+          "CKA"
+        ],
+        "innovationAbility": "高",
+        "learningAbility": "极高",
+        "stressResistance": "极高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有高并发系统经验",
+        "salaryLevel": "极高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "强调稳定性",
+          "故障响应快",
+          "技术门槛高"
+        ],
+        "recommendedProjects": [
+          "监控平台",
+          "高可用系统",
+          "告警系统"
+        ]
+      },
+      {
+        "industry": "安全运维",
+        "description": "负责服务器安全、防攻击与安全监控。",
+        "representCompanies": [
+          "奇安信",
+          "360",
+          "深信服",
+          "天融信"
+        ],
+        "skills": [
+          "Linux安全",
+          "WAF",
+          "防火墙",
+          "日志审计",
+          "安全监控",
+          "漏洞修复",
+          "权限管理",
+          "应急响应"
+        ],
+        "softSkills": [
+          "责任心",
+          "问题排查能力"
+        ],
+        "certificates": [
+          "CISP",
+          "CISSP"
+        ],
+        "innovationAbility": "中高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有安全项目经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "安全责任重大",
+          "风险敏感",
+          "强调实时响应"
+        ],
+        "recommendedProjects": [
+          "安全监控平台",
+          "日志审计系统",
+          "漏洞告警系统"
+        ]
+      }
+    ]
+  }
+}

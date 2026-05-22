@@ -19,6 +19,12 @@ import {
   summarizeAssistantMessage,
 } from "./ai-agent.utils.js";
 import type { AiThinkingLevel } from "./ai-agent.types.js";
+
+export type PiSessionImageInput = {
+  type: "image";
+  data: string;
+  mimeType: string;
+};
 /**
  * Pi 会话运行参数。
  * 必填：链路 ID、运行目录、系统提示词、用户提示词、结果解析函数、会话范围、思考强度、超时时间
@@ -29,6 +35,7 @@ type RunPiSessionOptions<T> = {
   cwd: string;
   systemPrompt: string;
   userPrompt: string;
+  images?: PiSessionImageInput[];
   parseResult: (rawText: string) => T;
   piAgentDir?: string;
   sessionStoreDir?: string;
@@ -111,6 +118,18 @@ export async function runPiSession<T>(
   const selectedModelLabel = selectedModel
     ? `${selectedModel.provider}/${selectedModel.id}`
     : options.model || "auto";
+  if (options.images?.length) {
+    const supportedInputs = Array.isArray((selectedModel as { input?: unknown } | undefined)?.input)
+      ? ((selectedModel as { input?: string[] }).input ?? [])
+      : [];
+    if (!supportedInputs.includes("image")) {
+      throw new HttpError(
+        422,
+        "AGENT_MODEL_IMAGE_UNSUPPORTED",
+        `当前模型 ${selectedModelLabel} 未声明 image 输入能力，无法直接解析图片简历`,
+      );
+    }
+  }
 
   console.info(
     `[${logPrefix}] start trace_id=${options.traceId} model=${selectedModelLabel} timeout_ms=${options.timeoutMs}`,
@@ -193,7 +212,7 @@ export async function runPiSession<T>(
   });
 
   try {
-    await withTimeout(session.prompt(options.userPrompt), {
+    await withTimeout(session.prompt(options.userPrompt, options.images?.length ? { images: options.images } : undefined), {
       timeoutMs: options.timeoutMs,
       errorCode: timeoutErrorCode,
       errorMessage: timeoutErrorMessage,

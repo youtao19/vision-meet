@@ -5,6 +5,11 @@ import type {
 } from "@career/contracts/types";
 
 import type { ReportGenerator, ReportGeneratorInput } from "./report.generator.js";
+import {
+  getProfileCertificateNames,
+  getProfileName,
+  getProfileSkillNames,
+} from "../profile/profile.selectors.js";
 
 const SECTION_TITLES: Record<CareerReportSectionKey, string> = {
   overview: "报告摘要",
@@ -50,7 +55,7 @@ function buildOverview(input: ReportGeneratorInput): string {
   const scoreLevel = resolveScoreLevel(input.match.total_score);
 
   return [
-    `${input.profile.name} 当前面向【${input.job.title}】的综合匹配得分为 ${input.match.total_score} 分，${scoreLevel}。`,
+    `${getProfileName(input.profile)} 当前面向【${input.job.title}】的综合匹配得分为 ${input.match.total_score} 分，${scoreLevel}。`,
     `画像摘要：${profileSummary}`,
     `本报告基于既有匹配结果生成，便于后续持续编辑和版本化沉淀。`,
   ].join("\n");
@@ -73,8 +78,9 @@ function buildStrengths(input: ReportGeneratorInput): string {
     .slice(0, 2)
     .map(([key, value]) => `${DIMENSION_LABELS[key as DimensionKey]} ${value} 分`);
 
-  const skillPreview = input.profile.skills.slice(0, 5).join("、") || "暂无明确技能标签";
-  const certificatePreview = input.profile.certificates.slice(0, 3).join("、") || "暂无证书项";
+  const skillPreview = getProfileSkillNames(input.profile).slice(0, 5).join("、") || "暂无明确技能标签";
+  const certificatePreview =
+    getProfileCertificateNames(input.profile).slice(0, 3).join("、") || "暂无证书项";
 
   return [
     `当前表现较强的维度为：${strongestDimensions.join("；")}。`,

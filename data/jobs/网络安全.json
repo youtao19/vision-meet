@@ -1,0 +1,278 @@
+{
+  "job": {
+    "name": "网络安全工程师",
+    "category": "网络安全/信息安全",
+    "description": "负责企业网络安全防护、漏洞检测、安全加固、攻防演练与安全体系建设，保障系统与数据安全。",
+    "educationRequirements": [
+      "网络空间安全",
+      "信息安全",
+      "计算机科学与技术",
+      "网络工程"
+    ],
+    "skills": [
+      "Linux",
+      "网络协议",
+      "Web安全",
+      "Python",
+      "渗透测试",
+      "漏洞分析",
+      "SQL",
+      "Shell",
+      "安全加固",
+      "日志分析",
+      "数据库基础",
+      "防火墙配置",
+      "Git",
+      "Docker"
+    ],
+    "softSkills": [
+      "逻辑分析能力",
+      "问题排查能力",
+      "学习能力",
+      "安全意识",
+      "责任心",
+      "抗压能力"
+    ],
+    "certificates": [
+      "CISP",
+      "CISSP",
+      "CEH"
+    ],
+    "innovationAbility": "高",
+    "learningAbility": "极高",
+    "stressResistance": "高",
+    "communicationAbility": "中",
+    "internshipAbility": "建议参与CTF比赛、安全项目或攻防演练",
+    "careerPath": [
+      "安全工程师",
+      "高级安全工程师",
+      "安全专家",
+      "安全架构师",
+      "安全负责人"
+    ],
+    "subIndustries": [
+      {
+        "industry": "企业安全",
+        "description": "负责企业内部网络、服务器与业务系统安全防护。",
+        "representCompanies": [
+          "奇安信",
+          "360",
+          "深信服",
+          "天融信"
+        ],
+        "skills": [
+          "漏洞扫描",
+          "安全加固",
+          "日志分析",
+          "防火墙",
+          "权限管理",
+          "Linux安全",
+          "入侵检测",
+          "应急响应"
+        ],
+        "softSkills": [
+          "责任心",
+          "问题排查能力"
+        ],
+        "certificates": [
+          "CISP"
+        ],
+        "innovationAbility": "中高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有企业安全项目经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "强调稳定性",
+          "安全责任重大",
+          "风险响应快"
+        ],
+        "recommendedProjects": [
+          "安全运维平台",
+          "日志分析系统",
+          "漏洞扫描工具"
+        ]
+      },
+      {
+        "industry": "Web安全",
+        "description": "负责网站、后台系统与互联网业务的安全检测与漏洞防护。",
+        "representCompanies": [
+          "阿里云",
+          "腾讯安全",
+          "字节跳动安全",
+          "百度安全"
+        ],
+        "skills": [
+          "SQL注入",
+          "XSS",
+          "CSRF",
+          "Burp Suite",
+          "Web渗透",
+          "接口安全",
+          "代码审计",
+          "JWT安全"
+        ],
+        "softSkills": [
+          "逻辑分析能力",
+          "学习能力"
+        ],
+        "certificates": [
+          "CEH"
+        ],
+        "innovationAbility": "高",
+        "learningAbility": "极高",
+        "stressResistance": "中高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议参与Web安全攻防项目",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "漏洞更新快",
+          "攻防对抗明显",
+          "强调实战能力"
+        ],
+        "recommendedProjects": [
+          "Web漏洞扫描器",
+          "安全检测平台",
+          "代码审计系统"
+        ]
+      },
+      {
+        "industry": "攻防渗透测试",
+        "description": "负责企业渗透测试、红蓝对抗与安全攻防演练。",
+        "representCompanies": [
+          "安恒信息",
+          "奇安信",
+          "360",
+          "绿盟科技"
+        ],
+        "skills": [
+          "渗透测试",
+          "内网渗透",
+          "提权",
+          "漏洞利用",
+          "Kali Linux",
+          "CTF",
+          "红蓝对抗",
+          "信息收集"
+        ],
+        "softSkills": [
+          "抗压能力",
+          "独立分析能力"
+        ],
+        "certificates": [
+          "OSCP",
+          "CEH"
+        ],
+        "innovationAbility": "高",
+        "learningAbility": "极高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议参与CTF或攻防比赛",
+        "salaryLevel": "高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "实战性强",
+          "技术门槛高",
+          "需要持续学习"
+        ],
+        "recommendedProjects": [
+          "渗透测试平台",
+          "红蓝对抗系统",
+          "漏洞利用工具"
+        ]
+      },
+      {
+        "industry": "云安全",
+        "description": "负责云服务器、容器、Kubernetes与云平台安全。",
+        "representCompanies": [
+          "阿里云",
+          "腾讯云",
+          "华为云",
+          "AWS中国"
+        ],
+        "skills": [
+          "Docker安全",
+          "Kubernetes安全",
+          "云权限管理",
+          "容器安全",
+          "DevSecOps",
+          "安全审计",
+          "CI/CD安全",
+          "Linux"
+        ],
+        "softSkills": [
+          "学习能力",
+          "系统分析能力"
+        ],
+        "certificates": [
+          "AWS Security",
+          "阿里云安全认证"
+        ],
+        "innovationAbility": "高",
+        "learningAbility": "极高",
+        "stressResistance": "中高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有云平台或容器项目经验",
+        "salaryLevel": "极高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "云原生发展快",
+          "技术更新快",
+          "企业需求增长明显"
+        ],
+        "recommendedProjects": [
+          "云安全平台",
+          "容器安全系统",
+          "K8s安全检测工具"
+        ]
+      },
+      {
+        "industry": "数据安全",
+        "description": "负责用户数据保护、数据加密与隐私安全体系建设。",
+        "representCompanies": [
+          "蚂蚁集团",
+          "华为",
+          "中国移动",
+          "平安科技"
+        ],
+        "skills": [
+          "数据加密",
+          "权限控制",
+          "数据库安全",
+          "隐私保护",
+          "日志审计",
+          "数据脱敏",
+          "访问控制",
+          "安全合规"
+        ],
+        "softSkills": [
+          "严谨性",
+          "责任心"
+        ],
+        "certificates": [
+          "CISSP"
+        ],
+        "innovationAbility": "中高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中高",
+        "internshipAbility": "建议有数据库或数据安全项目经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "强调合规",
+          "数据敏感度高",
+          "稳定性要求高"
+        ],
+        "recommendedProjects": [
+          "数据脱敏平台",
+          "权限管理系统",
+          "数据审计系统"
+        ]
+      }
+    ]
+  }
+}

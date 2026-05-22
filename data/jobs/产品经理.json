@@ -1,0 +1,272 @@
+{
+  "job": {
+    "name": "产品经理",
+    "category": "互联网产品/产品设计",
+    "description": "负责产品规划、需求分析、功能设计与项目推进，协调设计、开发、测试等团队完成产品落地。",
+    "educationRequirements": [
+      "计算机科学与技术",
+      "软件工程",
+      "信息管理与信息系统",
+      "工商管理",
+      "市场营销"
+    ],
+    "skills": [
+      "需求分析",
+      "PRD编写",
+      "Axure",
+      "Figma",
+      "Xmind",
+      "用户调研",
+      "产品规划",
+      "原型设计",
+      "流程设计",
+      "数据分析",
+      "项目管理",
+      "业务分析",
+      "竞品分析",
+      "沟通协作"
+    ],
+    "softSkills": [
+      "沟通能力",
+      "逻辑思维",
+      "用户思维",
+      "学习能力",
+      "团队协作能力",
+      "表达能力",
+      "业务理解能力"
+    ],
+    "certificates": [
+      "PMP",
+      "NPDP"
+    ],
+    "innovationAbility": "高",
+    "learningAbility": "高",
+    "stressResistance": "中高",
+    "communicationAbility": "极高",
+    "internshipAbility": "建议参与产品设计、需求分析或互联网项目",
+    "careerPath": [
+      "产品助理",
+      "产品经理",
+      "高级产品经理",
+      "产品负责人",
+      "产品总监"
+    ],
+    "subIndustries": [
+      {
+        "industry": "互联网产品",
+        "description": "负责社交、社区、电商等互联网平台产品设计与功能规划。",
+        "representCompanies": [
+          "腾讯",
+          "字节跳动",
+          "美团",
+          "小红书"
+        ],
+        "skills": [
+          "用户增长",
+          "需求分析",
+          "产品原型",
+          "PRD",
+          "竞品分析",
+          "用户调研",
+          "数据分析",
+          "流程设计"
+        ],
+        "softSkills": [
+          "沟通能力",
+          "用户思维"
+        ],
+        "certificates": [],
+        "innovationAbility": "高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "极高",
+        "internshipAbility": "建议有互联网产品项目经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "迭代速度快",
+          "用户规模大",
+          "强调用户体验"
+        ],
+        "recommendedProjects": [
+          "社区产品",
+          "电商平台",
+          "内容平台"
+        ]
+      },
+      {
+        "industry": "AI产品",
+        "description": "负责AI Agent、大模型应用与AI工作流产品设计。",
+        "representCompanies": [
+          "DeepSeek",
+          "OpenAI",
+          "百度AI",
+          "字节AI"
+        ],
+        "skills": [
+          "Prompt Engineering",
+          "Agent设计",
+          "AI工作流",
+          "RAG",
+          "LLM能力理解",
+          "产品原型",
+          "AI交互设计",
+          "数据分析"
+        ],
+        "softSkills": [
+          "创新能力",
+          "学习能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "极高",
+        "learningAbility": "极高",
+        "stressResistance": "中高",
+        "communicationAbility": "高",
+        "internshipAbility": "建议参与AI产品或Agent项目",
+        "salaryLevel": "极高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "技术变化极快",
+          "创新驱动明显",
+          "产品形态快速变化"
+        ],
+        "recommendedProjects": [
+          "AI助手",
+          "Agent平台",
+          "AI职业规划系统"
+        ]
+      },
+      {
+        "industry": "企业SaaS",
+        "description": "负责ERP、OA、CRM等企业管理系统产品设计。",
+        "representCompanies": [
+          "用友",
+          "金蝶",
+          "钉钉",
+          "泛微"
+        ],
+        "skills": [
+          "业务流程设计",
+          "RBAC",
+          "审批流",
+          "PRD",
+          "需求分析",
+          "B端产品设计",
+          "数据分析",
+          "原型设计"
+        ],
+        "softSkills": [
+          "沟通能力",
+          "业务理解能力"
+        ],
+        "certificates": [
+          "PMP"
+        ],
+        "innovationAbility": "中",
+        "learningAbility": "中高",
+        "stressResistance": "中",
+        "communicationAbility": "极高",
+        "internshipAbility": "建议有后台管理系统产品经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "需求复杂",
+          "强调业务逻辑",
+          "企业客户导向"
+        ],
+        "recommendedProjects": [
+          "OA系统",
+          "ERP系统",
+          "CRM系统"
+        ]
+      },
+      {
+        "industry": "金融产品",
+        "description": "负责支付、理财、证券与金融科技产品设计。",
+        "representCompanies": [
+          "蚂蚁集团",
+          "招商银行",
+          "平安科技",
+          "同花顺"
+        ],
+        "skills": [
+          "金融业务分析",
+          "风控流程",
+          "支付流程",
+          "PRD",
+          "数据分析",
+          "业务建模",
+          "用户研究",
+          "产品规划"
+        ],
+        "softSkills": [
+          "严谨性",
+          "沟通能力"
+        ],
+        "certificates": [
+          "CFA",
+          "FRM"
+        ],
+        "innovationAbility": "中高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有金融产品或支付产品经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "稳定性要求高",
+          "流程规范严格",
+          "数据敏感"
+        ],
+        "recommendedProjects": [
+          "支付系统",
+          "理财平台",
+          "风控产品"
+        ]
+      },
+      {
+        "industry": "游戏产品",
+        "description": "负责游戏玩法设计、活动系统与用户增长产品规划。",
+        "representCompanies": [
+          "腾讯游戏",
+          "网易游戏",
+          "米哈游",
+          "完美世界"
+        ],
+        "skills": [
+          "游戏策划",
+          "用户增长",
+          "活动设计",
+          "数值分析",
+          "产品原型",
+          "数据分析",
+          "用户行为分析",
+          "竞品分析"
+        ],
+        "softSkills": [
+          "创新能力",
+          "用户洞察能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "极高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "高",
+        "internshipAbility": "建议参与游戏策划或游戏产品项目",
+        "salaryLevel": "高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "强调创意",
+          "用户反馈快",
+          "版本更新频繁"
+        ],
+        "recommendedProjects": [
+          "游戏活动系统",
+          "游戏社区",
+          "用户成长系统"
+        ]
+      }
+    ]
+  }
+}

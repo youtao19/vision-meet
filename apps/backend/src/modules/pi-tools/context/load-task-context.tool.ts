@@ -7,6 +7,11 @@ import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 
 import type { PiToolFactoryContext } from "../pi-tool-context.js";
+import {
+  getProfileName,
+  getProfileSkillNames,
+  getProfileTargetRole,
+} from "../../profile/profile.selectors.js";
 
 export function createLoadTaskContextTool(context: PiToolFactoryContext): ToolDefinition {
   return {
@@ -22,10 +27,11 @@ export function createLoadTaskContextTool(context: PiToolFactoryContext): ToolDe
             {
               profile: {
                 id: context.state.profile.id,
-                name: context.state.profile.name,
-                target_role: context.state.profile.target_role,
-                skills: context.state.profile.skills,
+                name: getProfileName(context.state.profile),
+                target_role: getProfileTargetRole(context.state.profile),
+                skills: getProfileSkillNames(context.state.profile),
                 summary: context.state.profile.summary,
+                detail: context.state.profile,
               },
               job: {
                 id: context.state.job.id,

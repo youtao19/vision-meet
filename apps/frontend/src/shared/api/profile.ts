@@ -24,13 +24,15 @@ export async function createStudentProfile(
 
 export async function createStudentProfileFromResume(input: {
   file: File;
-  targetRole: string;
+  targetRole?: string;
   name?: string;
   parseMode?: "strict" | "tolerant";
 }): Promise<StudentProfileRecord> {
   const body = new FormData();
   body.set("file", input.file);
-  body.set("target_role", input.targetRole);
+  if (input.targetRole?.trim()) {
+    body.set("target_role", input.targetRole.trim());
+  }
   if (input.name?.trim()) {
     body.set("name", input.name.trim());
   }

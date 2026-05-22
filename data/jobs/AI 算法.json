@@ -1,0 +1,271 @@
+{
+  "job": {
+    "name": "AI算法工程师",
+    "category": "人工智能/计算机",
+    "description": "负责人工智能模型训练、算法研发、模型部署、AI应用开发与数据分析等工作。",
+    "educationRequirements": [
+      "人工智能",
+      "计算机科学与技术",
+      "软件工程",
+      "数据科学与大数据技术",
+      "数学"
+    ],
+    "skills": [
+      "Python",
+      "PyTorch",
+      "TensorFlow",
+      "机器学习",
+      "深度学习",
+      "数据处理",
+      "Linux",
+      "Git",
+      "Docker",
+      "API开发",
+      "模型训练",
+      "模型部署",
+      "算法调优"
+    ],
+    "softSkills": [
+      "数学能力",
+      "逻辑思维",
+      "学习能力",
+      "论文阅读能力",
+      "问题分析能力",
+      "创新能力"
+    ],
+    "certificates": [
+      "软考",
+      "阿里云人工智能认证"
+    ],
+    "innovationAbility": "极高",
+    "learningAbility": "极高",
+    "stressResistance": "中高",
+    "communicationAbility": "中",
+    "internshipAbility": "建议参与AI项目、模型训练或算法竞赛",
+    "careerPath": [
+      "AI算法工程师",
+      "高级算法工程师",
+      "AI架构师",
+      "算法负责人",
+      "AI技术专家"
+    ],
+    "subIndustries": [
+      {
+        "industry": "大模型/AI Agent",
+        "description": "负责大语言模型应用开发、Agent系统、RAG知识库与AI工作流平台开发。",
+        "representCompanies": [
+          "DeepSeek",
+          "月之暗面",
+          "字节跳动AI",
+          "百度AI"
+        ],
+        "skills": [
+          "LLM",
+          "Prompt Engineering",
+          "RAG",
+          "向量数据库",
+          "Agent",
+          "LangChain",
+          "流式输出",
+          "Function Calling",
+          "模型API调用",
+          "工作流编排"
+        ],
+        "softSkills": [
+          "快速学习能力",
+          "创新能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "极高",
+        "learningAbility": "极高",
+        "stressResistance": "中高",
+        "communicationAbility": "中高",
+        "internshipAbility": "建议有AI Agent或RAG项目经验",
+        "salaryLevel": "极高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "技术更新极快",
+          "创新密集",
+          "创业公司较多"
+        ],
+        "recommendedProjects": [
+          "AI助手",
+          "Agent平台",
+          "知识库系统"
+        ]
+      },
+      {
+        "industry": "计算机视觉",
+        "description": "负责图像识别、目标检测、人脸识别与视频分析等AI视觉相关开发。",
+        "representCompanies": [
+          "商汤科技",
+          "旷视",
+          "海康威视",
+          "依图科技"
+        ],
+        "skills": [
+          "OpenCV",
+          "CNN",
+          "YOLO",
+          "目标检测",
+          "图像分割",
+          "PyTorch",
+          "TensorFlow",
+          "模型训练",
+          "数据标注"
+        ],
+        "softSkills": [
+          "算法分析能力",
+          "数学能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "高",
+        "learningAbility": "高",
+        "stressResistance": "中",
+        "communicationAbility": "中",
+        "internshipAbility": "建议参与CV竞赛或视觉项目",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "偏研究方向",
+          "模型训练成本高",
+          "依赖数据集"
+        ],
+        "recommendedProjects": [
+          "目标检测系统",
+          "人脸识别系统",
+          "智能监控系统"
+        ]
+      },
+      {
+        "industry": "推荐系统",
+        "description": "负责短视频、电商、社交平台的内容推荐与个性化推荐算法开发。",
+        "representCompanies": [
+          "字节跳动",
+          "快手",
+          "腾讯",
+          "小红书"
+        ],
+        "skills": [
+          "推荐算法",
+          "召回排序",
+          "协同过滤",
+          "特征工程",
+          "TensorFlow",
+          "Spark",
+          "大数据处理",
+          "用户画像"
+        ],
+        "softSkills": [
+          "数据分析能力",
+          "逻辑能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有推荐系统或数据分析项目",
+        "salaryLevel": "极高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "数据规模大",
+          "强调用户增长",
+          "高并发"
+        ],
+        "recommendedProjects": [
+          "视频推荐系统",
+          "商品推荐系统",
+          "用户画像平台"
+        ]
+      },
+      {
+        "industry": "自动驾驶",
+        "description": "负责车辆感知、路径规划、自动驾驶算法与智能驾驶系统开发。",
+        "representCompanies": [
+          "特斯拉",
+          "小鹏汽车",
+          "百度Apollo",
+          "华为车BU"
+        ],
+        "skills": [
+          "强化学习",
+          "多传感器融合",
+          "自动驾驶算法",
+          "C++",
+          "深度学习",
+          "SLAM",
+          "路径规划",
+          "ROS"
+        ],
+        "softSkills": [
+          "抗压能力",
+          "系统分析能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "极高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议参与机器人或自动驾驶项目",
+        "salaryLevel": "极高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "技术门槛极高",
+          "研发周期长",
+          "硬件结合紧密"
+        ],
+        "recommendedProjects": [
+          "自动驾驶模拟系统",
+          "视觉感知系统",
+          "路径规划系统"
+        ]
+      },
+      {
+        "industry": "金融AI",
+        "description": "负责金融风控、量化分析、智能投顾与金融数据模型开发。",
+        "representCompanies": [
+          "蚂蚁集团",
+          "平安科技",
+          "微众银行",
+          "同花顺"
+        ],
+        "skills": [
+          "机器学习",
+          "风控模型",
+          "金融数据分析",
+          "Python",
+          "统计学",
+          "时间序列分析",
+          "SQL",
+          "数据挖掘"
+        ],
+        "softSkills": [
+          "严谨性",
+          "数据分析能力"
+        ],
+        "certificates": [
+          "FRM",
+          "CFA"
+        ],
+        "innovationAbility": "中高",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有金融数据分析项目",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "稳定性要求高",
+          "数据敏感",
+          "偏业务驱动"
+        ],
+        "recommendedProjects": [
+          "风控系统",
+          "量化分析平台",
+          "智能投顾系统"
+        ]
+      }
+    ]
+  }
+}

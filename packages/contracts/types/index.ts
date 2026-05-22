@@ -347,12 +347,6 @@ export type JobImportResponse = {
   message: string;
 };
 
-export type StudentProfileExperience = {
-  internship_count: number;
-  project_count: number;
-  competition_count: number;
-};
-
 export type StudentProfileSelfAssessment = {
   communication: number;
   learning: number;
@@ -360,45 +354,117 @@ export type StudentProfileSelfAssessment = {
   innovation: number;
 };
 
-export type StudentProfileRecord = {
-  id: number;
-  source_type: "manual" | "resume";
-  source_digest: string;
+export type StudentProfileSourceType = "manual" | "resume";
+
+export type StudentProfileEvidenceSource = "manual" | "resume_text" | "agent";
+
+export type StudentProfileEvidence = {
+  id?: string;
+  source: StudentProfileEvidenceSource;
+  field_path: string;
+  quote: string;
+  confidence: number;
+};
+
+export type StudentProfileBasicInfo = {
   name: string;
+};
+
+export type StudentProfilePreference = {
   target_role: string;
-  education_level: string | null;
+  preferred_cities: string[];
+  preferred_industries: string[];
+};
+
+export type StudentProfileEducation = {
+  school: string | null;
+  level: string | null;
   major: string | null;
   graduation_year: number | null;
-  skills: string[];
-  certificates: string[];
-  experience: StudentProfileExperience;
-  self_assessment: StudentProfileSelfAssessment;
+  evidence_refs: string[];
+};
+
+export type StudentProfileSkill = {
+  name: string;
+  category: "frontend" | "backend" | "data" | "ai" | "testing" | "tooling" | "soft" | "other";
+  level: number;
+  evidence_refs: string[];
+};
+
+export type StudentProfileCertificate = {
+  name: string;
+  issuer: string | null;
+  acquired_at: string | null;
+  evidence_refs: string[];
+};
+
+export type StudentProfileExperienceKind = "project" | "internship" | "competition";
+
+export type StudentProfileExperienceItem = {
+  kind: StudentProfileExperienceKind;
+  title: string;
+  organization: string | null;
+  role: string | null;
+  period: string | null;
+  tech_stack: string[];
+  responsibilities: string[];
+  outcomes: string[];
+  evidence_refs: string[];
+};
+
+export type StudentProfileEvaluation = {
   dimension_scores: DimensionScores;
   completeness_score: number;
   competitiveness_score: number;
   missing_items: string[];
-  personal_summary: string | null;
+  warnings: string[];
+};
+
+export type StudentProfileParseMeta = {
+  parser: "manual" | "agent";
+  model: string | null;
+  confidence: number;
+  warnings: string[];
+};
+
+export type StudentProfileRecord = {
+  id: number;
+  source_type: StudentProfileSourceType;
+  source_digest: string;
+  basic_info: StudentProfileBasicInfo;
+  preference: StudentProfilePreference;
+  education: StudentProfileEducation;
+  skills: StudentProfileSkill[];
+  certificates: StudentProfileCertificate[];
+  experiences: StudentProfileExperienceItem[];
+  self_assessment: StudentProfileSelfAssessment;
+  evidences: StudentProfileEvidence[];
+  evaluation: StudentProfileEvaluation;
+  parse_meta: StudentProfileParseMeta;
   summary: string;
   created_at: string;
 };
 
 export type CreateStudentProfileRequest = {
-  name: string;
-  target_role: string;
-  education_level?: string;
-  major?: string;
-  graduation_year?: number;
-  skills: string[];
-  certificates?: string[];
-  experience?: Partial<StudentProfileExperience>;
+  basic_info: StudentProfileBasicInfo;
+  preference: StudentProfilePreference;
+  education: StudentProfileEducation;
+  skills: StudentProfileSkill[];
+  certificates?: StudentProfileCertificate[];
+  experiences?: StudentProfileExperienceItem[];
   self_assessment?: Partial<StudentProfileSelfAssessment>;
-  personal_summary?: string;
+  evidences?: StudentProfileEvidence[];
+  summary?: string;
 };
 
 export type CreateStudentProfileFromResumeRequest = {
   file_name: string;
-  file_content: string;
-  target_role: string;
+  file_content?: string;
+  file_images?: Array<{
+    data: string;
+    mimeType: string;
+  }>;
+  target_role?: string;
   name?: string;
   parse_mode?: "strict" | "tolerant";
 };

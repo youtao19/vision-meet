@@ -41,6 +41,10 @@ cp apps/backend/.env.example apps/backend/.env
 - `APP_ENV`
 - `PORT`
 - `REPORT_EXPORT_DIR`
+- `AGENT_PI_DIR`
+- `AGENT_SESSION_STORE_DIR`
+- `AGENT_MODEL`
+- `AGENT_THINKING_LEVEL`
 - `MATCH_SCORING_VERSION`
 - `PGHOST`
 - `PGPORT`
@@ -50,6 +54,26 @@ cp apps/backend/.env.example apps/backend/.env
 - `PGVECTOR_DIM`
 - `KNOWLEDGE_TOP_K`
 - `KNOWLEDGE_REINDEX_BATCH_SIZE`
+
+## Pi Agent 登录与切换
+
+从仓库根目录执行：
+
+```bash
+npm run agent:auth -- status
+npm run agent:auth -- list
+npm run agent:auth -- models codex
+npm run agent:auth -- login openai-codex --model openai-codex/gpt-5.4
+npm run agent:auth -- switch kimi-coding/k2p5
+npm run agent:smoke
+```
+
+说明：
+
+- `login` 会调用 Pi 官方 `pi-ai login`，使用 Pi 支持的登录方式重新登录。
+- 登录凭证写入本项目 Agent 目录，默认是 `~/.career-agent/pi-agent/auth.json`，不会提交到仓库。
+- `switch` 只更新 `apps/backend/.env` 中的 `AGENT_MODEL`，模型格式必须是 `provider/model`。
+- `status` 只打印 provider 和认证类型，不打印 token 或 API key。
 
 ## API
 
@@ -106,4 +130,3 @@ npm run knowledge:eval
 
 - `knowledge:index:jobs` 只索引岗位数据到 `career_runtime`
 - `knowledge:index:project-docs` 只索引 `docs/*.md` 到 `internal_project_docs`
-- 简历文本不需要单独脚本，走 `POST /api/v2/profile/resume` 时会自动同步入库

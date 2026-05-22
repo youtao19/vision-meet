@@ -7,6 +7,7 @@ import type {
   ReportExportOutput,
   ReportExportRenderInput,
 } from "./report.exporter.js";
+import { getProfileName } from "../profile/profile.selectors.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -183,7 +184,7 @@ function buildHtml(input: ReportExportRenderInput): string {
           <div class="meta-grid">
             <div class="meta-card">
               <strong>学生姓名</strong>
-              <span>${escapeHtml(input.profile.name)}</span>
+              <span>${escapeHtml(getProfileName(input.profile))}</span>
             </div>
             <div class="meta-card">
               <strong>目标岗位</strong>

@@ -22,6 +22,7 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import { buildSha256Digest } from "../../shared/utils/match-fingerprint.js";
 import { resolveRepositoryRoot } from "../../shared/utils/repository-root.js";
 import { parseUploadedJobs } from "../jobs/jobs.importer.js";
+import { getProfileName, getProfileTargetRole } from "../profile/profile.selectors.js";
 import type {
   KnowledgeChunkCreateInput,
   KnowledgeDocumentIndexInput,
@@ -571,7 +572,7 @@ export function createKnowledgeService(
     profile: StudentProfileRecord;
     resumeInput: CreateStudentProfileFromResumeRequest;
   }): Promise<void> {
-    const safeResumeText = sanitizeTextForStorage(params.resumeInput.file_content);
+    const safeResumeText = sanitizeTextForStorage(params.resumeInput.file_content || "");
     if (!safeResumeText) {
       return;
     }
@@ -584,7 +585,7 @@ export function createKnowledgeService(
         {
           source_id: `profile:${params.profile.id}`,
           source_path: params.resumeInput.file_name,
-          title: `${params.profile.name} - ${params.profile.target_role} 简历`,
+          title: `${getProfileName(params.profile)} - ${getProfileTargetRole(params.profile)} 简历`,
           text: safeResumeText,
           profile_id: params.profile.id,
         },

@@ -22,6 +22,10 @@ import type { ReportService } from "../../report/report.service.js";
 
 export type AiThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
+/**
+ * AI Agent 运行过程中的状态。
+ * 作用：保存学生画像、岗位、知识库结果、匹配结果和报告结果。
+ */
 export type AiAgentRuntimeState = {
   profile: StudentProfileRecord;
   job: JobRecord;
@@ -30,6 +34,10 @@ export type AiAgentRuntimeState = {
   report: CareerReportRecord | null;
 };
 
+/**
+ * AI Agent 运行依赖。
+ * 作用：统一声明 Agent 执行任务时需要调用的业务服务。
+ */
 export type AiAgentDependencies = {
   profileRepository: ProfileRepository;
   jobsRepository: JobsRepository;
@@ -38,6 +46,12 @@ export type AiAgentDependencies = {
   reportService: ReportService;
 };
 
+/**
+
+ * AI Agent 运行参数。
+ * 必填：运行目录、链路 ID、任务目标、交付物、学生画像 ID、岗位 ID、知识库数量、是否强制重算、思考强度
+ * 选填：Pi Agent 目录、会话目录、模型
+ */
 export type AiAgentRunOptions = {
   cwd: string;
   traceId: string;
@@ -53,6 +67,10 @@ export type AiAgentRunOptions = {
   thinkingLevel: AiThinkingLevel;
 };
 
+/**
+ * AI Agent 运行结果。
+ * 作用：返回模型、执行步骤、知识库结果、匹配结果、报告结果、总结和警告信息。
+ */
 export type AiAgentRunResult = {
   model: string | null;
   stepTrace: AiStepTraceItem[];
@@ -63,6 +81,11 @@ export type AiAgentRunResult = {
   warnings: AiWarningCode[];
 };
 
+
+/**
+ * 工具执行快照。
+ * 作用：记录工具调用时的名称、标题、开始时间和输入摘要。
+ */
 export type ToolExecutionSnapshot = {
   tool: PiToolName;
   title: string;

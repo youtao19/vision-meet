@@ -28,6 +28,13 @@ import { fetchCareerPathGraph, fetchCareerPathTargets, generateCareerPathGraph }
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { fetchStudentProfiles } from "@/shared/api/profile";
+import {
+  profileCertificateNames,
+  profileDimensionScores,
+  profileExperienceCount,
+  profileName,
+  profileTargetRole,
+} from "@/features/profile/model/profile-selectors";
 
 use([CanvasRenderer, RadarChart, TooltipComponent, LegendComponent]);
 
@@ -99,9 +106,9 @@ function toPercentByLevel(level: number): number {
 
 function calculateExperienceLevel(profile: StudentProfileRecord): number {
   const total =
-    profile.experience.internship_count * 1.5 +
-    profile.experience.project_count * 1.2 +
-    profile.experience.competition_count * 0.8;
+    profileExperienceCount(profile, "internship") * 1.5 +
+    profileExperienceCount(profile, "project") * 1.2 +
+    profileExperienceCount(profile, "competition") * 0.8;
   if (total >= 8) return 5;
   if (total >= 5) return 4;
   if (total >= 3) return 3;
@@ -110,15 +117,16 @@ function calculateExperienceLevel(profile: StudentProfileRecord): number {
 }
 
 function calculateCertificationLevel(profile: StudentProfileRecord): number {
-  if (profile.certificates.length >= 4) return 5;
-  if (profile.certificates.length >= 3) return 4;
-  if (profile.certificates.length >= 2) return 3;
-  if (profile.certificates.length >= 1) return 2;
+  const count = profileCertificateNames(profile).length;
+  if (count >= 4) return 5;
+  if (count >= 3) return 4;
+  if (count >= 2) return 3;
+  if (count >= 1) return 2;
   return 1;
 }
 
 function calculateSkillLevel(profile: StudentProfileRecord): number {
-  return clampLevel(Math.max(1, profile.dimension_scores.professional_skills / 20));
+  return clampLevel(Math.max(1, profileDimensionScores(profile).professional_skills / 20));
 }
 
 const selectedJobPortrait = computed(() => {
@@ -589,7 +597,7 @@ onUnmounted(() => {
           <select v-model="form.studentProfileId" :disabled="loading.bootstrap || loading.graph">
             <option value="">仅看岗位要求</option>
             <option v-for="profile in profiles" :key="profile.id" :value="String(profile.id)">
-              #{{ profile.id }} {{ profile.name }}（{{ profile.target_role }}）
+              #{{ profile.id }} {{ profileName(profile) }}（{{ profileTargetRole(profile) || "暂未选择目标岗位" }}）
             </option>
           </select>
         </label>

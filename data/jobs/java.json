@@ -1,0 +1,270 @@
+{
+  "job": {
+    "name": "Java后端开发工程师",
+    "category": "计算机/互联网",
+    "description": "负责服务端系统开发、业务逻辑实现、数据库设计、接口开发与系统稳定性维护。",
+    "educationRequirements": [
+      "计算机科学与技术",
+      "软件工程",
+      "网络工程",
+      "信息工程"
+    ],
+    "skills": [
+      "Java",
+      "Spring Boot",
+      "Spring Cloud",
+      "MySQL",
+      "Redis",
+      "RESTful API",
+      "Git",
+      "Linux",
+      "Maven",
+      "Docker",
+      "数据库设计",
+      "接口开发",
+      "异常处理",
+      "日志分析",
+      "权限系统"
+    ],
+    "softSkills": [
+      "逻辑思维",
+      "问题排查能力",
+      "团队协作",
+      "沟通能力",
+      "学习能力",
+      "文档阅读能力"
+    ],
+    "certificates": [
+      "软考中级",
+      "软考高级"
+    ],
+    "innovationAbility": "中高",
+    "learningAbility": "高",
+    "stressResistance": "中高",
+    "communicationAbility": "中",
+    "internshipAbility": "建议至少参与过完整后端项目开发",
+    "careerPath": [
+      "初级后端开发工程师",
+      "中级后端开发工程师",
+      "高级后端开发工程师",
+      "架构师",
+      "技术负责人"
+    ],
+    "subIndustries": [
+      {
+        "industry": "电商互联网",
+        "description": "负责订单、支付、库存、优惠券、秒杀等核心业务系统开发。",
+        "representCompanies": [
+          "淘宝",
+          "京东",
+          "拼多多",
+          "唯品会"
+        ],
+        "skills": [
+          "高并发",
+          "Redis缓存",
+          "消息队列",
+          "订单系统",
+          "支付系统",
+          "库存扣减",
+          "分布式事务",
+          "限流熔断",
+          "秒杀架构"
+        ],
+        "softSkills": [
+          "抗压能力",
+          "快速排查问题能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有商城或订单系统项目经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "业务复杂",
+          "高并发场景多",
+          "技术更新快"
+        ],
+        "recommendedProjects": [
+          "商城系统",
+          "秒杀系统",
+          "支付系统"
+        ]
+      },
+      {
+        "industry": "金融科技",
+        "description": "负责支付、清算、风控、账户体系等金融相关系统开发。",
+        "representCompanies": [
+          "蚂蚁集团",
+          "招商银行",
+          "微众银行",
+          "平安科技"
+        ],
+        "skills": [
+          "事务一致性",
+          "分布式系统",
+          "数据库优化",
+          "风控系统",
+          "安全开发",
+          "权限控制",
+          "日志审计",
+          "高可用架构"
+        ],
+        "softSkills": [
+          "严谨性",
+          "责任心"
+        ],
+        "certificates": [
+          "软考中级"
+        ],
+        "innovationAbility": "中",
+        "learningAbility": "中高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有支付或金融系统项目经历",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "稳定性要求极高",
+          "安全要求高",
+          "流程规范"
+        ],
+        "recommendedProjects": [
+          "支付系统",
+          "钱包系统",
+          "风控系统"
+        ]
+      },
+      {
+        "industry": "AI行业",
+        "description": "负责AI平台、Agent系统、模型服务网关等后端开发。",
+        "representCompanies": [
+          "DeepSeek",
+          "月之暗面",
+          "字节跳动AI",
+          "百度AI"
+        ],
+        "skills": [
+          "LLM API",
+          "Agent",
+          "RAG",
+          "向量数据库",
+          "SSE流式输出",
+          "Prompt管理",
+          "Python基础",
+          "模型调用",
+          "异步任务处理"
+        ],
+        "softSkills": [
+          "学习能力",
+          "创新能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "极高",
+        "learningAbility": "极高",
+        "stressResistance": "中高",
+        "communicationAbility": "中高",
+        "internshipAbility": "建议有AI应用或Agent项目经验",
+        "salaryLevel": "极高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "技术变化极快",
+          "新技术密集",
+          "创新驱动"
+        ],
+        "recommendedProjects": [
+          "AI助手",
+          "Agent平台",
+          "RAG知识库"
+        ]
+      },
+      {
+        "industry": "酒旅行业",
+        "description": "负责酒店、旅游、OTA平台相关业务系统开发。",
+        "representCompanies": [
+          "携程",
+          "飞猪",
+          "美团酒旅",
+          "同程旅行"
+        ],
+        "skills": [
+          "OTA接口对接",
+          "订单同步",
+          "房态管理",
+          "价格同步",
+          "库存管理",
+          "Redis",
+          "定时任务",
+          "接口幂等"
+        ],
+        "softSkills": [
+          "沟通能力",
+          "业务理解能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "中高",
+        "stressResistance": "中",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有酒店管理系统或OTA项目经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "业务链路长",
+          "第三方平台多",
+          "强调稳定履约"
+        ],
+        "recommendedProjects": [
+          "酒店管理系统",
+          "OTA同步系统",
+          "订单履约系统"
+        ]
+      },
+      {
+        "industry": "企业SaaS",
+        "description": "负责企业管理系统、OA、ERP、CRM等平台开发。",
+        "representCompanies": [
+          "用友",
+          "金蝶",
+          "钉钉",
+          "泛微"
+        ],
+        "skills": [
+          "RBAC权限系统",
+          "工作流",
+          "审批系统",
+          "多租户",
+          "组织架构设计",
+          "Excel导入导出",
+          "日志系统",
+          "微服务"
+        ],
+        "softSkills": [
+          "需求沟通能力",
+          "团队协作能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "中",
+        "stressResistance": "中",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有后台管理系统项目经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "需求变更多",
+          "强调业务理解",
+          "企业客户导向"
+        ],
+        "recommendedProjects": [
+          "ERP系统",
+          "OA系统",
+          "CRM系统"
+        ]
+      }
+    ]
+  }
+}

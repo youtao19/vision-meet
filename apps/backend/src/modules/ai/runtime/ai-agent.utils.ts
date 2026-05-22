@@ -17,6 +17,7 @@ export {
 } from "../../../shared/agent/agent-bootstrap.js";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
+import { getProfileSkillNames, getProfileTargetRole } from "../../profile/profile.selectors.js";
 import type { AiAgentRuntimeState, ToolExecutionSnapshot } from "./ai-agent.types.js";
 
 export function buildCareerAgentSystemPrompt(): string {
@@ -64,8 +65,10 @@ export function serializeJsonPreview(value: unknown, maxLength = 240): string {
 export function buildDefaultKnowledgeQuery(state: AiAgentRuntimeState): string {
   return [
     `目标岗位 ${state.job.title}`,
-    `候选方向 ${state.profile.target_role}`,
-    state.profile.skills.length > 0 ? `技能 ${state.profile.skills.slice(0, 8).join(" ")}` : "",
+    `候选方向 ${getProfileTargetRole(state.profile)}`,
+    getProfileSkillNames(state.profile).length > 0
+      ? `技能 ${getProfileSkillNames(state.profile).slice(0, 8).join(" ")}`
+      : "",
     state.profile.summary,
   ]
     .filter(Boolean)

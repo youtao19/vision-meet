@@ -15,6 +15,13 @@ import type {
 
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
+import {
+  getProfileCertificateNames,
+  getProfileDimensionScores,
+  getProfileExperienceCount,
+  getProfileSkillNames,
+  hasProfileNarrative,
+} from "../profile/profile.selectors.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { createMatchFingerprint } from "../../shared/utils/match-fingerprint.js";
 import { isComputerRelatedCleanedJob } from "../jobs-intelligence/jobs-intelligence.computer-filter.js";
@@ -193,14 +200,19 @@ function buildMatchEvidenceProfile(
   profile: StudentProfileRecord,
   jobProfile: MatchingJobProfileSnapshot,
 ): MatchEvidenceProfile {
-  const matchedHardSkills = findMatchedLabels(jobProfile.hard_skills, profile.skills);
+  const profileSkills = getProfileSkillNames(profile);
+  const profileCertificates = getProfileCertificateNames(profile);
+  const projectCount = getProfileExperienceCount(profile, "project");
+  const internshipCount = getProfileExperienceCount(profile, "internship");
+  const competitionCount = getProfileExperienceCount(profile, "competition");
+  const matchedHardSkills = findMatchedLabels(jobProfile.hard_skills, profileSkills);
   const missingHardSkills = jobProfile.hard_skills.filter(
     (skill) => !matchedHardSkills.includes(skill),
   );
   const certificateRequirements = jobProfile.certificates.filter(
     (item) => !includesKeyword(item, "无强制证书要求"),
   );
-  const matchedCertificates = findMatchedLabels(certificateRequirements, profile.certificates);
+  const matchedCertificates = findMatchedLabels(certificateRequirements, profileCertificates);
   const missingCertificates = certificateRequirements.filter(
     (item) => !matchedCertificates.includes(item),
   );
@@ -210,7 +222,7 @@ function buildMatchEvidenceProfile(
     抗压: profile.self_assessment.stress_tolerance,
     学习能力: profile.self_assessment.learning,
     创新: profile.self_assessment.innovation,
-    实践: Math.min(5, 2 + profile.experience.project_count + profile.experience.internship_count),
+    实践: Math.min(5, 2 + projectCount + internshipCount),
   };
   const matchedSoftSkills = jobProfile.soft_skills.filter((skill) => {
     const matchedLabel = Object.keys(softSignalByLabel).find((label) =>
@@ -227,8 +239,8 @@ function buildMatchEvidenceProfile(
     certificateRequirements.length > 0
       ? clampScore((matchedCertificates.length / certificateRequirements.length) * 100)
       : 80;
-  const educationScore = profile.education_level ? 78 : 45;
-  const internshipScore = profile.experience.internship_count > 0 ? 82 : 48;
+  const educationScore = profile.education.level ? 78 : 45;
+  const internshipScore = internshipCount > 0 ? 82 : 48;
   const baseEvidenceScore = blendScore([
     { score: educationScore, weight: 0.45 },
     { score: certificateCoverageScore, weight: 0.35 },
@@ -247,10 +259,10 @@ function buildMatchEvidenceProfile(
     },
   ]);
   const potentialEvidenceScore = blendScore([
-    { score: Math.min(100, profile.experience.project_count * 22 + 35), weight: 0.42 },
-    { score: Math.min(100, profile.experience.competition_count * 24 + 35), weight: 0.24 },
+    { score: Math.min(100, projectCount * 22 + 35), weight: 0.42 },
+    { score: Math.min(100, competitionCount * 24 + 35), weight: 0.24 },
     { score: profile.self_assessment.learning * 20, weight: 0.24 },
-    { score: profile.personal_summary ? 80 : 50, weight: 0.1 },
+    { score: hasProfileNarrative(profile) ? 80 : 50, weight: 0.1 },
   ]);
 
   return {
@@ -271,21 +283,22 @@ function buildEvidenceAdjustedStudentScores(
   profile: StudentProfileRecord,
   evidence: MatchEvidenceProfile,
 ): DimensionScores {
+  const profileScores = getProfileDimensionScores(profile);
   return {
     base_requirements: blendScore([
-      { score: profile.dimension_scores.base_requirements, weight: 0.62 },
+      { score: profileScores.base_requirements, weight: 0.62 },
       { score: evidence.baseEvidenceScore, weight: 0.38 },
     ]),
     professional_skills: blendScore([
-      { score: profile.dimension_scores.professional_skills, weight: 0.5 },
+      { score: profileScores.professional_skills, weight: 0.5 },
       { score: evidence.skillCoverageScore, weight: 0.5 },
     ]),
     professional_quality: blendScore([
-      { score: profile.dimension_scores.professional_quality, weight: 0.58 },
+      { score: profileScores.professional_quality, weight: 0.58 },
       { score: evidence.qualityEvidenceScore, weight: 0.42 },
     ]),
     development_potential: blendScore([
-      { score: profile.dimension_scores.development_potential, weight: 0.58 },
+      { score: profileScores.development_potential, weight: 0.58 },
       { score: evidence.potentialEvidenceScore, weight: 0.42 },
     ]),
   };
@@ -299,10 +312,11 @@ function buildEvidenceByDimension(
   switch (dimension) {
     case "base_requirements": {
       const evidence: string[] = [];
-      if (!profile.education_level) {
+      const internshipCount = getProfileExperienceCount(profile, "internship");
+      if (!profile.education.level) {
         evidence.push("教育层次信息缺失");
       } else {
-        evidence.push(`教育层次：${profile.education_level}`);
+        evidence.push(`教育层次：${profile.education.level}`);
       }
       if (evidenceProfile.missingCertificates.length > 0) {
         evidence.push(`待补齐证书：${evidenceProfile.missingCertificates.slice(0, 3).join("、")}`);
@@ -311,10 +325,10 @@ function buildEvidenceByDimension(
       } else {
         evidence.push("岗位无强制证书要求或证书信号不足");
       }
-      if ((profile.experience?.internship_count || 0) === 0) {
+      if (internshipCount === 0) {
         evidence.push("缺少实习经历信号");
       } else {
-        evidence.push(`实习经历 ${profile.experience.internship_count} 段`);
+        evidence.push(`实习经历 ${internshipCount} 段`);
       }
       return evidence;
     }
@@ -338,8 +352,8 @@ function buildEvidenceByDimension(
     }
     case "development_potential": {
       return [
-        `项目经历 ${profile.experience.project_count} 项`,
-        `竞赛经历 ${profile.experience.competition_count} 项`,
+        `项目经历 ${getProfileExperienceCount(profile, "project")} 项`,
+        `竞赛经历 ${getProfileExperienceCount(profile, "competition")} 项`,
         `学习能力自评 ${profile.self_assessment.learning}/5`,
       ];
     }
@@ -678,8 +692,8 @@ export function createMatchingService(
       algorithm_version: MATCHING_ALGORITHM_VERSION,
       student_profile_id: profile.id,
       student_source_digest: profile.source_digest,
-      student_dimension_scores: profile.dimension_scores,
-      student_skills: [...profile.skills].sort((a, b) => a.localeCompare(b)),
+      student_dimension_scores: getProfileDimensionScores(profile),
+      student_skills: [...getProfileSkillNames(profile)].sort((a, b) => a.localeCompare(b)),
       job_id: job.id,
       job_profile_version: latestJobProfile.profile_version,
       hard_skills: [...latestJobProfile.hard_skills].sort((a, b) => a.localeCompare(b)),

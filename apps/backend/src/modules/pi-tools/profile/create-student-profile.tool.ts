@@ -9,6 +9,13 @@ import type { CreateStudentProfileRequest } from "@career/contracts/types";
 
 import type { ProfileService } from "../../profile/profile.service.js";
 import { readStringParam } from "../../ai/runtime/ai-agent.utils.js";
+import {
+  getProfileCompletenessScore,
+  getProfileCompetitivenessScore,
+  getProfileMissingItems,
+  getProfileName,
+  getProfileTargetRole,
+} from "../../profile/profile.selectors.js";
 
 export type CreateStudentProfileToolContext = {
   profileService: ProfileService;
@@ -69,15 +76,37 @@ export function createStudentProfileTool(context: CreateStudentProfileToolContex
       personal_summary: Type.Optional(Type.String({ minLength: 1, description: "个人摘要" })),
     }),
     execute: async (_toolCallId, params) => {
+      const skills = readStringArray(params, "skills");
       const payload: CreateStudentProfileRequest = {
-        name: readRequiredString(params, "name"),
-        target_role: readRequiredString(params, "target_role"),
-        education_level: readStringParam(params, "education_level")?.trim(),
-        major: readStringParam(params, "major")?.trim(),
-        graduation_year: readOptionalNumber(params, "graduation_year"),
-        skills: readStringArray(params, "skills"),
-        certificates: readStringArray(params, "certificates"),
-        personal_summary: readStringParam(params, "personal_summary")?.trim(),
+        basic_info: {
+          name: readRequiredString(params, "name"),
+        },
+        preference: {
+          target_role: readRequiredString(params, "target_role"),
+          preferred_cities: [],
+          preferred_industries: [],
+        },
+        education: {
+          school: null,
+          level: readStringParam(params, "education_level")?.trim() || null,
+          major: readStringParam(params, "major")?.trim() || null,
+          graduation_year: readOptionalNumber(params, "graduation_year") || null,
+          evidence_refs: [],
+        },
+        skills: skills.map((name) => ({
+          name,
+          category: "other",
+          level: 3,
+          evidence_refs: [],
+        })),
+        certificates: readStringArray(params, "certificates").map((name) => ({
+          name,
+          issuer: null,
+          acquired_at: null,
+          evidence_refs: [],
+        })),
+        experiences: [],
+        summary: readStringParam(params, "personal_summary")?.trim(),
       };
 
       const profile = await context.profileService.createProfile(payload);
@@ -88,11 +117,11 @@ export function createStudentProfileTool(context: CreateStudentProfileToolContex
             text: JSON.stringify(
               {
                 id: profile.id,
-                name: profile.name,
-                target_role: profile.target_role,
-                completeness_score: profile.completeness_score,
-                competitiveness_score: profile.competitiveness_score,
-                missing_items: profile.missing_items,
+                name: getProfileName(profile),
+                target_role: getProfileTargetRole(profile),
+                completeness_score: getProfileCompletenessScore(profile),
+                competitiveness_score: getProfileCompetitivenessScore(profile),
+                missing_items: getProfileMissingItems(profile),
               },
               null,
               2,

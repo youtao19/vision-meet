@@ -13,12 +13,14 @@ import type {
   ReportExportListResponse,
   ReportListResponse,
   UpdateReportRequest,
+  StudentProfileRecord,
 } from "@career/contracts/types";
 
 import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { MatchingRepository } from "../matching/matching.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import { getProfileName } from "../profile/profile.selectors.js";
 import type { ReportExportRepository } from "./report-export.repository.js";
 import type { ReportExporter } from "./report.exporter.js";
 import type { ReportCareerPathContext, ReportGenerator } from "./report.generator.js";
@@ -77,7 +79,7 @@ function normalizeSectionOrder(sections: CareerReportSection[]): CareerReportSec
  */
 function renderReportMarkdown(input: {
   report: CareerReportRecord;
-  profile: { name: string };
+  profile: StudentProfileRecord;
   job: { title: string };
 }): string {
   const lines: string[] = [
@@ -85,7 +87,7 @@ function renderReportMarkdown(input: {
     "",
     `- 报告编号：#${input.report.id}`,
     `- 报告版本：V${input.report.version}`,
-    `- 学生姓名：${input.profile.name}`,
+    `- 学生姓名：${getProfileName(input.profile)}`,
     `- 目标岗位：${input.job.title}`,
     `- 综合匹配分：${input.report.total_score} 分`,
     `- 导出时间：${new Date().toLocaleString("zh-CN", { hour12: false })}`,
