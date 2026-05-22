@@ -1,0 +1,267 @@
+{
+  "job": {
+    "name": "数据分析师",
+    "category": "数据/商业分析",
+    "description": "负责数据收集、清洗、分析与可视化，辅助企业进行业务决策、用户增长与运营优化。",
+    "educationRequirements": [
+      "数据科学与大数据技术",
+      "统计学",
+      "数学",
+      "计算机科学与技术",
+      "金融学"
+    ],
+    "skills": [
+      "SQL",
+      "Python",
+      "Excel",
+      "Power BI",
+      "Tableau",
+      "数据清洗",
+      "数据分析",
+      "数据可视化",
+      "统计学",
+      "报表制作",
+      "业务分析",
+      "数据建模"
+    ],
+    "softSkills": [
+      "逻辑分析能力",
+      "沟通能力",
+      "数据敏感度",
+      "学习能力",
+      "业务理解能力",
+      "问题分析能力"
+    ],
+    "certificates": [
+      "PMP",
+      "阿里云大数据认证"
+    ],
+    "innovationAbility": "中高",
+    "learningAbility": "高",
+    "stressResistance": "中",
+    "communicationAbility": "高",
+    "internshipAbility": "建议参与数据分析项目或商业分析实习",
+    "careerPath": [
+      "初级数据分析师",
+      "高级数据分析师",
+      "数据科学家",
+      "数据产品经理",
+      "数据负责人"
+    ],
+    "subIndustries": [
+      {
+        "industry": "互联网用户增长",
+        "description": "负责用户行为分析、增长分析与产品数据运营。",
+        "representCompanies": [
+          "字节跳动",
+          "腾讯",
+          "小红书",
+          "快手"
+        ],
+        "skills": [
+          "用户画像",
+          "A/B测试",
+          "SQL",
+          "漏斗分析",
+          "留存分析",
+          "数据埋点",
+          "增长分析",
+          "Power BI"
+        ],
+        "softSkills": [
+          "沟通能力",
+          "业务理解能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "高",
+        "learningAbility": "高",
+        "stressResistance": "中高",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有用户增长分析项目经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "数据量大",
+          "强调增长",
+          "迭代速度快"
+        ],
+        "recommendedProjects": [
+          "用户增长分析平台",
+          "用户画像系统",
+          "行为分析系统"
+        ]
+      },
+      {
+        "industry": "金融数据分析",
+        "description": "负责金融数据分析、风险评估与投资数据研究。",
+        "representCompanies": [
+          "中金公司",
+          "华泰证券",
+          "同花顺",
+          "蚂蚁集团"
+        ],
+        "skills": [
+          "金融数据分析",
+          "时间序列分析",
+          "Python",
+          "统计学",
+          "SQL",
+          "风控分析",
+          "Excel",
+          "数据建模"
+        ],
+        "softSkills": [
+          "严谨性",
+          "逻辑分析能力"
+        ],
+        "certificates": [
+          "FRM",
+          "CFA"
+        ],
+        "innovationAbility": "中",
+        "learningAbility": "高",
+        "stressResistance": "高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有金融分析或券商实习经历",
+        "salaryLevel": "高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "数据敏感",
+          "强调准确性",
+          "业务规范严格"
+        ],
+        "recommendedProjects": [
+          "股票分析平台",
+          "风控分析系统",
+          "量化分析项目"
+        ]
+      },
+      {
+        "industry": "电商数据分析",
+        "description": "负责商品销售分析、用户消费分析与运营数据分析。",
+        "representCompanies": [
+          "淘宝",
+          "京东",
+          "拼多多",
+          "唯品会"
+        ],
+        "skills": [
+          "销售分析",
+          "商品分析",
+          "SQL",
+          "Excel",
+          "Tableau",
+          "运营分析",
+          "数据可视化",
+          "转化率分析"
+        ],
+        "softSkills": [
+          "数据敏感度",
+          "业务分析能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "中高",
+        "stressResistance": "中高",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有电商运营分析经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "业务变化快",
+          "强调运营指标",
+          "数据驱动明显"
+        ],
+        "recommendedProjects": [
+          "商品分析平台",
+          "销售数据看板",
+          "用户消费分析系统"
+        ]
+      },
+      {
+        "industry": "商业智能BI",
+        "description": "负责企业数据仓库、BI系统与数据报表平台开发。",
+        "representCompanies": [
+          "帆软",
+          "阿里云",
+          "华为云",
+          "用友"
+        ],
+        "skills": [
+          "数据仓库",
+          "ETL",
+          "Power BI",
+          "Tableau",
+          "数据建模",
+          "报表开发",
+          "SQL",
+          "数据治理"
+        ],
+        "softSkills": [
+          "沟通能力",
+          "需求分析能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "中高",
+        "stressResistance": "中",
+        "communicationAbility": "高",
+        "internshipAbility": "建议有BI项目或报表系统经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "偏企业服务",
+          "强调数据规范",
+          "稳定性要求高"
+        ],
+        "recommendedProjects": [
+          "BI平台",
+          "企业数据仓库",
+          "报表分析系统"
+        ]
+      },
+      {
+        "industry": "AI数据分析",
+        "description": "负责AI模型数据分析、训练数据处理与模型效果评估。",
+        "representCompanies": [
+          "DeepSeek",
+          "百度AI",
+          "商汤科技",
+          "字节AI"
+        ],
+        "skills": [
+          "Python",
+          "数据标注",
+          "模型评测",
+          "Prompt分析",
+          "数据清洗",
+          "机器学习基础",
+          "SQL",
+          "AI数据处理"
+        ],
+        "softSkills": [
+          "学习能力",
+          "创新能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "高",
+        "learningAbility": "极高",
+        "stressResistance": "中",
+        "communicationAbility": "中",
+        "internshipAbility": "建议参与AI数据分析项目",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "技术变化快",
+          "数据规模大",
+          "AI驱动明显"
+        ],
+        "recommendedProjects": [
+          "模型评测平台",
+          "AI数据分析系统",
+          "Prompt分析工具"
+        ]
+      }
+    ]
+  }
+}

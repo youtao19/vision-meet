@@ -1,0 +1,274 @@
+{
+  "job": {
+    "name": "Python开发工程师",
+    "category": "计算机/软件开发",
+    "description": "负责使用Python进行后端服务开发、数据处理、自动化脚本、AI应用开发与系统工具建设。",
+    "educationRequirements": [
+      "计算机科学与技术",
+      "软件工程",
+      "数据科学与大数据技术",
+      "人工智能",
+      "信息管理与信息系统"
+    ],
+    "skills": [
+      "Python",
+      "FastAPI",
+      "Flask",
+      "Django",
+      "SQL",
+      "MySQL",
+      "PostgreSQL",
+      "Redis",
+      "Linux",
+      "Git",
+      "Docker",
+      "RESTful API",
+      "异步编程",
+      "爬虫基础",
+      "数据处理",
+      "单元测试"
+    ],
+    "softSkills": [
+      "逻辑思维",
+      "学习能力",
+      "问题排查能力",
+      "代码规范意识",
+      "沟通能力",
+      "团队协作能力"
+    ],
+    "certificates": [
+      "Python Institute PCEP",
+      "Python Institute PCAP",
+      "软考中级"
+    ],
+    "innovationAbility": "高",
+    "learningAbility": "高",
+    "stressResistance": "中",
+    "communicationAbility": "中",
+    "internshipAbility": "建议参与Python后端、自动化工具、数据处理或AI应用项目",
+    "careerPath": [
+      "Python开发工程师",
+      "高级Python开发工程师",
+      "后端开发工程师",
+      "AI应用开发工程师",
+      "技术负责人"
+    ],
+    "subIndustries": [
+      {
+        "industry": "Web后端开发",
+        "description": "负责使用Python开发Web服务、接口系统与后台业务逻辑。",
+        "representCompanies": [
+          "字节跳动",
+          "腾讯",
+          "美团",
+          "知乎"
+        ],
+        "skills": [
+          "FastAPI",
+          "Flask",
+          "Django",
+          "RESTful API",
+          "JWT",
+          "ORM",
+          "数据库设计",
+          "接口文档",
+          "异步任务"
+        ],
+        "softSkills": [
+          "沟通能力",
+          "问题排查能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中高",
+        "learningAbility": "高",
+        "stressResistance": "中",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有完整Python Web项目经验",
+        "salaryLevel": "高",
+        "overtimeLevel": "中高",
+        "industryFeatures": [
+          "开发效率高",
+          "适合快速迭代",
+          "业务场景广"
+        ],
+        "recommendedProjects": [
+          "FastAPI后台系统",
+          "博客系统",
+          "权限管理系统"
+        ]
+      },
+      {
+        "industry": "AI应用开发",
+        "description": "负责AI助手、Agent系统、RAG知识库与大模型应用开发。",
+        "representCompanies": [
+          "DeepSeek",
+          "月之暗面",
+          "百度AI",
+          "字节跳动AI"
+        ],
+        "skills": [
+          "LLM API",
+          "Prompt Engineering",
+          "RAG",
+          "Agent",
+          "LangChain",
+          "向量数据库",
+          "SSE流式输出",
+          "FastAPI",
+          "异步任务"
+        ],
+        "softSkills": [
+          "创新能力",
+          "学习能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "极高",
+        "learningAbility": "极高",
+        "stressResistance": "中高",
+        "communicationAbility": "中高",
+        "internshipAbility": "建议有AI应用或Agent项目经验",
+        "salaryLevel": "极高",
+        "overtimeLevel": "高",
+        "industryFeatures": [
+          "技术更新极快",
+          "创新密集",
+          "Python生态强"
+        ],
+        "recommendedProjects": [
+          "AI聊天助手",
+          "RAG知识库",
+          "Agent工作流平台"
+        ]
+      },
+      {
+        "industry": "数据处理与分析",
+        "description": "负责数据清洗、数据分析、报表生成与业务数据处理。",
+        "representCompanies": [
+          "阿里巴巴",
+          "京东",
+          "小红书",
+          "同花顺"
+        ],
+        "skills": [
+          "Pandas",
+          "NumPy",
+          "SQL",
+          "Matplotlib",
+          "数据清洗",
+          "数据可视化",
+          "Excel自动化",
+          "统计分析",
+          "ETL"
+        ],
+        "softSkills": [
+          "数据敏感度",
+          "逻辑分析能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "高",
+        "stressResistance": "中",
+        "communicationAbility": "中高",
+        "internshipAbility": "建议有数据分析或数据清洗项目经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "业务驱动明显",
+          "强调数据准确性",
+          "适合跨行业就业"
+        ],
+        "recommendedProjects": [
+          "销售数据分析系统",
+          "用户行为分析工具",
+          "自动报表生成工具"
+        ]
+      },
+      {
+        "industry": "自动化脚本与效率工具",
+        "description": "负责办公自动化、流程自动化、批处理脚本与内部效率工具开发。",
+        "representCompanies": [
+          "华为",
+          "阿里云",
+          "用友",
+          "金蝶"
+        ],
+        "skills": [
+          "Python脚本",
+          "文件处理",
+          "Excel自动化",
+          "接口调用",
+          "定时任务",
+          "爬虫",
+          "日志处理",
+          "自动化测试",
+          "Shell基础"
+        ],
+        "softSkills": [
+          "问题拆解能力",
+          "业务理解能力"
+        ],
+        "certificates": [],
+        "innovationAbility": "中高",
+        "learningAbility": "高",
+        "stressResistance": "中",
+        "communicationAbility": "中高",
+        "internshipAbility": "建议有自动化工具或脚本项目经验",
+        "salaryLevel": "中",
+        "overtimeLevel": "低中",
+        "industryFeatures": [
+          "落地快",
+          "提效明显",
+          "适合中小企业和内部系统"
+        ],
+        "recommendedProjects": [
+          "Excel自动处理工具",
+          "批量文件处理工具",
+          "自动登录与数据采集工具"
+        ]
+      },
+      {
+        "industry": "爬虫与数据采集",
+        "description": "负责公开数据采集、网页解析、反爬处理与数据入库。",
+        "representCompanies": [
+          "企查查",
+          "天眼查",
+          "同花顺",
+          "东方财富"
+        ],
+        "skills": [
+          "Requests",
+          "BeautifulSoup",
+          "Scrapy",
+          "Selenium",
+          "Playwright",
+          "反爬策略",
+          "代理IP",
+          "数据清洗",
+          "数据入库"
+        ],
+        "softSkills": [
+          "问题排查能力",
+          "耐心"
+        ],
+        "certificates": [],
+        "innovationAbility": "中",
+        "learningAbility": "高",
+        "stressResistance": "中高",
+        "communicationAbility": "中",
+        "internshipAbility": "建议有合规数据采集项目经验",
+        "salaryLevel": "中高",
+        "overtimeLevel": "中",
+        "industryFeatures": [
+          "数据来源复杂",
+          "维护成本较高",
+          "需要注意合规边界"
+        ],
+        "recommendedProjects": [
+          "招聘数据采集系统",
+          "商品价格监控工具",
+          "新闻数据采集平台"
+        ]
+      }
+    ]
+  }
+}

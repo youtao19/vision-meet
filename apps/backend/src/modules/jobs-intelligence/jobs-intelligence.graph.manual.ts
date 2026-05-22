@@ -35,6 +35,13 @@ type AgentJudgement = {
   score: number;
 };
 
+type ConfirmedTransitionPath = {
+  source: string;
+  target: string;
+  reason: string;
+  score: number;
+};
+
 export type ManualCareerGraphBuildOptions = {
   maxCandidatesPerNode: number;
   minTransitionPathsPerJob: number;
@@ -54,6 +61,255 @@ export type ManualCareerGraphBuildResult = {
 };
 
 const GRAPH_VERSION = "v2.2-manual";
+
+const CONFIRMED_TRANSITION_PATHS: ConfirmedTransitionPath[] = [
+  {
+    source: "AI算法工程师",
+    target: "Python开发工程师",
+    reason: "Python、API 开发、Linux、Docker 能力可复用，可转向 Python 工程开发。",
+    score: 78,
+  },
+  {
+    source: "AI算法工程师",
+    target: "数据分析师",
+    reason: "Python、数据处理、统计建模能力可复用，可转向数据分析方向。",
+    score: 76,
+  },
+  {
+    source: "AI算法工程师",
+    target: "产品经理",
+    reason: "适合转向 AI 产品方向，但需要补需求分析、PRD 和用户调研能力。",
+    score: 58,
+  },
+  {
+    source: "Java后端开发工程师",
+    target: "Python开发工程师",
+    reason: "后端服务、数据库、接口开发、Linux、Docker 能力可复用。",
+    score: 82,
+  },
+  {
+    source: "Java后端开发工程师",
+    target: "运维工程师",
+    reason: "Linux、Docker、Redis、MySQL 和系统部署经验可复用。",
+    score: 74,
+  },
+  {
+    source: "Java后端开发工程师",
+    target: "测试开发工程师",
+    reason: "Java、接口理解、自动化和问题排查能力可复用。",
+    score: 72,
+  },
+  {
+    source: "Java后端开发工程师",
+    target: "网络安全工程师",
+    reason: "Web、接口、日志、权限和安全开发经验可迁移。",
+    score: 66,
+  },
+  {
+    source: "Python开发工程师",
+    target: "AI算法工程师",
+    reason: "Python、数据处理和 AI 应用基础可复用。",
+    score: 78,
+  },
+  {
+    source: "Python开发工程师",
+    target: "数据分析师",
+    reason: "Python、SQL、数据处理能力可复用。",
+    score: 82,
+  },
+  {
+    source: "Python开发工程师",
+    target: "Java后端开发工程师",
+    reason: "后端服务、数据库、接口、Redis、Docker 能力可复用。",
+    score: 76,
+  },
+  {
+    source: "Python开发工程师",
+    target: "测试开发工程师",
+    reason: "Python、接口测试、自动化脚本能力可复用。",
+    score: 74,
+  },
+  {
+    source: "Python开发工程师",
+    target: "运维工程师",
+    reason: "Linux、Docker、脚本和服务部署能力可复用。",
+    score: 70,
+  },
+  {
+    source: "UI/UX设计师",
+    target: "产品经理",
+    reason: "用户调研、原型设计、Figma 和流程设计能力可复用。",
+    score: 84,
+  },
+  {
+    source: "UI/UX设计师",
+    target: "前端开发工程师",
+    reason: "界面设计和交互理解可复用，但需要补 HTML、CSS、JavaScript。",
+    score: 62,
+  },
+  {
+    source: "UI/UX设计师",
+    target: "数据分析师",
+    reason: "用户体验分析能力可迁移，但需要补 SQL、Python 和统计分析。",
+    score: 50,
+  },
+  {
+    source: "产品经理",
+    target: "UI/UX设计师",
+    reason: "用户调研、原型、Figma 和交互设计能力可复用。",
+    score: 80,
+  },
+  {
+    source: "产品经理",
+    target: "数据分析师",
+    reason: "数据分析、指标理解和业务分析能力可复用。",
+    score: 72,
+  },
+  {
+    source: "产品经理",
+    target: "前端开发工程师",
+    reason: "产品原型和交互理解可复用，但需要补前端开发能力。",
+    score: 54,
+  },
+  {
+    source: "产品经理",
+    target: "AI算法工程师",
+    reason: "不建议直接转算法，更适合作为 AI 产品方向延伸。",
+    score: 42,
+  },
+  {
+    source: "前端开发工程师",
+    target: "UI/UX设计师",
+    reason: "界面、交互、组件体验理解可复用。",
+    score: 72,
+  },
+  {
+    source: "前端开发工程师",
+    target: "产品经理",
+    reason: "用户界面、业务流程和需求理解可复用。",
+    score: 68,
+  },
+  {
+    source: "前端开发工程师",
+    target: "Java后端开发工程师",
+    reason: "接口、工程化、Git 和业务系统经验可复用。",
+    score: 62,
+  },
+  {
+    source: "前端开发工程师",
+    target: "Python开发工程师",
+    reason: "Web 开发理解可复用，但需要补 Python 后端能力。",
+    score: 58,
+  },
+  {
+    source: "前端开发工程师",
+    target: "测试开发工程师",
+    reason: "Jest、Playwright 和前端自动化测试经验可复用。",
+    score: 74,
+  },
+  {
+    source: "数据分析师",
+    target: "Python开发工程师",
+    reason: "Python、SQL 和数据处理能力可复用。",
+    score: 78,
+  },
+  {
+    source: "数据分析师",
+    target: "AI算法工程师",
+    reason: "Python、数据处理和统计学能力可复用。",
+    score: 72,
+  },
+  {
+    source: "数据分析师",
+    target: "产品经理",
+    reason: "业务分析、指标体系和用户洞察能力可复用。",
+    score: 76,
+  },
+  {
+    source: "数据分析师",
+    target: "UI/UX设计师",
+    reason: "用户数据分析能力可迁移，但需要补设计工具和设计表达。",
+    score: 52,
+  },
+  {
+    source: "测试开发工程师",
+    target: "Python开发工程师",
+    reason: "Python、接口和自动化脚本能力可复用。",
+    score: 78,
+  },
+  {
+    source: "测试开发工程师",
+    target: "Java后端开发工程师",
+    reason: "Java、接口测试和系统理解能力可复用。",
+    score: 70,
+  },
+  {
+    source: "测试开发工程师",
+    target: "运维工程师",
+    reason: "Linux、CI/CD、问题排查和自动化能力可复用。",
+    score: 76,
+  },
+  {
+    source: "测试开发工程师",
+    target: "网络安全工程师",
+    reason: "漏洞验证、接口测试和日志分析能力可迁移。",
+    score: 68,
+  },
+  {
+    source: "测试开发工程师",
+    target: "前端开发工程师",
+    reason: "Jest、Playwright 和前端测试经验可复用。",
+    score: 68,
+  },
+  {
+    source: "网络安全工程师",
+    target: "运维工程师",
+    reason: "Linux、安全加固、日志、网络和权限能力可复用。",
+    score: 80,
+  },
+  {
+    source: "网络安全工程师",
+    target: "测试开发工程师",
+    reason: "漏洞分析、接口测试和问题定位能力可复用。",
+    score: 72,
+  },
+  {
+    source: "网络安全工程师",
+    target: "Java后端开发工程师",
+    reason: "Web 安全、权限、日志和接口理解可迁移。",
+    score: 64,
+  },
+  {
+    source: "网络安全工程师",
+    target: "Python开发工程师",
+    reason: "Python、脚本、自动化和安全工具开发能力可复用。",
+    score: 72,
+  },
+  {
+    source: "运维工程师",
+    target: "网络安全工程师",
+    reason: "Linux、安全加固、日志、网络和权限能力可复用。",
+    score: 78,
+  },
+  {
+    source: "运维工程师",
+    target: "Python开发工程师",
+    reason: "Shell、自动化和服务部署经验可迁移到 Python 工具开发。",
+    score: 70,
+  },
+  {
+    source: "运维工程师",
+    target: "Java后端开发工程师",
+    reason: "部署、数据库、中间件和服务治理经验可迁移。",
+    score: 62,
+  },
+  {
+    source: "运维工程师",
+    target: "测试开发工程师",
+    reason: "CI/CD、自动化、环境治理和问题排查能力可复用。",
+    score: 74,
+  },
+];
 
 function normalizeText(input: string): string {
   return input.trim().toLowerCase().replace(/\s+/g, " ");
@@ -97,31 +353,44 @@ function clampLevel(value: number): number {
   return Math.max(1, Math.min(5, Math.round(value)));
 }
 
+function textLevelToNumber(value: string): number {
+  if (value.includes("极高")) return 5;
+  if (value.includes("高")) return 4;
+  if (value.includes("中")) return 3;
+  if (value.includes("低")) return 2;
+  return 3;
+}
+
 function resolvePortraitLevel(item: ManualJobPortraitRecord): number {
+  const detail = item.profile_detail;
   const weighted =
-    item.skills.level * 0.32 +
-    item.certification.level * 0.08 +
-    item.innovation.level * 0.12 +
-    item.learning.level * 0.12 +
-    item.stress.level * 0.1 +
-    item.communication.level * 0.14 +
-    item.experience.level * 0.12;
+    textLevelToNumber(detail.learningAbility) * 0.25 +
+    textLevelToNumber(detail.innovationAbility) * 0.2 +
+    textLevelToNumber(detail.stressResistance) * 0.2 +
+    textLevelToNumber(detail.communicationAbility) * 0.15 +
+    Math.min(5, Math.max(1, Math.ceil(detail.skills.length / 4))) * 0.2;
 
   return clampLevel(weighted);
 }
 
 function buildNodeSkills(item: ManualJobPortraitRecord): string[] {
+  const detail = item.profile_detail;
   const tokens = tokenize(
     [
       item.job_name,
       item.category,
-      item.skills.description,
-      item.certification.description,
-      item.innovation.description,
-      item.learning.description,
-      item.stress.description,
-      item.communication.description,
-      item.experience.description,
+      detail.description,
+      detail.internshipAbility,
+      ...detail.skills,
+      ...detail.softSkills,
+      ...detail.certificates,
+      ...detail.subIndustries.flatMap((subIndustry) => [
+        subIndustry.industry,
+        subIndustry.description,
+        ...subIndustry.skills,
+        ...subIndustry.industryFeatures,
+        ...subIndustry.recommendedProjects,
+      ]),
     ].join(" "),
   );
 
@@ -133,13 +402,16 @@ function toGraphNode(
   jobIdByTitle: Map<string, number>,
 ): ManualGraphNode {
   const resolvedJobId =
-    jobIdByTitle.get(normalizeText(item.job_name)) ?? stableJobIdFromName(item.job_name);
+    item.job_id ??
+    jobIdByTitle.get(normalizeText(item.job_name)) ??
+    stableJobIdFromName(item.job_name);
+  const detail = item.profile_detail;
 
   const summary = [
     `岗位族：${item.category}`,
-    `技能要求：${item.skills.description}`,
-    `证书要求：${item.certification.description}`,
-    `经验要求：${item.experience.description}`,
+    `岗位描述：${detail.description}`,
+    `核心技能：${detail.skills.slice(0, 8).join("、")}`,
+    `子行业：${detail.subIndustries.map((subIndustry) => subIndustry.industry).join("、")}`,
   ].join("；");
 
   return {
@@ -151,6 +423,113 @@ function toGraphNode(
     skills: buildNodeSkills(item),
     summary,
   };
+}
+
+function titleKey(title: string): string {
+  return normalizeText(title).replace(/\s+/g, "");
+}
+
+function uniqueByTitle(items: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of items) {
+    const trimmed = item.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const key = titleKey(trimmed);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(trimmed);
+  }
+  return result;
+}
+
+function buildNodeIndex(nodes: ManualGraphNode[]): Map<string, ManualGraphNode> {
+  const map = new Map<string, ManualGraphNode>();
+  for (const node of nodes) {
+    map.set(titleKey(node.title), node);
+  }
+  return map;
+}
+
+function buildPromotionGapSkills(source: ManualGraphNode, target: ManualGraphNode): string[] {
+  const sourceSkillSet = new Set(source.skills.map((item) => normalizeText(item)));
+  const gapSkills = target.skills.filter((item) => !sourceSkillSet.has(normalizeText(item)));
+  if (gapSkills.length > 0) {
+    return uniqueLimited(gapSkills, 8);
+  }
+
+  return uniqueLimited(["复杂项目经验", "系统设计能力", "跨团队协作"], 8);
+}
+
+function buildConfirmedPromotionPaths(params: {
+  baseNodes: ManualGraphNode[];
+  portraits: ManualJobPortraitRecord[];
+}): {
+  nodes: ManualGraphNode[];
+  edges: CareerGraphEdgeRecord[];
+} {
+  const nodes = [...params.baseNodes];
+  const nodeByTitle = buildNodeIndex(nodes);
+  const edges: CareerGraphEdgeRecord[] = [];
+
+  for (const portrait of params.portraits) {
+    const source = nodeByTitle.get(titleKey(portrait.job_name));
+    if (!source) {
+      continue;
+    }
+
+    const pathSteps = uniqueByTitle(portrait.profile_detail.careerPath);
+    const sourceIndex = pathSteps.findIndex((step) => titleKey(step) === titleKey(source.title));
+    const promotionSteps = sourceIndex >= 0 ? pathSteps.slice(sourceIndex + 1) : pathSteps;
+    let previous = source;
+    for (const [index, step] of promotionSteps.entries()) {
+      if (titleKey(step) === titleKey(previous.title)) {
+        continue;
+      }
+
+      let target = nodeByTitle.get(titleKey(step));
+      if (!target) {
+        const virtualJobId = stableJobIdFromName(
+          `career-path:${portrait.job_name}:${index}:${step}`,
+        );
+        target = {
+          id: `job-${virtualJobId}`,
+          job_id: virtualJobId,
+          title: step,
+          family: source.family,
+          level: clampLevel(index + 1),
+          skills: source.skills,
+          summary: `${source.title}的晋升阶段：${step}`,
+        };
+        nodes.push(target);
+        nodeByTitle.set(titleKey(step), target);
+      }
+
+      if (previous.id !== target.id) {
+        const gapSkills = buildPromotionGapSkills(previous, target);
+        edges.push({
+          id: `promotion-${previous.job_id}-${target.job_id}`,
+          source: previous.id,
+          target: target.id,
+          relation_type: "promotion",
+          reason: `岗位画像确认路径：${previous.title} 进阶到 ${target.title}。`,
+          required_skills: uniqueLimited(target.skills, 8),
+          gap_skills: gapSkills,
+          transition_cost: resolveTransitionCost(gapSkills.length),
+          direction_label: relationLabel("promotion"),
+          score: Math.max(65, 90 - index * 3),
+        });
+      }
+
+      previous = target;
+    }
+  }
+
+  return { nodes, edges };
 }
 
 function compareSkills(
@@ -220,6 +599,36 @@ function buildCandidatePairs(nodes: ManualGraphNode[], maxPerNode: number): Cand
   }
 
   return candidates;
+}
+
+function buildConfirmedTransitionEdges(nodes: ManualGraphNode[]): CareerGraphEdgeRecord[] {
+  const nodeByTitle = buildNodeIndex(nodes);
+  const edges: CareerGraphEdgeRecord[] = [];
+
+  for (const path of CONFIRMED_TRANSITION_PATHS) {
+    const source = nodeByTitle.get(titleKey(path.source));
+    const target = nodeByTitle.get(titleKey(path.target));
+    if (!source || !target || source.id === target.id) {
+      continue;
+    }
+
+    const similarity = compareSkills(source.skills, target.skills);
+    const gapSkills = uniqueLimited(similarity.gapSkills, 8);
+    edges.push({
+      id: `transition-${source.job_id}-${target.job_id}`,
+      source: source.id,
+      target: target.id,
+      relation_type: "transition",
+      reason: path.reason,
+      required_skills: uniqueLimited(target.skills, 8),
+      gap_skills: gapSkills,
+      transition_cost: resolveTransitionCost(gapSkills.length),
+      direction_label: relationLabel("transition"),
+      score: path.score,
+    });
+  }
+
+  return edges;
 }
 
 /**
@@ -422,8 +831,13 @@ export function buildCareerGraphFromManualPortraits(params: {
   options: ManualCareerGraphBuildOptions;
 }): ManualCareerGraphBuildResult {
   const generatedAt = new Date().toISOString();
-  const nodes = params.portraits.map((item) => toGraphNode(item, params.jobIdByTitle));
-  const candidatePairs = buildCandidatePairs(nodes, params.options.maxCandidatesPerNode);
+  const baseNodes = params.portraits.map((item) => toGraphNode(item, params.jobIdByTitle));
+  const promotionGraph = buildConfirmedPromotionPaths({
+    baseNodes,
+    portraits: params.portraits,
+  });
+  const nodes = promotionGraph.nodes;
+  const candidatePairs = buildCandidatePairs(baseNodes, params.options.maxCandidatesPerNode);
 
   const edgesFromAgent: CareerGraphEdgeRecord[] = [];
   for (const candidate of candidatePairs) {
@@ -444,8 +858,10 @@ export function buildCareerGraphFromManualPortraits(params: {
     }
   }
 
+  const confirmedTransitionEdges = buildConfirmedTransitionEdges(baseNodes);
+
   const supplemented = supplementTransitionCoverage({
-    nodes,
+    nodes: baseNodes,
     existingEdges: edgesFromAgent,
     candidatePairs,
     minTransitionPathsPerJob: params.options.minTransitionPathsPerJob,
@@ -458,7 +874,9 @@ export function buildCareerGraphFromManualPortraits(params: {
   });
 
   const dedupedEdges = keepBestEdges([
+    ...promotionGraph.edges,
     ...edgesFromAgent,
+    ...confirmedTransitionEdges,
     ...supplemented,
     ...isolationSupplemented,
   ]);

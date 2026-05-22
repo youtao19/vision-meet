@@ -30,6 +30,12 @@ export type ManualJobPortraitUpsertInput = Omit<
   "created_at" | "updated_at"
 >;
 
+type AgentJobPortraitDimensionInput = {
+  level: number;
+  weight: number;
+  description: string;
+};
+
 export type PipelineFailureCreateInput = {
   task_id: number;
   job_id: number;
@@ -80,10 +86,17 @@ export type PipelineCleanedJobCreateInput = {
   source_payload: Record<string, unknown>;
 };
 
-export type AgentJobPortraitUpsertInput = Omit<
-  ManualJobPortraitRecord,
-  "created_at" | "updated_at"
->;
+export type AgentJobPortraitUpsertInput = {
+  job_name: string;
+  category: string;
+  skills: AgentJobPortraitDimensionInput;
+  certification: AgentJobPortraitDimensionInput;
+  innovation: AgentJobPortraitDimensionInput;
+  learning: AgentJobPortraitDimensionInput;
+  stress: AgentJobPortraitDimensionInput;
+  communication: AgentJobPortraitDimensionInput;
+  experience: AgentJobPortraitDimensionInput;
+};
 
 export type ManualJobPortraitComicUpdateInput = {
   job_name: string;

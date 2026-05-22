@@ -175,11 +175,13 @@ function mapCanonicalRole(row: Record<string, unknown>): CanonicalRoleRecord {
 
 function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRecord {
   const payload = (row.payload as Record<string, unknown> | null) ?? {};
+  const profileDetail = payload.profile_detail;
+  if (!profileDetail || typeof profileDetail !== "object") {
+    throw new Error(`MANUAL_JOB_PORTRAIT_PROFILE_DETAIL_MISSING:${String(row.job_name)}`);
+  }
   const fallbackId = row.fallback_job_id == null ? null : Number(row.fallback_job_id);
   const resolvedId = row.job_id == null ? fallbackId : Number(row.job_id);
   return {
-    // 这里必须只返回真实 jobs.id。图谱生成可以使用稳定伪 ID，但 HTTP 画像列表会被匹配/Agent 入口复用；
-    // 若把 hash 伪 ID 暴露给前端，写入 ai_tasks 时会违反 job_id 外键。
     job_id: resolvedId,
     job_name: String(row.job_name),
     category: String(row.category),
@@ -191,13 +193,7 @@ function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRe
       typeof payload.comic_generated_at === "string" && payload.comic_generated_at.trim()
         ? payload.comic_generated_at
         : null,
-    skills: payload.skills as ManualJobPortraitRecord["skills"],
-    certification: payload.certification as ManualJobPortraitRecord["certification"],
-    innovation: payload.innovation as ManualJobPortraitRecord["innovation"],
-    learning: payload.learning as ManualJobPortraitRecord["learning"],
-    stress: payload.stress as ManualJobPortraitRecord["stress"],
-    communication: payload.communication as ManualJobPortraitRecord["communication"],
-    experience: payload.experience as ManualJobPortraitRecord["experience"],
+    profile_detail: profileDetail as ManualJobPortraitRecord["profile_detail"],
     created_at: new Date(String(row.created_at)).toISOString(),
     updated_at: new Date(String(row.updated_at)).toISOString(),
   };
@@ -1403,13 +1399,9 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
 
       for (const item of input) {
         const payload = {
-          skills: item.skills,
-          certification: item.certification,
-          innovation: item.innovation,
-          learning: item.learning,
-          stress: item.stress,
-          communication: item.communication,
-          experience: item.experience,
+          profile_detail: item.profile_detail,
+          comic_image_url: item.comic_image_url ?? null,
+          comic_generated_at: item.comic_generated_at ?? null,
         };
 
         await client.query(

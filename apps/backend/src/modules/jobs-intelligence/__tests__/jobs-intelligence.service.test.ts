@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 
 import type {
   JobFactsListResponse,
+  ManualJobPortraitRecord,
   JobPipelineTaskRecord,
   JobProfileV2Record,
   JobRecord,
@@ -55,6 +56,56 @@ function buildEnv(): AppEnv {
     JOBS_PIPELINE_RETRY_MAX_ATTEMPTS: 3,
     JOBS_PIPELINE_RETRY_BASE_MS: 100,
     JOBS_PIPELINE_RETRY_MAX_MS: 500,
+  };
+}
+
+function buildManualPortrait(
+  jobName: string,
+  category: string,
+  skills: string[],
+  input: Partial<ManualJobPortraitRecord> = {},
+): ManualJobPortraitRecord {
+  const now = new Date().toISOString();
+  return {
+    job_id: input.job_id ?? null,
+    job_name: jobName,
+    category,
+    profile_detail: {
+      name: jobName,
+      category,
+      description: `${jobName}岗位画像`,
+      educationRequirements: ["计算机相关专业"],
+      skills,
+      softSkills: ["沟通能力", "协作能力"],
+      certificates: ["软考中级"],
+      innovationAbility: "中高",
+      learningAbility: "高",
+      stressResistance: "中",
+      communicationAbility: "高",
+      internshipAbility: "建议有项目经验",
+      careerPath: [jobName, `高级${jobName}`],
+      subIndustries: [
+        {
+          industry: `${jobName}方向`,
+          description: `${jobName}子行业`,
+          representCompanies: ["示例公司"],
+          skills,
+          softSkills: ["沟通能力"],
+          certificates: [],
+          innovationAbility: "中高",
+          learningAbility: "高",
+          stressResistance: "中",
+          communicationAbility: "高",
+          internshipAbility: "建议有项目经验",
+          salaryLevel: "高",
+          overtimeLevel: "中",
+          industryFeatures: ["迭代快"],
+          recommendedProjects: ["业务系统"],
+        },
+      ],
+    },
+    created_at: input.created_at ?? now,
+    updated_at: input.updated_at ?? now,
   };
 }
 
@@ -1906,6 +1957,8 @@ test("processPipelineRetryQueue: 可重试失败应重新排队为 pending", asy
 test("generateCareerPathGraph: 应从 v2_manual_job_portraits 生成并写入图谱", async () => {
   let syncedSnapshotNodes = 0;
   let syncedSnapshotEdges = 0;
+  let syncedEdgeIds: string[] = [];
+  let syncedNodeTitles: string[] = [];
 
   const repository: JobsIntelligenceRepository = {
     async createPipelineTask() {
@@ -1961,71 +2014,35 @@ test("generateCareerPathGraph: 应从 v2_manual_job_portraits 生成并写入图
     async listManualJobPortraitsFromTable() {
       const now = new Date().toISOString();
       return [
-        {
-          job_name: "前端开发工程师",
-          category: "frontend_engineering",
-          skills: { level: 3, weight: 0.2, description: "typescript vue" },
-          certification: { level: 2, weight: 0.1, description: "前端工程化" },
-          innovation: { level: 3, weight: 0.14, description: "交互优化" },
-          learning: { level: 3, weight: 0.14, description: "技术学习" },
-          stress: { level: 3, weight: 0.14, description: "项目节奏" },
-          communication: { level: 3, weight: 0.14, description: "跨团队协作" },
-          experience: { level: 3, weight: 0.14, description: "中型项目经验" },
+        buildManualPortrait(
+          "前端开发工程师",
+          "frontend_engineering",
+          ["typescript", "vue", "playwright"],
+          {
+            created_at: now,
+            updated_at: now,
+          },
+        ),
+        buildManualPortrait(
+          "前端高级工程师",
+          "frontend_engineering",
+          ["typescript", "node", "架构"],
+          { created_at: now, updated_at: now },
+        ),
+        buildManualPortrait("后端开发工程师", "backend_engineering", ["node", "typescript", "api"], {
           created_at: now,
           updated_at: now,
-        },
-        {
-          job_name: "前端高级工程师",
-          category: "frontend_engineering",
-          skills: { level: 4, weight: 0.2, description: "typescript node 架构" },
-          certification: { level: 2, weight: 0.1, description: "性能优化" },
-          innovation: { level: 4, weight: 0.14, description: "架构演进" },
-          learning: { level: 3, weight: 0.14, description: "技术学习" },
-          stress: { level: 3, weight: 0.14, description: "项目节奏" },
-          communication: { level: 4, weight: 0.14, description: "跨团队协作" },
-          experience: { level: 4, weight: 0.14, description: "复杂项目经验" },
+        }),
+        buildManualPortrait(
+          "测试开发工程师",
+          "quality_engineering",
+          ["typescript", "自动化", "测试", "playwright"],
+          { created_at: now, updated_at: now },
+        ),
+        buildManualPortrait("产品经理", "product_management", ["需求分析", "沟通", "协作"], {
           created_at: now,
           updated_at: now,
-        },
-        {
-          job_name: "后端开发工程师",
-          category: "backend_engineering",
-          skills: { level: 3, weight: 0.2, description: "node typescript api" },
-          certification: { level: 2, weight: 0.1, description: "服务治理" },
-          innovation: { level: 3, weight: 0.14, description: "架构优化" },
-          learning: { level: 3, weight: 0.14, description: "技术学习" },
-          stress: { level: 3, weight: 0.14, description: "线上稳定性" },
-          communication: { level: 3, weight: 0.14, description: "跨团队协作" },
-          experience: { level: 3, weight: 0.14, description: "中型项目经验" },
-          created_at: now,
-          updated_at: now,
-        },
-        {
-          job_name: "测试开发工程师",
-          category: "quality_engineering",
-          skills: { level: 3, weight: 0.2, description: "typescript 自动化 测试" },
-          certification: { level: 2, weight: 0.1, description: "质量体系" },
-          innovation: { level: 3, weight: 0.14, description: "流程优化" },
-          learning: { level: 3, weight: 0.14, description: "技术学习" },
-          stress: { level: 3, weight: 0.14, description: "项目节奏" },
-          communication: { level: 3, weight: 0.14, description: "跨团队协作" },
-          experience: { level: 3, weight: 0.14, description: "中型项目经验" },
-          created_at: now,
-          updated_at: now,
-        },
-        {
-          job_name: "产品经理",
-          category: "product_management",
-          skills: { level: 3, weight: 0.2, description: "需求分析 沟通 协作" },
-          certification: { level: 2, weight: 0.1, description: "产品方法论" },
-          innovation: { level: 3, weight: 0.14, description: "方案设计" },
-          learning: { level: 3, weight: 0.14, description: "业务学习" },
-          stress: { level: 3, weight: 0.14, description: "项目节奏" },
-          communication: { level: 4, weight: 0.14, description: "跨团队协作" },
-          experience: { level: 3, weight: 0.14, description: "项目经验" },
-          created_at: now,
-          updated_at: now,
-        },
+        }),
       ];
     },
     async getLatestProfileByJobId() {
@@ -2049,6 +2066,8 @@ test("generateCareerPathGraph: 应从 v2_manual_job_portraits 生成并写入图
     async syncGraph(snapshot) {
       syncedSnapshotNodes = snapshot.nodes.length;
       syncedSnapshotEdges = snapshot.edges.length;
+      syncedNodeTitles = snapshot.nodes.map((node) => node.title);
+      syncedEdgeIds = snapshot.edges.map((edge) => edge.id);
       return { nodes_upserted: snapshot.nodes.length, edges_upserted: snapshot.edges.length };
     },
     async getSubgraphByJobId() {
@@ -2070,6 +2089,9 @@ test("generateCareerPathGraph: 应从 v2_manual_job_portraits 生成并写入图
   assert.ok(result.nodes_written >= 5);
   assert.ok(result.edges_written > 0);
   assert.ok(result.transition_edges + result.skill_migration_edges > 0);
+  assert.ok(syncedNodeTitles.includes("高级前端开发工程师"));
+  assert.ok(syncedEdgeIds.some((id) => id.startsWith("promotion-")));
+  assert.ok(syncedEdgeIds.some((id) => id.startsWith("transition-")));
 });
 
 test("generateCareerPathGraph: 岗位 ID 映射应优先使用岗位画像表中的 job_id", async () => {
@@ -2129,34 +2151,17 @@ test("generateCareerPathGraph: 岗位 ID 映射应优先使用岗位画像表中
     async listManualJobPortraitsFromTable() {
       const now = new Date().toISOString();
       return [
-        {
+        buildManualPortrait("前端开发工程师", "frontend_engineering", ["typescript", "vue"], {
           job_id: 8888,
-          job_name: "前端开发工程师",
-          category: "frontend_engineering",
-          skills: { level: 3, weight: 0.2, description: "typescript vue" },
-          certification: { level: 2, weight: 0.1, description: "前端工程化" },
-          innovation: { level: 3, weight: 0.14, description: "交互优化" },
-          learning: { level: 3, weight: 0.14, description: "技术学习" },
-          stress: { level: 3, weight: 0.14, description: "项目节奏" },
-          communication: { level: 3, weight: 0.14, description: "跨团队协作" },
-          experience: { level: 3, weight: 0.14, description: "中型项目经验" },
           created_at: now,
           updated_at: now,
-        },
-        {
-          job_id: 9999,
-          job_name: "前端高级工程师",
-          category: "frontend_engineering",
-          skills: { level: 4, weight: 0.2, description: "typescript node 架构" },
-          certification: { level: 2, weight: 0.1, description: "性能优化" },
-          innovation: { level: 4, weight: 0.14, description: "架构演进" },
-          learning: { level: 3, weight: 0.14, description: "技术学习" },
-          stress: { level: 3, weight: 0.14, description: "项目节奏" },
-          communication: { level: 4, weight: 0.14, description: "跨团队协作" },
-          experience: { level: 4, weight: 0.14, description: "复杂项目经验" },
-          created_at: now,
-          updated_at: now,
-        },
+        }),
+        buildManualPortrait(
+          "前端高级工程师",
+          "frontend_engineering",
+          ["typescript", "node", "架构"],
+          { job_id: 9999, created_at: now, updated_at: now },
+        ),
       ];
     },
     async getLatestProfileByJobId() {

@@ -1,7 +1,5 @@
 import type {
   CareerPathTargetOptionsResponse,
-  CareerPathV2GenerateRequest,
-  CareerPathV2GenerateResponse,
   CareerPathV2GraphResponse,
 } from "@career/contracts/types";
 
@@ -32,18 +30,6 @@ export async function fetchCareerPathGraph(params: {
   return requestJson<CareerPathV2GraphResponse>(
     `/api/v2/career-paths/jobs/${params.job_id}${suffix}`,
   );
-}
-
-export async function generateCareerPathGraph(
-  payload: CareerPathV2GenerateRequest = {},
-): Promise<CareerPathV2GenerateResponse> {
-  return requestJson<CareerPathV2GenerateResponse>("/api/v2/career-paths/generate", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
 }
 
 export async function fetchCareerPathTargets(): Promise<CareerPathTargetOptionsResponse> {

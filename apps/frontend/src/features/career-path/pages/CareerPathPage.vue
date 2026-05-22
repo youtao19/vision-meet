@@ -4,7 +4,7 @@
  * 职责边界：
  * 1) 负责页面级查询条件与路由参数同步；
  * 2) 消费后端图谱接口并渲染图数据；
- * 3) 不承载岗位画像生成逻辑，仅触发后端“入库/构图”动作。
+ * 3) 不承载岗位画像生成、入库或构图动作。
  */
 
 import { Graph, type IEvent } from "@antv/g6";
@@ -14,6 +14,7 @@ import { useRoute, useRouter } from "vue-router";
 import type {
   CareerPathEdge,
   CareerPathNode,
+  CareerRouteRecommendation,
   CareerPathTargetOption,
   CareerPathV2GraphResponse,
   ManualJobPortraitRecord,
@@ -24,7 +25,7 @@ import { LegendComponent, TooltipComponent } from "echarts/components";
 import { init, use, type ECharts } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 
-import { fetchCareerPathGraph, fetchCareerPathTargets, generateCareerPathGraph } from "@/shared/api/career-path";
+import { fetchCareerPathGraph, fetchCareerPathTargets } from "@/shared/api/career-path";
 import { ApiRequestError } from "@/shared/api/http";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { fetchStudentProfiles } from "@/shared/api/profile";
@@ -57,19 +58,16 @@ const insightTab = ref<"detail" | "routes">("detail");
 const loading = reactive({
   bootstrap: false,
   graph: false,
-  sync: false,
 });
 
 const form = reactive({
   jobId: "",
   studentProfileId: "",
-  depth: 2,
-  useAgent: false,
+  depth: 1,
 });
 
 const uiState = reactive({
   error: "",
-  success: "",
 });
 
 const canLoadGraph = computed(() => {
@@ -102,6 +100,14 @@ function clampLevel(value: number): number {
 
 function toPercentByLevel(level: number): number {
   return clampLevel(level) * 20;
+}
+
+function toPercentByTextLevel(value: string): number {
+  if (value.includes("极高")) return 100;
+  if (value.includes("高")) return 80;
+  if (value.includes("中")) return 60;
+  if (value.includes("低")) return 40;
+  return 60;
 }
 
 function calculateExperienceLevel(profile: StudentProfileRecord): number {
@@ -150,15 +156,16 @@ const radarComparison = computed(() => {
   if (!selectedJobPortrait.value) {
     return null;
   }
+  const detail = selectedJobPortrait.value.profile_detail;
 
   const target = {
-    技能: toPercentByLevel(selectedJobPortrait.value.skills.level),
-    抗压: toPercentByLevel(selectedJobPortrait.value.stress.level),
-    学习: toPercentByLevel(selectedJobPortrait.value.learning.level),
-    经验: toPercentByLevel(selectedJobPortrait.value.experience.level),
-    创新: toPercentByLevel(selectedJobPortrait.value.innovation.level),
-    证书: toPercentByLevel(selectedJobPortrait.value.certification.level),
-    沟通: toPercentByLevel(selectedJobPortrait.value.communication.level),
+    技能: Math.min(100, Math.max(40, detail.skills.length * 10)),
+    抗压: toPercentByTextLevel(detail.stressResistance),
+    学习: toPercentByTextLevel(detail.learningAbility),
+    经验: toPercentByTextLevel(detail.internshipAbility),
+    创新: toPercentByTextLevel(detail.innovationAbility),
+    证书: Math.min(100, Math.max(40, detail.certificates.length * 25)),
+    沟通: toPercentByTextLevel(detail.communicationAbility),
   };
 
   if (!selectedProfile.value) {
@@ -210,6 +217,37 @@ const selectedNode = computed(() => {
 
 const selectedEdge = computed(() => {
   return graphResult.value?.edges.find((edge) => edge.id === selectedEdgeId.value) ?? null;
+});
+
+const focusedGraph = computed(() => {
+  return graphResult.value ? buildFocusedGraph(graphResult.value) : null;
+});
+
+const graphMetrics = computed(() => {
+  if (!graphResult.value || !focusedGraph.value) {
+    return [];
+  }
+  return [
+    { label: "展示节点", value: focusedGraph.value.nodes.length },
+    { label: "展示关系", value: focusedGraph.value.edges.length },
+    { label: "原始节点", value: graphResult.value.nodes.length },
+    { label: "原始关系", value: graphResult.value.edges.length },
+  ];
+});
+
+const graphLegendItems = [
+  { label: "目标岗位", tone: "target" },
+  { label: "晋升路径", tone: "promotion" },
+  { label: "换岗路径", tone: "transition" },
+] as const;
+
+const selectedNodeEdges = computed(() => {
+  if (!focusedGraph.value || !selectedNodeId.value) {
+    return [];
+  }
+  return focusedGraph.value.edges.filter(
+    (edge) => edge.source === selectedNodeId.value || edge.target === selectedNodeId.value,
+  );
 });
 
 function getNodeTitleById(nodeId: string): string {
@@ -288,8 +326,59 @@ function nodeColorByCategory(category: CareerPathNode["category"]): string {
   return "#ea580c";
 }
 
+function nodeStrokeByCategory(category: CareerPathNode["category"]): string {
+  if (category === "target") return "#14b8a6";
+  if (category === "promotion") return "#60a5fa";
+  return "#fb923c";
+}
+
 function edgeColorByType(relationType: CareerPathEdge["relation_type"]): string {
   return relationType === "promotion" ? "#1d4ed8" : "#ea580c";
+}
+
+function collectRouteEdgeIds(routes: CareerRouteRecommendation[]): Set<string> {
+  const ids = new Set<string>();
+  for (const route of routes) {
+    for (const edgeId of route.route_id.split("__")) {
+      if (edgeId) {
+        ids.add(edgeId);
+      }
+    }
+  }
+  return ids;
+}
+
+function buildFocusedGraph(result: CareerPathV2GraphResponse): {
+  nodes: CareerPathNode[];
+  edges: CareerPathEdge[];
+} {
+  const routeEdgeIds = collectRouteEdgeIds([
+    ...result.promotion_routes.slice(0, 1),
+    ...result.transition_routes.slice(0, 5),
+  ]);
+  const routeEdges = result.edges.filter((edge) => routeEdgeIds.has(edge.id));
+  const fallbackEdges = result.edges
+    .filter((edge) => edge.source === result.target_node_id)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 8);
+  const edges = routeEdges.length > 0 ? routeEdges : fallbackEdges;
+  const visibleNodeIds = new Set<string>([result.target_node_id]);
+  for (const edge of edges) {
+    visibleNodeIds.add(edge.source);
+    visibleNodeIds.add(edge.target);
+  }
+
+  return {
+    nodes: result.nodes.filter((node) => visibleNodeIds.has(node.id)),
+    edges,
+  };
+}
+
+function isEdgeConnectedToSelectedNode(edge: CareerPathEdge): boolean {
+  return Boolean(
+    selectedNodeId.value &&
+    (edge.source === selectedNodeId.value || edge.target === selectedNodeId.value),
+  );
 }
 
 function pickEventTargetId(event: IEvent): string {
@@ -305,6 +394,7 @@ async function renderG6Graph(result: CareerPathV2GraphResponse): Promise<void> {
     return;
   }
 
+  const displayGraph = buildFocusedGraph(result);
   const width = Math.max(300, g6Ref.value.clientWidth);
   const height = Math.max(360, g6Ref.value.clientHeight || 560);
 
@@ -315,8 +405,10 @@ async function renderG6Graph(result: CareerPathV2GraphResponse): Promise<void> {
       height,
       autoFit: "view",
       layout: {
-        type: "d3-force",
-        link: { distance: 140 },
+        type: "dagre",
+        rankdir: "LR",
+        nodesep: 56,
+        ranksep: 96,
       },
       node: {
         type: "circle",
@@ -324,6 +416,7 @@ async function renderG6Graph(result: CareerPathV2GraphResponse): Promise<void> {
           size: 44,
           labelFill: "#0f172a",
           labelFontSize: 12,
+          labelPlacement: "bottom",
           lineWidth: 2,
           stroke: "#ffffff",
         },
@@ -332,8 +425,6 @@ async function renderG6Graph(result: CareerPathV2GraphResponse): Promise<void> {
         type: "line",
         style: {
           endArrow: true,
-          labelFill: "#475569",
-          labelFontSize: 10,
           lineWidth: 2,
         },
       },
@@ -350,6 +441,10 @@ async function renderG6Graph(result: CareerPathV2GraphResponse): Promise<void> {
       const edgeId = pickEventTargetId(event);
       if (!edgeId) return;
       selectedEdgeId.value = edgeId;
+      const edge = graphResult.value?.edges.find((item) => item.id === edgeId);
+      if (edge) {
+        selectedNodeId.value = edge.target;
+      }
     });
     g6Graph.on("canvas:click", () => {
       selectedEdgeId.value = "";
@@ -359,27 +454,44 @@ async function renderG6Graph(result: CareerPathV2GraphResponse): Promise<void> {
   }
 
   g6Graph.setData({
-    nodes: result.nodes.map((node) => ({
+    nodes: displayGraph.nodes.map((node) => ({
       id: node.id,
       title: node.title,
       relation_type: node.category,
       style: {
         size: node.id === result.target_node_id ? 56 : 44,
         labelText: node.title,
+        labelFontWeight: node.id === selectedNodeId.value ? 700 : 500,
+        labelMaxWidth: 120,
         fill: nodeColorByCategory(node.category),
+        stroke: node.id === selectedNodeId.value ? "#0f172a" : nodeStrokeByCategory(node.category),
+        lineWidth: node.id === selectedNodeId.value ? 4 : 2,
+        shadowColor:
+          node.id === selectedNodeId.value ? "rgba(15, 23, 42, 0.24)" : "rgba(15, 23, 42, 0.1)",
+        shadowBlur: node.id === selectedNodeId.value ? 18 : 8,
       },
     })),
-    edges: result.edges.map((edge) => ({
+    edges: displayGraph.edges.map((edge) => ({
       id: edge.id,
       source: edge.source,
       target: edge.target,
       relation_type: edge.relation_type,
       direction_label: edge.direction_label,
       style: {
-        labelText: edge.direction_label,
-        lineWidth: edge.relation_type === "promotion" ? 2.8 : 2,
+        lineWidth:
+          edge.id === selectedEdgeId.value || isEdgeConnectedToSelectedNode(edge)
+            ? 4
+            : edge.relation_type === "promotion"
+              ? 2.8
+              : 2,
         lineDash: edge.relation_type === "promotion" ? [] : [5, 4],
-        stroke: edgeColorByType(edge.relation_type),
+        stroke: edge.id === selectedEdgeId.value ? "#0f172a" : edgeColorByType(edge.relation_type),
+        opacity:
+          selectedEdgeId.value || selectedNodeId.value
+            ? edge.id === selectedEdgeId.value || isEdgeConnectedToSelectedNode(edge)
+              ? 1
+              : 0.34
+            : 0.86,
       },
     })),
   });
@@ -404,7 +516,6 @@ function renderRadarChart(): void {
 async function bootstrap(): Promise<void> {
   loading.bootstrap = true;
   uiState.error = "";
-  uiState.success = "";
   try {
     const [manualResponse, targetResponse, profileResponse] = await Promise.all([
       fetchManualJobPortraits(),
@@ -442,36 +553,16 @@ async function loadGraph(): Promise<void> {
     selectedNodeId.value = result.target_node_id;
     selectedEdgeId.value = "";
     await nextTick();
-    renderRadarChart();
     if (chartTab.value === "graph") {
       await renderG6Graph(result);
+    } else {
+      renderRadarChart();
     }
   } catch (error) {
     graphResult.value = null;
     uiState.error = formatApiError(error);
   } finally {
     loading.graph = false;
-  }
-}
-
-async function rebuildGraph(): Promise<void> {
-  loading.sync = true;
-  uiState.error = "";
-  uiState.success = "";
-
-  try {
-    const result = await generateCareerPathGraph({
-      use_agent: form.useAgent,
-    });
-    uiState.success = `图谱重建成功！写入节点: ${result.nodes_written}, 边: ${result.edges_written}。`;
-
-    // 重新拉取目标列表
-    const targetResponse = await fetchCareerPathTargets();
-    graphTargets.value = targetResponse.items;
-  } catch (error) {
-    uiState.error = formatApiError(error);
-  } finally {
-    loading.sync = false;
   }
 }
 
@@ -502,8 +593,8 @@ async function syncFromQuery(): Promise<void> {
       : undefined;
   const depth =
     typeof route.query.depth === "string"
-      ? Math.max(1, Math.min(3, Number(route.query.depth) || 2))
-      : 2;
+      ? Math.max(1, Math.min(3, Number(route.query.depth) || 1))
+      : 1;
 
   form.jobId = jobId ? String(jobId) : "";
   form.studentProfileId = studentProfileId ? String(studentProfileId) : "";
@@ -511,7 +602,7 @@ async function syncFromQuery(): Promise<void> {
 
   if (jobId) {
     await loadGraph();
-  } else {
+  } else if (chartTab.value === "radar") {
     renderRadarChart();
   }
 }
@@ -529,6 +620,9 @@ watch(
 );
 
 watch([selectedJobPortrait, selectedProfile], async () => {
+  if (chartTab.value !== "radar") {
+    return;
+  }
   await nextTick();
   renderRadarChart();
 });
@@ -542,6 +636,14 @@ watch(chartTab, async (tab) => {
     await nextTick();
     renderRadarChart();
   }
+});
+
+watch([selectedNodeId, selectedEdgeId], async () => {
+  if (chartTab.value !== "graph" || !graphResult.value) {
+    return;
+  }
+  await nextTick();
+  await renderG6Graph(graphResult.value);
 });
 
 onMounted(async () => {
@@ -573,7 +675,6 @@ onUnmounted(() => {
     </header>
 
     <p v-if="uiState.error" class="notice notice-error">{{ uiState.error }}</p>
-    <p v-if="uiState.success" class="notice notice-success">{{ uiState.success }}</p>
 
     <section class="panel">
       <h3>查询与数据操作</h3>
@@ -597,7 +698,9 @@ onUnmounted(() => {
           <select v-model="form.studentProfileId" :disabled="loading.bootstrap || loading.graph">
             <option value="">仅看岗位要求</option>
             <option v-for="profile in profiles" :key="profile.id" :value="String(profile.id)">
-              #{{ profile.id }} {{ profileName(profile) }}（{{ profileTargetRole(profile) || "暂未选择目标岗位" }}）
+              #{{ profile.id }} {{ profileName(profile) }}（{{
+                profileTargetRole(profile) || "暂未选择目标岗位"
+              }}）
             </option>
           </select>
         </label>
@@ -605,25 +708,15 @@ onUnmounted(() => {
         <label>
           图谱深度
           <select v-model.number="form.depth" :disabled="loading.graph">
-            <option :value="1">1 层</option>
-            <option :value="2">2 层</option>
-            <option :value="3">3 层</option>
+            <option :value="1">直接路径</option>
+            <option :value="2">扩展 2 层</option>
+            <option :value="3">扩展 3 层</option>
           </select>
         </label>
 
         <button class="primary-btn" :disabled="!canLoadGraph" @click="searchGraph">
           {{ loading.graph ? "加载中..." : "加载图谱" }}
         </button>
-
-        <div class="sync-actions">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="form.useAgent" :disabled="loading.sync" />
-            Agent 增强
-          </label>
-          <button class="seed-btn" :disabled="loading.sync" @click="rebuildGraph">
-            {{ loading.sync ? "同步中..." : "重建图谱快照" }}
-          </button>
-        </div>
       </div>
     </section>
 
@@ -632,7 +725,8 @@ onUnmounted(() => {
         <div>
           <h3>可视化视图</h3>
           <p v-if="graphResult" class="muted">
-            节点 {{ graphResult.nodes.length }} · 边 {{ graphResult.edges.length }} · 版本
+            展示节点 {{ focusedGraph?.nodes.length ?? 0 }} · 展示边
+            {{ focusedGraph?.edges.length ?? 0 }} · 版本
             {{ graphResult.graph_version }}
           </p>
         </div>
@@ -656,12 +750,84 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <div v-if="graphResult" class="graph-summary" aria-label="图谱摘要">
+        <div v-for="item in graphMetrics" :key="item.label" class="summary-pill">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+        </div>
+      </div>
+
       <div v-show="chartTab === 'graph'">
-        <div v-if="graphResult" ref="g6Ref" class="graph-canvas"></div>
-        <p v-if="graphResult && graphResult.edges.length === 0" class="muted empty-hint">
-          当前没有可用关系边，建议点击“重建图谱快照”后再查看。
+        <div v-if="graphResult" class="graph-workspace">
+          <div class="graph-stage">
+            <div class="graph-stage-bar">
+              <div class="graph-legend" aria-label="图谱图例">
+                <span v-for="item in graphLegendItems" :key="item.label" class="legend-item">
+                  <i :class="['legend-dot', `legend-dot-${item.tone}`]"></i>
+                  {{ item.label }}
+                </span>
+              </div>
+              <span class="graph-help">点击节点或关系查看右侧详情</span>
+            </div>
+            <div ref="g6Ref" class="graph-canvas"></div>
+          </div>
+
+          <aside class="graph-inspector" aria-label="图谱检查面板">
+            <div class="inspector-section">
+              <p class="section-eyebrow">当前节点</p>
+              <template v-if="selectedNode">
+                <h4>{{ selectedNode.title }}</h4>
+                <p>{{ selectedNode.description }}</p>
+                <div class="inspector-tags">
+                  <span>{{ selectedNode.category }}</span>
+                  <span>{{ selectedNode.family }}</span>
+                  <span>层级 {{ selectedNode.level }}</span>
+                </div>
+              </template>
+              <p v-else class="muted">点击图中的节点后查看岗位摘要。</p>
+            </div>
+
+            <div class="inspector-section">
+              <p class="section-eyebrow">相关关系</p>
+              <button
+                v-for="edge in selectedNodeEdges"
+                :key="edge.id"
+                type="button"
+                class="edge-mini-card"
+                :class="{ active: selectedEdgeId === edge.id }"
+                @click="selectedEdgeId = edge.id"
+              >
+                <span
+                  >{{ getNodeTitleById(edge.source) }} → {{ getNodeTitleById(edge.target) }}</span
+                >
+                <strong>{{ edge.direction_label }} · {{ edge.score }} 分</strong>
+              </button>
+              <p v-if="selectedNodeEdges.length === 0" class="muted">
+                暂无与当前节点相连的展示关系。
+              </p>
+            </div>
+
+            <div v-if="selectedEdge" class="inspector-section edge-summary">
+              <p class="section-eyebrow">选中关系</p>
+              <h4>{{ selectedEdge.direction_label }}</h4>
+              <p>{{ selectedEdge.reason }}</p>
+              <dl class="edge-facts">
+                <div>
+                  <dt>迁移成本</dt>
+                  <dd>{{ selectedEdge.transition_cost }}</dd>
+                </div>
+                <div>
+                  <dt>待补齐</dt>
+                  <dd>{{ selectedEdge.gap_skills.join("、") || "暂无" }}</dd>
+                </div>
+              </dl>
+            </div>
+          </aside>
+        </div>
+        <p v-if="graphResult && focusedGraph?.edges.length === 0" class="muted empty-hint">
+          当前没有可用关系边，请确认该岗位已完成路径图谱构建。
         </p>
-        <p v-else class="empty-text">请选择岗位并加载图谱后查看 G6 关系图。</p>
+        <p v-if="!graphResult" class="empty-text">请选择岗位并加载图谱后查看 G6 关系图。</p>
       </div>
 
       <div v-show="chartTab === 'radar'">
@@ -701,7 +867,7 @@ onUnmounted(() => {
             节点
             <select v-model="selectedNodeId">
               <option value="">请选择节点</option>
-              <option v-for="node in graphResult.nodes" :key="node.id" :value="node.id">
+              <option v-for="node in focusedGraph?.nodes ?? []" :key="node.id" :value="node.id">
                 {{ node.title }}（{{ node.category }}）
               </option>
             </select>
@@ -711,7 +877,7 @@ onUnmounted(() => {
             关系
             <select v-model="selectedEdgeId">
               <option value="">请选择关系</option>
-              <option v-for="edge in graphResult.edges" :key="edge.id" :value="edge.id">
+              <option v-for="edge in focusedGraph?.edges ?? []" :key="edge.id" :value="edge.id">
                 {{ getNodeTitleById(edge.source) }} → {{ getNodeTitleById(edge.target) }}（{{
                   edge.direction_label
                 }}）
@@ -741,29 +907,38 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-else class="panel-stack">
-        <article
-          v-for="item in graphResult.promotion_routes"
-          :key="item.route_id"
-          class="route-card"
-        >
-          <header>
-            <strong>{{ item.title }}</strong>
-            <span class="route-score">{{ item.suitability_score }} 分</span>
-          </header>
-          <p>{{ item.summary }}</p>
-        </article>
-        <article
-          v-for="item in graphResult.transition_routes"
-          :key="item.route_id"
-          class="route-card transition-card"
-        >
-          <header>
-            <strong>{{ item.title }}</strong>
-            <span class="route-score">{{ item.suitability_score }} 分</span>
-          </header>
-          <p>{{ item.summary }}</p>
-        </article>
+      <div v-else class="route-columns">
+        <section class="route-lane promotion-lane">
+          <h4>晋升主线</h4>
+          <article
+            v-for="item in graphResult.promotion_routes.slice(0, 1)"
+            :key="item.route_id"
+            class="route-card"
+          >
+            <header>
+              <strong>{{ item.title }}</strong>
+              <span class="route-score">{{ item.suitability_score }} 分</span>
+            </header>
+            <p>{{ item.summary }}</p>
+          </article>
+          <p v-if="graphResult.promotion_routes.length === 0" class="muted">暂无晋升路径。</p>
+        </section>
+
+        <section class="route-lane transition-lane">
+          <h4>换岗候选</h4>
+          <article
+            v-for="item in graphResult.transition_routes.slice(0, 5)"
+            :key="item.route_id"
+            class="route-card transition-card"
+          >
+            <header>
+              <strong>{{ item.title }}</strong>
+              <span class="route-score">{{ item.suitability_score }} 分</span>
+            </header>
+            <p>{{ item.summary }}</p>
+          </article>
+          <p v-if="graphResult.transition_routes.length === 0" class="muted">暂无换岗路径。</p>
+        </section>
       </div>
     </section>
   </section>
@@ -826,11 +1001,6 @@ onUnmounted(() => {
   color: #8c2343;
 }
 
-.notice-success {
-  background: linear-gradient(135deg, rgba(227, 255, 244, 0.82), rgba(241, 255, 251, 0.48));
-  color: #0b6b54;
-}
-
 .panel {
   padding: 20px;
   border: 1px solid var(--glass-border);
@@ -850,34 +1020,17 @@ onUnmounted(() => {
   align-items: end;
 }
 
-.sync-actions {
-  grid-column: span 3;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
-  margin-top: 8px;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--glass-muted);
-  cursor: pointer;
-}
-
 label {
   display: grid;
   gap: 8px;
+  min-width: 0;
   color: rgba(28, 48, 82, 0.84);
   font-weight: 600;
 }
 
 select {
+  width: 100%;
+  min-width: 0;
   border: 1px solid rgba(255, 255, 255, 0.64);
   border-radius: 16px;
   padding: 10px 12px;
@@ -889,9 +1042,8 @@ select {
     0 10px 22px rgba(61, 90, 152, 0.06);
 }
 
-.primary-btn,
-.secondary-btn,
-.seed-btn {
+.primary-btn {
+  min-width: 0;
   border-radius: 16px;
   padding: 10px 14px;
   cursor: pointer;
@@ -900,9 +1052,6 @@ select {
     transform 180ms ease,
     box-shadow 180ms ease,
     border-color 180ms ease;
-}
-
-.primary-btn {
   border: 1px solid transparent;
   background: linear-gradient(135deg, rgba(73, 182, 223, 0.92), rgba(64, 105, 236, 0.92));
   color: #fff;
@@ -911,21 +1060,7 @@ select {
     0 16px 28px rgba(45, 99, 203, 0.22);
 }
 
-.secondary-btn {
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(226, 239, 255, 0.36));
-  color: #1d4ed8;
-}
-
-.seed-btn {
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(242, 230, 255, 0.38));
-  color: #7c3aed;
-}
-
-.primary-btn:hover,
-.secondary-btn:hover,
-.seed-btn:hover {
+.primary-btn:hover {
   transform: translateY(-1px);
 }
 
@@ -962,16 +1097,221 @@ select {
   min-height: 420px;
 }
 
-.graph-canvas {
-  width: 100%;
-  height: 560px;
+.graph-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.summary-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.42);
+  color: rgba(37, 55, 88, 0.72);
+  font-size: 12px;
+}
+
+.summary-pill strong {
+  color: var(--glass-title);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.graph-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 14px;
   margin-top: 12px;
+  align-items: stretch;
+}
+
+.graph-stage {
+  min-width: 0;
   border-radius: 20px;
   background:
-    radial-gradient(circle at top left, rgba(111, 209, 255, 0.18), transparent 35%),
+    radial-gradient(circle at top left, rgba(111, 209, 255, 0.16), transparent 34%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(233, 244, 255, 0.48) 100%);
   border: 1px solid rgba(255, 255, 255, 0.56);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  overflow: hidden;
+}
+
+.graph-stage-bar {
+  min-height: 52px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(31, 58, 97, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(37, 55, 88, 0.76);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.62);
+}
+
+.legend-dot-target {
+  background: #0f766e;
+}
+
+.legend-dot-promotion {
+  background: #1d4ed8;
+}
+
+.legend-dot-transition {
+  background: #ea580c;
+}
+
+.graph-help {
+  color: rgba(56, 80, 116, 0.62);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.graph-canvas {
+  width: 100%;
+  height: 560px;
+  background:
+    linear-gradient(rgba(31, 58, 97, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 58, 97, 0.045) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.graph-inspector {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.inspector-section {
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.section-eyebrow {
+  margin: 0 0 8px;
+  color: rgba(37, 55, 88, 0.58);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.inspector-section h4 {
+  margin: 0 0 8px;
+  color: var(--glass-title);
+  font-size: 16px;
+}
+
+.inspector-section p {
+  margin: 0;
+  color: rgba(37, 55, 88, 0.74);
+  line-height: 1.65;
+}
+
+.inspector-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.inspector-tags span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(219, 234, 254, 0.72);
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.edge-mini-card {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.48);
+  color: rgba(37, 55, 88, 0.76);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--glass-transition),
+    background var(--glass-transition),
+    transform var(--glass-transition);
+}
+
+.edge-mini-card:hover,
+.edge-mini-card.active {
+  transform: translateY(-1px);
+  border-color: rgba(29, 78, 216, 0.36);
+  background: rgba(239, 246, 255, 0.82);
+}
+
+.edge-mini-card span {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.edge-mini-card strong {
+  color: var(--glass-title);
+  font-size: 13px;
+}
+
+.edge-summary {
+  border-color: rgba(234, 88, 12, 0.24);
+}
+
+.edge-facts {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.edge-facts div {
+  display: grid;
+  gap: 3px;
+}
+
+.edge-facts dt {
+  color: rgba(37, 55, 88, 0.58);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.edge-facts dd {
+  margin: 0;
+  color: rgba(17, 35, 63, 0.9);
+  line-height: 1.55;
 }
 
 .tab-switch {
@@ -1052,6 +1392,21 @@ select {
   justify-content: space-between;
 }
 
+.route-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+}
+
+.route-lane {
+  min-width: 0;
+}
+
+.route-lane h4 {
+  margin: 0 0 10px;
+  color: var(--glass-title);
+}
+
 .route-score {
   color: #0f766e;
   font-weight: 600;
@@ -1065,14 +1420,54 @@ select {
   .toolbar {
     grid-template-columns: 1fr 1fr;
   }
+
+  .graph-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-inspector {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
+  .page-header,
+  .panel-title-row {
+    flex-direction: column;
+  }
+
+  .nav-links {
+    flex-wrap: wrap;
+  }
+
   .layout {
     grid-template-columns: 1fr;
   }
   .toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .detail-filters,
+  .route-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-summary,
+  .graph-inspector {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-stage-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .graph-help {
+    white-space: normal;
+  }
+
+  .graph-canvas {
+    height: 480px;
   }
 }
 </style>

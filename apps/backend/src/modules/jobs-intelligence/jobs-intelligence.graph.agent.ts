@@ -95,26 +95,35 @@ export type AgentCareerGraphResult = {
  */
 function buildCompactPortraitInput(portraits: ManualJobPortraitRecord[]): string {
   const items = portraits.map((p, i) => {
+    const detail = p.profile_detail;
     const skillTokens = extractSkillKeywords([
-      p.skills.description,
-      p.certification.description,
-      p.experience.description,
+      detail.description,
+      detail.internshipAbility,
+      ...detail.skills,
+      ...detail.subIndustries.flatMap((subIndustry) => subIndustry.skills),
     ]);
-
-    const weightedLevel =
-      p.skills.level * 0.32 +
-      p.certification.level * 0.08 +
-      p.innovation.level * 0.12 +
-      p.learning.level * 0.12 +
-      p.stress.level * 0.1 +
-      p.communication.level * 0.14 +
-      p.experience.level * 0.12;
-    const level = Math.max(1, Math.min(5, Math.round(weightedLevel)));
+    const level = resolveTextLevel([
+      detail.learningAbility,
+      detail.innovationAbility,
+      detail.stressResistance,
+      detail.communicationAbility,
+    ]);
 
     return `${i + 1}. ${p.job_name}（${p.category}）L${level} 技能：${skillTokens.join("、")}`;
   });
 
   return items.join("\n");
+}
+
+function resolveTextLevel(values: string[]): number {
+  const scores = values.map((value) => {
+    if (value.includes("极高")) return 5;
+    if (value.includes("高")) return 4;
+    if (value.includes("中")) return 3;
+    if (value.includes("低")) return 2;
+    return 3;
+  });
+  return Math.max(1, Math.min(5, Math.round(scores.reduce((sum, item) => sum + item, 0) / scores.length)));
 }
 
 function extractSkillKeywords(descriptions: string[]): string[] {

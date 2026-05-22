@@ -133,10 +133,39 @@ export type CanonicalRolesListResponse = {
   items: CanonicalRoleRecord[];
 };
 
-export type ManualJobPortraitDimension = {
-  level: number;
-  weight: number;
+export type JobPortraitSubIndustry = {
+  industry: string;
   description: string;
+  representCompanies: string[];
+  skills: string[];
+  softSkills: string[];
+  certificates: string[];
+  innovationAbility: string;
+  learningAbility: string;
+  stressResistance: string;
+  communicationAbility: string;
+  internshipAbility: string;
+  salaryLevel: string;
+  overtimeLevel: string;
+  industryFeatures: string[];
+  recommendedProjects: string[];
+};
+
+export type JobPortraitDetail = {
+  name: string;
+  category: string;
+  description: string;
+  educationRequirements: string[];
+  skills: string[];
+  softSkills: string[];
+  certificates: string[];
+  innovationAbility: string;
+  learningAbility: string;
+  stressResistance: string;
+  communicationAbility: string;
+  internshipAbility: string;
+  careerPath: string[];
+  subIndustries: JobPortraitSubIndustry[];
 };
 
 export type ManualJobPortraitRecord = {
@@ -145,13 +174,7 @@ export type ManualJobPortraitRecord = {
   category: string;
   comic_image_url?: string | null;
   comic_generated_at?: string | null;
-  skills: ManualJobPortraitDimension;
-  certification: ManualJobPortraitDimension;
-  innovation: ManualJobPortraitDimension;
-  learning: ManualJobPortraitDimension;
-  stress: ManualJobPortraitDimension;
-  communication: ManualJobPortraitDimension;
-  experience: ManualJobPortraitDimension;
+  profile_detail: JobPortraitDetail;
   created_at: string;
   updated_at: string;
 };

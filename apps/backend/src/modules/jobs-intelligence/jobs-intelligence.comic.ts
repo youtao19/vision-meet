@@ -74,13 +74,6 @@ export function resolveJobPortraitComicAsset(params: {
   };
 }
 
-function formatDimension(
-  title: string,
-  dimension: { level: number; weight: number; description: string },
-): string {
-  return `${title}：L${dimension.level}，权重 ${dimension.weight}，${dimension.description}`;
-}
-
 function formatContextList(title: string, items: string[] | undefined): string[] {
   const normalized = (items ?? [])
     .map((item) => item.trim())
@@ -314,14 +307,16 @@ export function buildJobPortraitComicPrompt(
   context?: JobPortraitComicContext,
 ): string {
   const scenario = resolveJobComicScenario(portrait, context);
-  const dimensionLines = [
-    formatDimension("技能能力", portrait.skills),
-    formatDimension("资质要求", portrait.certification),
-    formatDimension("创新能力", portrait.innovation),
-    formatDimension("学习能力", portrait.learning),
-    formatDimension("抗压能力", portrait.stress),
-    formatDimension("沟通能力", portrait.communication),
-    formatDimension("经验要求", portrait.experience),
+  const detail = portrait.profile_detail;
+  const abilityLines = [
+    `核心技能：${detail.skills.join("、")}`,
+    `软技能：${detail.softSkills.join("、")}`,
+    `证书：${detail.certificates.join("、") || "无强制证书"}`,
+    `学习能力：${detail.learningAbility}`,
+    `创新能力：${detail.innovationAbility}`,
+    `抗压强度：${detail.stressResistance}`,
+    `沟通要求：${detail.communicationAbility}`,
+    `实习建议：${detail.internshipAbility}`,
   ];
 
   return [
@@ -331,10 +326,13 @@ export function buildJobPortraitComicPrompt(
     "画面要求：严格四个格子，不能多格，不能少格；每格左上角标注 1、2、3、4；每格最多 1-2 句中文，文字必须清晰可读。",
     `岗位名称：${portrait.job_name}`,
     `岗位分类：${portrait.category}`,
+    `岗位描述：${detail.description}`,
+    `学历/专业要求：${detail.educationRequirements.join("、")}`,
+    `职业路径：${detail.careerPath.join(" -> ")}`,
     ...buildFrontendContextLines(context),
     ...buildScenarioLines(scenario),
-    "岗位画像维度（只作为岗位难度和能力侧重点参考，不要画成能力雷达图）：",
-    ...dimensionLines,
+    "岗位画像信息（只作为岗位难度和能力侧重点参考，不要画成能力雷达图）：",
+    ...abilityLines,
     "四格固定剧情：",
     "第 1 格（接到真实任务）：主角看到任务卡、需求文档、客户反馈、数据看板或故障提醒；任务必须贴合该岗位真实场景，不要泛泛写“新任务来了”。小字：先搞懂：谁在用？问题在哪？完成标准是什么？",
     "第 2 格（动手完成核心工作）：展示主角在电脑、白板、测试台、数据平台或设计工具前完成该岗位最典型的 3 个具体动作；不要只写“架构设计、方案优化、业务赋能”。",

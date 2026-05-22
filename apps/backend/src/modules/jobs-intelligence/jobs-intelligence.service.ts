@@ -669,14 +669,17 @@ function buildRouteRecommendations(params: {
     .slice(0, 3);
 
   return outgoing.map((firstEdge) => {
-    const follow = params.edges
-      .filter(
-        (edge) =>
-          edge.source === firstEdge.target &&
-          edge.relation_type === params.relationType &&
-          edge.target !== params.targetNodeId,
-      )
-      .sort((left, right) => right.score - left.score)[0];
+    const follow =
+      params.relationType === "promotion"
+        ? params.edges
+            .filter(
+              (edge) =>
+                edge.source === firstEdge.target &&
+                edge.relation_type === params.relationType &&
+                edge.target !== params.targetNodeId,
+            )
+            .sort((left, right) => right.score - left.score)[0]
+        : undefined;
 
     const pathEdges = follow ? [firstEdge, follow] : [firstEdge];
     const steps: CareerRouteStep[] = [];
@@ -887,10 +890,6 @@ export function createJobsIntelligenceService(
           source_model: agentResult.model,
           source_trace_id: agentResult.traceId,
         });
-      }
-
-      if (typeof repository.replaceManualJobPortraits === "function") {
-        await repository.replaceManualJobPortraits(agentResult.portraits);
       }
 
       const message = `流水线完成（cleanse->agent-portraits）：computer_related=${cleanedJobs.length}/${jobs.length}，portraits=${agentResult.portraits.length}，model=${agentResult.model || "unknown"}，trace_id=${agentResult.traceId}`;
@@ -1159,25 +1158,9 @@ export function createJobsIntelligenceService(
     }
 
     const portrait = await repository.getManualJobPortraitByName(input.jobName);
-    if (!portrait && !input.comicContext) {
+    if (!portrait) {
       throw new HttpError(404, "MANUAL_JOB_PORTRAIT_NOT_FOUND", "目标岗位画像不存在");
     }
-
-    const portraitForGeneration =
-      portrait ??
-      ({
-        job_name: input.jobName,
-        category: input.comicContext?.category || "前端展示岗位",
-        skills: { level: 3, weight: 0.35, description: "参考前端岗位详情中的技术栈与职责" },
-        certification: { level: 2, weight: 0.05, description: "参考前端岗位详情中的岗位阶段" },
-        innovation: { level: 3, weight: 0.1, description: "结合岗位任务进行方案优化" },
-        learning: { level: 4, weight: 0.15, description: "持续学习岗位所需工具链" },
-        stress: { level: 3, weight: 0.1, description: "处理任务卡点与交付压力" },
-        communication: { level: 3, weight: 0.05, description: "与相关角色协作推进交付" },
-        experience: { level: 3, weight: 0.2, description: "通过项目实践理解岗位工作内容" },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } satisfies ManualJobPortraitRecord);
 
     if (!input.force && portrait?.comic_image_url) {
       return {
@@ -1187,24 +1170,22 @@ export function createJobsIntelligenceService(
     }
 
     const generated = await generateJobPortraitComicImage({
-      portrait: portraitForGeneration,
+      portrait,
       comicContext: input.comicContext,
       env,
       force: input.force,
       cwd: process.cwd(),
     });
 
-    const updated = portrait
-      ? await repository.updateManualJobPortraitComic({
-          job_name: portrait.job_name,
-          comic_image_url: generated.imageUrl,
-          comic_generated_at: new Date().toISOString(),
-        })
-      : null;
+    const updated = await repository.updateManualJobPortraitComic({
+      job_name: portrait.job_name,
+      comic_image_url: generated.imageUrl,
+      comic_generated_at: new Date().toISOString(),
+    });
 
     return {
-      job_name: updated?.job_name ?? portraitForGeneration.job_name,
-      comic_image_url: updated?.comic_image_url || generated.imageUrl,
+      job_name: updated.job_name,
+      comic_image_url: updated.comic_image_url || generated.imageUrl,
     };
   }
 

@@ -105,17 +105,21 @@ function scoreLabel(score: number): string {
 }
 
 function portraitScore(item: ManualJobPortraitRecord): number {
-  const dimensions = [
-    item.skills,
-    item.certification,
-    item.innovation,
-    item.learning,
-    item.stress,
-    item.communication,
-    item.experience,
+  const detail = item.profile_detail;
+  const signals = [
+    detail.learningAbility,
+    detail.innovationAbility,
+    detail.stressResistance,
+    detail.communicationAbility,
   ];
-  const total = dimensions.reduce((sum, dimension) => sum + dimension.level, 0);
-  return Math.round(total / dimensions.length);
+  const score = signals.reduce((sum, value) => {
+    if (value.includes("极高")) return sum + 5;
+    if (value.includes("高")) return sum + 4;
+    if (value.includes("中")) return sum + 3;
+    if (value.includes("低")) return sum + 2;
+    return sum + 3;
+  }, 0);
+  return Math.round(score / signals.length);
 }
 
 async function loadDashboard(): Promise<void> {
