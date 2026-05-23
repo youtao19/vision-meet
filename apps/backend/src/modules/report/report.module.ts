@@ -1,8 +1,6 @@
 import type { Router } from "express";
 import type { Pool } from "pg";
 
-import { createPgJobsRepository } from "../jobs/jobs.repository.pg.js";
-import type { JobsRepository } from "../jobs/jobs.repository.js";
 import { createPgMatchingRepository } from "../matching/matching.repository.pg.js";
 import type { MatchingRepository } from "../matching/matching.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
@@ -13,7 +11,6 @@ import { createPlaywrightReportExporter } from "./playwright-report.exporter.js"
 import { createReportExportDownloadRouter, createReportRouter } from "./report.route.js";
 import { createPgReportRepository } from "./report.repository.pg.js";
 import type { ReportRepository } from "./report.repository.js";
-import type { ReportCareerPathResolver } from "./report.service.js";
 import { createReportService } from "./report.service.js";
 import { createTemplateReportGenerator } from "./template-report.generator.js";
 
@@ -27,13 +24,6 @@ export type ReportServiceDependencies = {
   reportExportRepository: ReportExportRepository;
   matchingRepository: MatchingRepository;
   profileRepository: ProfileRepository;
-  jobsRepository: JobsRepository;
-  /**
-   * 作用：注入图谱推荐解析器。
-   * 设计说明：报告侧不直接耦合图谱实现，由 app 层将 jobs-intelligence
-   * service（或将来的图谱实现）适配成 ReportCareerPathResolver。
-   */
-  careerPathResolver?: ReportCareerPathResolver;
 };
 
 export type ReportServiceFactoryOptions = {
@@ -52,10 +42,8 @@ export function createReportServiceFromDependencies(
     dependencies.reportExportRepository,
     dependencies.matchingRepository,
     dependencies.profileRepository,
-    dependencies.jobsRepository,
     generator,
     exporter,
-    dependencies.careerPathResolver,
     {
       exportDir: options.reportExportDir,
     },
@@ -71,14 +59,12 @@ export function createReportModule(options: ReportModuleOptions): Router {
   const reportExportRepository = createPgReportExportRepository(options.pool);
   const matchingRepository = createPgMatchingRepository(options.pool);
   const profileRepository = createPgProfileRepository(options.pool);
-  const jobsRepository = createPgJobsRepository(options.pool);
   const service = createReportServiceFromDependencies(
     {
       reportRepository,
       reportExportRepository,
       matchingRepository,
       profileRepository,
-      jobsRepository,
     },
     options,
   );
@@ -91,14 +77,12 @@ export function createReportExportDownloadModule(options: ReportModuleOptions): 
   const reportExportRepository = createPgReportExportRepository(options.pool);
   const matchingRepository = createPgMatchingRepository(options.pool);
   const profileRepository = createPgProfileRepository(options.pool);
-  const jobsRepository = createPgJobsRepository(options.pool);
   const service = createReportServiceFromDependencies(
     {
       reportRepository,
       reportExportRepository,
       matchingRepository,
       profileRepository,
-      jobsRepository,
     },
     options,
   );

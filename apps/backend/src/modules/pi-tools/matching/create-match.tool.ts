@@ -22,7 +22,7 @@ export function createMatchTool(context: PiToolFactoryContext): ToolDefinition {
     execute: async (_toolCallId, params) => {
       const matchResult = await context.dependencies.matchingService.createMatch({
         student_profile_id: context.state.profile.id,
-        job_id: context.state.job.id,
+        job_portrait_name: context.state.job.title,
         force_recalculate:
           readBooleanParam(params, "force_recalculate") ?? context.options.forceRecalculate,
       });

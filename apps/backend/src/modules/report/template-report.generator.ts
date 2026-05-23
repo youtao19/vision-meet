@@ -78,7 +78,8 @@ function buildStrengths(input: ReportGeneratorInput): string {
     .slice(0, 2)
     .map(([key, value]) => `${DIMENSION_LABELS[key as DimensionKey]} ${value} 分`);
 
-  const skillPreview = getProfileSkillNames(input.profile).slice(0, 5).join("、") || "暂无明确技能标签";
+  const skillPreview =
+    getProfileSkillNames(input.profile).slice(0, 5).join("、") || "暂无明确技能标签";
   const certificatePreview =
     getProfileCertificateNames(input.profile).slice(0, 3).join("、") || "暂无证书项";
 
@@ -109,6 +110,15 @@ function buildShortTermPlan(input: ReportGeneratorInput): string {
 
 function buildCareerPath(input: ReportGeneratorInput): string {
   if (!input.career_path) {
+    const portraitPath = input.job.career_path?.filter(Boolean) ?? [];
+    if (portraitPath.length > 0) {
+      return [
+        `当前目标岗位画像为【${input.job.title}】。`,
+        `岗位画像给出的成长路径：${portraitPath.join(" -> ")}。`,
+        `建议围绕路径中的下一阶段能力要求，持续补充项目、实习与证书证据。`,
+      ].join("\n");
+    }
+
     return [
       `当前岗位【${input.job.title}】尚未命中可用图谱，暂无法输出结构化路径图。`,
       `建议先围绕目标岗位继续沉淀项目、实习与技能证据，待岗位进入图谱覆盖范围后再查看推荐路径。`,

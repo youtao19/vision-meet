@@ -39,6 +39,7 @@ export function createApp(): express.Express {
   const jobsRepository = createPgJobsRepository(appDataPool);
   const profileRepository = createPgProfileRepository(appDataPool);
   const matchingRepository = createPgMatchingRepository(appDataPool);
+  const jobsIntelligenceRepository = createPgJobsIntelligenceRepository(appDataPool);
   const reportRepository = createPgReportRepository(appDataPool);
   const reportExportRepository = createPgReportExportRepository(appDataPool);
   const knowledgeModule = createKnowledgeModule({
@@ -52,7 +53,7 @@ export function createApp(): express.Express {
     reindexBatchSize: appEnv.KNOWLEDGE_REINDEX_BATCH_SIZE,
   });
   const jobsIntelligenceService = createJobsIntelligenceService(
-    createPgJobsIntelligenceRepository(appDataPool),
+    jobsIntelligenceRepository,
     createNeo4jJobsIntelligenceGraphRepository({
       uri: appEnv.NEO4J_URI,
       username: appEnv.NEO4J_USERNAME,
@@ -64,13 +65,11 @@ export function createApp(): express.Express {
     {
       matchingRepository,
       profileRepository,
-      jobsRepository,
-      careerPathResolver: async ({ job_id, depth }) => {
-        const graph = await jobsIntelligenceService.getCareerPathGraph(job_id, depth);
-        return {
-          promotion_routes: graph.promotion_routes,
-          transition_routes: graph.transition_routes,
-        };
+      jobPortraitRepository: {
+        getManualJobPortraitByName: async (jobName) => {
+          const portrait = await jobsIntelligenceRepository.getManualJobPortraitByName?.(jobName);
+          return portrait ?? null;
+        },
       },
     },
     {
@@ -83,20 +82,6 @@ export function createApp(): express.Express {
       reportExportRepository,
       matchingRepository,
       profileRepository,
-      jobsRepository,
-      careerPathResolver: async ({ job_id }) => {
-        try {
-          const graph = await jobsIntelligenceService.getCareerPathGraph(job_id, 2);
-          return {
-            depth: graph.depth,
-            canonical_role_title: null,
-            promotion_routes: graph.promotion_routes,
-            transition_routes: graph.transition_routes,
-          };
-        } catch {
-          return null;
-        }
-      },
     },
     {
       reportExportDir: appEnv.REPORT_EXPORT_DIR,

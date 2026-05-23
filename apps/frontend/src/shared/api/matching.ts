@@ -26,8 +26,8 @@ export async function fetchMatchList(params: MatchListParams): Promise<MatchResu
     query.set("student_profile_id", String(params.student_profile_id));
   }
 
-  if (params.job_id !== undefined) {
-    query.set("job_id", String(params.job_id));
+  if (params.job_portrait_name !== undefined) {
+    query.set("job_portrait_name", params.job_portrait_name);
   }
 
   return requestJson<MatchResultListResponse>(`/api/v2/matches?${query.toString()}`);

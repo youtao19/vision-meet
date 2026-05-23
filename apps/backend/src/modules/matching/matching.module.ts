@@ -1,15 +1,13 @@
 import type { Router } from "express";
 import type { Pool } from "pg";
-import type { CareerRouteRecommendation } from "@career/contracts/types";
 
-import { createPgJobsRepository } from "../jobs/jobs.repository.pg.js";
-import type { JobsRepository } from "../jobs/jobs.repository.js";
+import { createPgJobsIntelligenceRepository } from "../jobs-intelligence/jobs-intelligence.repository.pg.js";
 import { createPgProfileRepository } from "../profile/profile.repository.pg.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import { createPgMatchingRepository } from "./matching.repository.pg.js";
 import { createMatchingRouter } from "./matching.route.js";
 import type { MatchingRepository } from "./matching.repository.js";
-import { createMatchingService } from "./matching.service.js";
+import { createMatchingService, type JobPortraitRepository } from "./matching.service.js";
 
 export type MatchingModuleOptions = {
   pool: Pool;
@@ -19,20 +17,11 @@ export type MatchingModuleOptions = {
 export type MatchingServiceDependencies = {
   matchingRepository: MatchingRepository;
   profileRepository: ProfileRepository;
-  jobsRepository: JobsRepository;
-  careerPathResolver?: (input: {
-    job_id: number;
-    student_profile_id: number;
-    depth: number;
-  }) => Promise<{
-    promotion_routes: CareerRouteRecommendation[];
-    transition_routes: CareerRouteRecommendation[];
-  }>;
+  jobPortraitRepository: JobPortraitRepository;
 };
 
 export type MatchingServiceFactoryOptions = {
   scoringVersion: string;
-  careerPathResolver?: MatchingServiceDependencies["careerPathResolver"];
 };
 
 export function createMatchingServiceFromDependencies(
@@ -42,10 +31,9 @@ export function createMatchingServiceFromDependencies(
   return createMatchingService(
     dependencies.matchingRepository,
     dependencies.profileRepository,
-    dependencies.jobsRepository,
+    dependencies.jobPortraitRepository,
     {
       scoringVersion: options.scoringVersion,
-      careerPathResolver: options.careerPathResolver ?? dependencies.careerPathResolver,
     },
   );
 }
@@ -55,15 +43,20 @@ export function createMatchingServiceFromDependencies(
  * 关键职责：完成 repository adapter 与 service 的依赖注入，不承载业务逻辑。
  */
 export function createMatchingModule(options: MatchingModuleOptions): Router {
-  const jobsRepository = createPgJobsRepository(options.pool);
   const profileRepository = createPgProfileRepository(options.pool);
   const matchingRepository = createPgMatchingRepository(options.pool);
+  const jobPortraitRepository = createPgJobsIntelligenceRepository(options.pool);
 
   const service = createMatchingServiceFromDependencies(
     {
       matchingRepository,
       profileRepository,
-      jobsRepository,
+      jobPortraitRepository: {
+        getManualJobPortraitByName: async (jobName) => {
+          const portrait = await jobPortraitRepository.getManualJobPortraitByName?.(jobName);
+          return portrait ?? null;
+        },
+      },
     },
     options,
   );

@@ -4,15 +4,12 @@ import { useRouter } from "vue-router";
 
 import type {
   DimensionKey,
-  JobRecord,
   ManualJobPortraitRecord,
   MatchResultDetail,
   MatchResultSummary,
   StudentProfileRecord,
 } from "@career/contracts/types";
 
-import { createAiTask } from "@/shared/api/ai";
-import { fetchJobs } from "@/shared/api/jobs";
 import { fetchManualJobPortraits } from "@/shared/api/job-profiles";
 import { createMatch, fetchMatchDetail, fetchMatchList } from "@/shared/api/matching";
 import { ApiRequestError } from "@/shared/api/http";
@@ -21,7 +18,6 @@ import { profileName, profileTargetRole } from "@/features/profile/model/profile
 
 const router = useRouter();
 const profiles = ref<StudentProfileRecord[]>([]);
-const jobs = ref<JobRecord[]>([]);
 const manualPortraits = ref<ManualJobPortraitRecord[]>([]);
 const matches = ref<MatchResultSummary[]>([]);
 const selectedDetail = ref<MatchResultDetail | null>(null);
@@ -36,13 +32,13 @@ const loading = reactive({
 
 const createForm = reactive({
   studentProfileId: "",
-  jobId: "",
+  jobKey: "",
   forceRecalculate: false,
 });
 
 const queryForm = reactive({
   studentProfileId: "",
-  jobId: "",
+  jobKey: "",
   offset: 0,
   limit: 20,
 });
@@ -55,13 +51,12 @@ const uiState = reactive({
 const targetJobs = computed(() => {
   // 核心约束：目标岗位必须是已经构建了岗位画像的计算机相关岗位
   // 这里通过 fetchManualJobPortraits 获取，它本身就是流水线清洗后的计算机岗位子集
-  return manualPortraits.value
-    .filter((p) => p.job_id != null)
-    .map((p) => ({
-      id: p.job_id as number,
-      title: p.job_name,
-      category: p.category,
-    }));
+  return manualPortraits.value.map((p) => ({
+    jobName: p.job_name,
+    key: p.job_name,
+    title: portraitDisplayName(p),
+    category: p.category,
+  }));
 });
 
 const DIMENSION_META: Record<
@@ -108,9 +103,16 @@ const DIMENSION_ORDER: DimensionKey[] = [
 
 const canCreate = computed(() => {
   return (
-    toPositiveInt(createForm.studentProfileId) !== undefined &&
-    toPositiveInt(createForm.jobId) !== undefined
+    toPositiveInt(createForm.studentProfileId) !== undefined && selectedCreateTarget.value !== null
   );
+});
+
+const selectedCreateTarget = computed(() => {
+  return targetJobs.value.find((job) => job.key === createForm.jobKey) ?? null;
+});
+
+const selectedQueryTarget = computed(() => {
+  return targetJobs.value.find((job) => job.key === queryForm.jobKey) ?? null;
 });
 
 const selectedDimensionCards = computed(() => {
@@ -168,15 +170,18 @@ function dimensionLabel(key: DimensionKey): string {
 }
 
 function normalizeJobName(value: string): string {
-  return value.trim().toLowerCase().replace(/[（）()【】\[\]\s._-]+/g, "");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[（）()【】\[\]\s._-]+/g, "");
 }
 
-function resolveJobTitle(jobId: number): string {
-  const matched = targetJobs.value.find((job) => job.id === jobId);
-  if (matched) {
-    return matched.title;
-  }
-  return jobs.value.find((job) => job.id === jobId)?.title ?? `岗位 #${jobId}`;
+function portraitDisplayName(item: ManualJobPortraitRecord): string {
+  return item.profile_detail.name.trim() || item.job_name.trim();
+}
+
+function resolveMatchJobTitle(match: MatchResultSummary | MatchResultDetail): string {
+  return match.job_title || match.job_portrait_name || "岗位画像";
 }
 
 function syncTargetJobFromProfile(): void {
@@ -207,7 +212,7 @@ function syncTargetJobFromProfile(): void {
     });
 
   if (matchedJob) {
-    createForm.jobId = String(matchedJob.id);
+    createForm.jobKey = matchedJob.key;
   }
 }
 
@@ -223,14 +228,12 @@ async function bootstrap(): Promise<void> {
   uiState.error = "";
 
   try {
-    const [profileResponse, jobsResponse, portraitResponse] = await Promise.all([
+    const [profileResponse, portraitResponse] = await Promise.all([
       fetchStudentProfiles(),
-      fetchJobs({ limit: 100 }),
       fetchManualJobPortraits(),
     ]);
 
     profiles.value = profileResponse.items;
-    jobs.value = jobsResponse.items;
     manualPortraits.value = portraitResponse.items;
 
     if (!createForm.studentProfileId && profiles.value[0]) {
@@ -238,9 +241,9 @@ async function bootstrap(): Promise<void> {
       queryForm.studentProfileId = String(profiles.value[0].id);
     }
 
-    if (!createForm.jobId && targetJobs.value[0]) {
-      createForm.jobId = String(targetJobs.value[0].id);
-      queryForm.jobId = String(targetJobs.value[0].id);
+    if (!createForm.jobKey && targetJobs.value[0]) {
+      createForm.jobKey = targetJobs.value[0].key;
+      queryForm.jobKey = targetJobs.value[0].key;
     }
 
     syncTargetJobFromProfile();
@@ -258,7 +261,7 @@ async function loadMatches(): Promise<void> {
   try {
     const response = await fetchMatchList({
       student_profile_id: toPositiveInt(queryForm.studentProfileId),
-      job_id: toPositiveInt(queryForm.jobId),
+      job_portrait_name: selectedQueryTarget.value?.jobName,
       offset: queryForm.offset,
       limit: queryForm.limit,
     });
@@ -273,8 +276,8 @@ async function loadMatches(): Promise<void> {
 
 async function submitCreateMatch(): Promise<void> {
   const studentProfileId = toPositiveInt(createForm.studentProfileId);
-  const jobId = toPositiveInt(createForm.jobId);
-  if (!studentProfileId || !jobId) {
+  const jobPortraitName = selectedCreateTarget.value?.jobName;
+  if (!studentProfileId || !jobPortraitName) {
     uiState.error = "请选择学生画像和岗位";
     return;
   }
@@ -286,7 +289,7 @@ async function submitCreateMatch(): Promise<void> {
   try {
     const detail = await createMatch({
       student_profile_id: studentProfileId,
-      job_id: jobId,
+      job_portrait_name: jobPortraitName,
       force_recalculate: createForm.forceRecalculate,
     });
 
@@ -300,41 +303,6 @@ async function submitCreateMatch(): Promise<void> {
     uiState.error = formatApiError(error);
   } finally {
     loading.create = false;
-  }
-}
-
-async function submitAgentMatch(): Promise<void> {
-  const studentProfileId = toPositiveInt(createForm.studentProfileId);
-  const jobId = toPositiveInt(createForm.jobId);
-  if (!studentProfileId || !jobId) {
-    uiState.error = "请选择学生画像和岗位";
-    return;
-  }
-
-  loading.agent = true;
-  uiState.error = "";
-  uiState.success = "";
-
-  try {
-    const task = await createAiTask({
-      student_profile_id: studentProfileId,
-      job_id: jobId,
-      deliverables: ["match_analysis"],
-      force_recalculate: createForm.forceRecalculate,
-      objective: "基于学生画像、岗位画像和知识证据完成人岗匹配深度分析。",
-    });
-    if (!task.result.match_result) {
-      uiState.error = task.result.summary || "Agent 未产出匹配结果。";
-      return;
-    }
-
-    selectedDetail.value = task.result.match_result;
-    uiState.success = task.result.summary || "Agent 已完成深度匹配分析。";
-    await loadMatches();
-  } catch (error) {
-    uiState.error = formatApiError(error);
-  } finally {
-    loading.agent = false;
   }
 }
 
@@ -357,7 +325,7 @@ async function repeatAnalyze(): Promise<void> {
   }
 
   createForm.studentProfileId = String(selectedDetail.value.student_profile_id);
-  createForm.jobId = String(selectedDetail.value.job_id);
+  createForm.jobKey = selectedDetail.value.job_portrait_name;
   createForm.forceRecalculate = false;
   await submitCreateMatch();
 }
@@ -367,17 +335,6 @@ function goToReport(matchId: number): void {
     path: "/report",
     query: {
       match_id: String(matchId),
-    },
-  });
-}
-
-function goToCareerPath(jobId: number, studentProfileId?: number): void {
-  router.push({
-    path: "/career-paths",
-    query: {
-      job_id: String(jobId),
-      ...(studentProfileId ? { student_profile_id: String(studentProfileId) } : {}),
-      depth: "2",
     },
   });
 }
@@ -416,17 +373,19 @@ watch(
           >
             <option value="">请选择</option>
             <option v-for="profile in profiles" :key="profile.id" :value="String(profile.id)">
-              #{{ profile.id }} {{ profileName(profile) }}（{{ profileTargetRole(profile) || "暂未选择目标岗位" }}）
+              #{{ profile.id }} {{ profileName(profile) }}（{{
+                profileTargetRole(profile) || "暂未选择目标岗位"
+              }}）
             </option>
           </select>
         </label>
 
         <label>
           目标岗位
-          <select v-model="createForm.jobId" :disabled="loading.bootstrap || loading.create">
+          <select v-model="createForm.jobKey" :disabled="loading.bootstrap || loading.create">
             <option value="">请选择</option>
-            <option v-for="job in targetJobs" :key="job.id" :value="String(job.id)">
-              #{{ job.id }} {{ job.title }}
+            <option v-for="job in targetJobs" :key="job.key" :value="job.key">
+              {{ job.title }}
             </option>
           </select>
         </label>
@@ -444,13 +403,6 @@ watch(
       >
         {{ loading.create ? "分析中..." : "开始匹配分析" }}
       </button>
-      <button
-        class="ghost-btn"
-        :disabled="!canCreate || loading.create || loading.agent"
-        @click="submitAgentMatch"
-      >
-        {{ loading.agent ? "Agent 分析中..." : "Agent 深度匹配" }}
-      </button>
     </section>
 
     <section v-if="selectedDetail" class="match-detail-panel">
@@ -467,7 +419,7 @@ watch(
               <p class="eyebrow">Match Assessment</p>
               <h3>
                 匹配详情 #{{ selectedDetail.id }} ·
-                {{ selectedDetail.job_title ?? resolveJobTitle(selectedDetail.job_id) }}
+                {{ resolveMatchJobTitle(selectedDetail) }}
               </h3>
             </div>
             <span v-if="selectedDetail.from_cache" class="cache-tag">from_cache</span>
@@ -584,18 +536,12 @@ watch(
             <span>适配度 {{ item.suitability_score }}</span>
           </article>
         </div>
-        <p v-else class="empty-note">当前结果暂无路径建议，可进入路径图谱中心重建或查看岗位图谱。</p>
+        <p v-else class="empty-note">当前结果暂无路径建议。</p>
       </section>
 
       <div class="detail-actions">
         <button class="ghost-btn" :disabled="loading.create" @click="repeatAnalyze">
           重复分析（验证一致性）
-        </button>
-        <button
-          class="ghost-btn"
-          @click="goToCareerPath(selectedDetail.job_id, selectedDetail.student_profile_id)"
-        >
-          查看路径规划
         </button>
         <button class="primary-btn" @click="goToReport(selectedDetail.id)">生成/查看报告</button>
       </div>
@@ -616,10 +562,10 @@ watch(
 
         <label>
           按岗位筛选
-          <select v-model="queryForm.jobId" :disabled="loading.list">
+          <select v-model="queryForm.jobKey" :disabled="loading.list">
             <option value="">全部</option>
-            <option v-for="job in targetJobs" :key="job.id" :value="String(job.id)">
-              #{{ job.id }} {{ job.title }}
+            <option v-for="job in targetJobs" :key="job.key" :value="job.key">
+              {{ job.title }}
             </option>
           </select>
         </label>
@@ -644,19 +590,13 @@ watch(
           <tr v-for="item in matches" :key="item.id">
             <td>{{ item.id }}</td>
             <td>{{ item.student_profile_id }}</td>
-            <td>{{ item.job_title ?? resolveJobTitle(item.job_id) }}（#{{ item.job_id }}）</td>
+            <td>{{ resolveMatchJobTitle(item) }}</td>
             <td>{{ item.total_score }}</td>
             <td>{{ new Date(item.created_at).toLocaleString() }}</td>
             <td>
               <div class="table-actions">
                 <button class="table-btn" :disabled="loading.detail" @click="openDetail(item.id)">
                   详情
-                </button>
-                <button
-                  class="table-btn"
-                  @click="goToCareerPath(item.job_id, item.student_profile_id)"
-                >
-                  路径
                 </button>
                 <button class="table-btn" @click="goToReport(item.id)">报告</button>
               </div>

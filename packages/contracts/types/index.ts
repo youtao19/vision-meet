@@ -512,16 +512,57 @@ export type MatchExplanationItem = {
   evidence_refs: string[];
 };
 
+export type MatchRequirementCategory =
+  | "skill"
+  | "certificate"
+  | "education"
+  | "experience"
+  | "soft_quality";
+
+export type MatchRequirementImportance = "must" | "important" | "bonus";
+
+export type MatchRequirementEvidenceType =
+  | "project"
+  | "internship"
+  | "certificate"
+  | "education"
+  | "self_assessment";
+
+export type MatchRequirement = {
+  id: string;
+  dimension: DimensionKey;
+  label: string;
+  category: MatchRequirementCategory;
+  importance: MatchRequirementImportance;
+  expected_level: number;
+  weight: number;
+  evidence_types: MatchRequirementEvidenceType[];
+};
+
+export type MatchRequirementScore = MatchRequirement & {
+  score: number;
+  matched: boolean;
+  semantic_score: number;
+  level_score: number;
+  evidence_strength: number;
+  experience_score: number;
+  evidence_refs: string[];
+  missing_reason: string | null;
+};
+
+export type MatchResultLevel = "highly_matched" | "matched" | "basic_match" | "needs_improvement";
+
 export type CreateMatchRequest = {
   student_profile_id: number;
-  job_id: number;
+  job_portrait_name: string;
   force_recalculate?: boolean;
 };
 
 export type MatchResultSummary = {
   id: number;
   student_profile_id: number;
-  job_id: number;
+  job_portrait_name: string;
+  job_portrait_snapshot: ManualJobPortraitRecord | null;
   job_title?: string | null;
   job_profile_version: number;
   scoring_version: string;
@@ -529,6 +570,8 @@ export type MatchResultSummary = {
   from_cache: boolean;
   dimension_scores: DimensionScores;
   total_score: number;
+  confidence: number;
+  level: MatchResultLevel;
   created_at: string;
 };
 
@@ -538,11 +581,21 @@ export type MatchResultDetail = MatchResultSummary & {
   explanations: MatchExplanationItem[];
   path_recommendations: CareerRouteRecommendation[];
   evidence_refs: string[];
+  requirement_scores: MatchRequirementScore[];
+  blocking_gaps: MatchRequirementScore[];
+  matched_requirements: MatchRequirementScore[];
+  weak_requirements: MatchRequirementScore[];
+  scoring_snapshot: {
+    algorithm_version: string;
+    dimension_weights: DimensionScores;
+    requirement_count: number;
+    evidence_coverage: number;
+  };
 };
 
 export type MatchListParams = {
   student_profile_id?: number;
-  job_id?: number;
+  job_portrait_name?: string;
   offset: number;
   limit: number;
 };
@@ -572,7 +625,6 @@ export type CareerReportSummary = {
   match_id: number;
   version: number;
   student_profile_id: number;
-  job_id: number;
   total_score: number;
   created_at: string;
   updated_at: string;

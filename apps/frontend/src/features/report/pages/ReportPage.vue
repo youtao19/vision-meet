@@ -57,6 +57,15 @@ const uiState = reactive({
 const isEditMode = ref(false);
 
 const isAnyPolishing = computed(() => Object.values(loading.polish).some((val) => val));
+const reportTargetTitle = computed(() => {
+  const detail = matchDetail.value;
+  return (
+    detail?.job_title ||
+    detail?.job_portrait_snapshot?.profile_detail.name ||
+    detail?.job_portrait_name ||
+    "岗位画像"
+  );
+});
 
 function formatApiError(error: unknown): string {
   if (error instanceof ApiRequestError) {
@@ -106,26 +115,6 @@ function formatSectionContent(content: string): string[] {
     .filter((line) => line.length > 0);
 
   return lines.length > 0 ? lines : ["暂无内容"];
-}
-
-function openCareerPath(): void {
-  const jobId = selectedReport.value?.job_id ?? matchDetail.value?.job_id;
-  const studentProfileId =
-    selectedReport.value?.student_profile_id ?? matchDetail.value?.student_profile_id;
-
-  if (!jobId) {
-    uiState.error = "当前报告上下文缺少岗位信息，无法打开图谱页";
-    return;
-  }
-
-  router.push({
-    path: "/career-paths",
-    query: {
-      job_id: String(jobId),
-      ...(studentProfileId ? { student_profile_id: String(studentProfileId) } : {}),
-      depth: "2",
-    },
-  });
 }
 
 async function loadMatchDetail(matchId: number): Promise<void> {
@@ -508,27 +497,10 @@ onMounted(async () => {
             <span class="value">#{{ matchDetail.student_profile_id }}</span>
           </div>
           <div class="info-item">
-            <span class="label">目标岗位 ID</span>
-            <span class="value">#{{ matchDetail.job_id }}</span>
+            <span class="label">目标岗位画像</span>
+            <span class="value">{{ reportTargetTitle }}</span>
           </div>
         </div>
-        <button class="btn btn-ghost" @click="openCareerPath">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="12" cy="12" r="10"></circle>
-            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-          </svg>
-          查看职业图谱
-        </button>
       </div>
     </section>
 
@@ -674,13 +646,6 @@ onMounted(async () => {
                 >
                   <div class="section-preview-header">
                     <h3 class="preview-title">{{ section.title }}</h3>
-                    <button
-                      v-if="section.key === 'career_path'"
-                      class="btn btn-text text-primary"
-                      @click="openCareerPath"
-                    >
-                      查看可视化图谱 →
-                    </button>
                   </div>
                   <div class="markdown-content" v-html="renderMarkdown(section.content)"></div>
                 </div>
@@ -693,13 +658,6 @@ onMounted(async () => {
                     <span class="section-label">{{ section.key }}</span>
                     <h3 class="section-title">{{ section.title }}</h3>
                   </div>
-                  <button
-                    v-if="section.key === 'career_path'"
-                    class="btn btn-text text-primary"
-                    @click="openCareerPath"
-                  >
-                    查看可视化图谱 →
-                  </button>
                 </div>
 
                 <div class="section-body">

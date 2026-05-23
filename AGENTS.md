@@ -83,4 +83,6 @@
 - 必须维护 `apps/backend/.env.example`、`apps/frontend/.env.example`。
 - 配置读取必须集中管理并做校验（建议 zod），禁止业务代码到处直读 `process.env`。
 
+
+
 Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.

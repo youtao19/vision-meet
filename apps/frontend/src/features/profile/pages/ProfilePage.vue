@@ -87,8 +87,7 @@ const skillCategoryOptions: Array<{ value: SkillCategory; label: string }> = [
 const selectedSkillCategory = ref<SkillCategory>("other");
 const sensitiveEvidenceFieldPattern =
   /(phone|mobile|tel|email|mail|qq|wechat|weixin|id_card|identity|contact|电话|邮箱|身份证|微信|联系方式)/i;
-const sensitiveEvidenceQuotePattern =
-  /([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(1[3-9]\d{9})/i;
+const sensitiveEvidenceQuotePattern = /([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(1[3-9]\d{9})/i;
 const profileEvidenceFieldPattern =
   /^(basic_info\.name|preference\.|education|skills|certificates|experiences|self_assessment|summary)/;
 const missingItemLabels: Record<string, string> = {
@@ -124,8 +123,12 @@ const selectedProfile = computed(() => {
   return profileRecords.value[0] ?? null;
 });
 
+function portraitDisplayName(item: ManualJobPortraitRecord): string {
+  return item.profile_detail.name.trim() || item.job_name.trim();
+}
+
 const jobPortraitOptions = computed(() =>
-  Array.from(new Set(jobPortraits.value.map((item) => item.job_name.trim()).filter(Boolean))).sort((a, b) =>
+  Array.from(new Set(jobPortraits.value.map(portraitDisplayName).filter(Boolean))).sort((a, b) =>
     a.localeCompare(b, "zh-CN"),
   ),
 );
@@ -431,7 +434,12 @@ onMounted(() => {
             表单录入
           </button>
         </div>
-        <button class="ghost-btn" type="button" :disabled="loading.bootstrap" @click="loadProfileHistory">
+        <button
+          class="ghost-btn"
+          type="button"
+          :disabled="loading.bootstrap"
+          @click="loadProfileHistory"
+        >
           <span class="material-symbols-outlined">refresh</span>
           {{ loading.bootstrap ? "刷新中" : "刷新" }}
         </button>
@@ -447,7 +455,9 @@ onMounted(() => {
           <header class="panel-head">
             <div>
               <h3>{{ mode === "resume" ? "上传简历" : "结构化录入" }}</h3>
-              <p>{{ mode === "resume" ? "由 Agent 抽取画像字段和证据" : "手动维护核心画像字段" }}</p>
+              <p>
+                {{ mode === "resume" ? "由 Agent 抽取画像字段和证据" : "手动维护核心画像字段" }}
+              </p>
             </div>
             <span>{{ mode === "resume" ? "Agent" : "Manual" }}</span>
           </header>
@@ -457,43 +467,134 @@ onMounted(() => {
               <label><span>姓名</span><input v-model="manualForm.name" placeholder="张三" /></label>
               <label>
                 <span>目标岗位（可选）</span>
-                <select v-model="manualForm.targetRole" :disabled="loading.jobPortraits || jobPortraitOptions.length === 0">
-                  <option value="">{{ loading.jobPortraits ? "岗位画像加载中" : "匹配时再选" }}</option>
-                  <option v-for="item in jobPortraitOptions" :key="item" :value="item">{{ item }}</option>
+                <select
+                  v-model="manualForm.targetRole"
+                  :disabled="loading.jobPortraits || jobPortraitOptions.length === 0"
+                >
+                  <option value="">
+                    {{ loading.jobPortraits ? "岗位画像加载中" : "匹配时再选" }}
+                  </option>
+                  <option v-for="item in jobPortraitOptions" :key="item" :value="item">
+                    {{ item }}
+                  </option>
                 </select>
               </label>
-              <label><span>学校</span><input v-model="manualForm.school" placeholder="XX 大学" /></label>
-              <label><span>学历</span><input v-model="manualForm.educationLevel" placeholder="本科" /></label>
-              <label><span>专业</span><input v-model="manualForm.major" placeholder="软件工程" /></label>
-              <label><span>毕业年份</span><input v-model="manualForm.graduationYear" placeholder="2026" /></label>
+              <label
+                ><span>学校</span><input v-model="manualForm.school" placeholder="XX 大学"
+              /></label>
+              <label
+                ><span>学历</span><input v-model="manualForm.educationLevel" placeholder="本科"
+              /></label>
+              <label
+                ><span>专业</span><input v-model="manualForm.major" placeholder="软件工程"
+              /></label>
+              <label
+                ><span>毕业年份</span><input v-model="manualForm.graduationYear" placeholder="2026"
+              /></label>
             </div>
 
             <div class="field-row">
-              <label><span>期望城市</span><input v-model="manualForm.preferredCities" placeholder="苏州、上海" /></label>
-              <label><span>期望行业</span><input v-model="manualForm.preferredIndustries" placeholder="软件服务" /></label>
+              <label
+                ><span>期望城市</span
+                ><input v-model="manualForm.preferredCities" placeholder="苏州、上海"
+              /></label>
+              <label
+                ><span>期望行业</span
+                ><input v-model="manualForm.preferredIndustries" placeholder="软件服务"
+              /></label>
             </div>
 
             <label class="field">
               <span>技能分类</span>
               <select v-model="selectedSkillCategory">
-                <option v-for="item in skillCategoryOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+                <option v-for="item in skillCategoryOptions" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </option>
               </select>
             </label>
-            <label class="field"><span>专业技能</span><textarea v-model="manualForm.skillText" rows="3" placeholder="Java、Spring、PostgreSQL" /></label>
-            <label class="field"><span>证书奖项</span><textarea v-model="manualForm.certificateText" rows="2" placeholder="英语六级、蓝桥杯" /></label>
-            <label class="field"><span>项目经历</span><textarea v-model="manualForm.projectText" rows="3" placeholder="招聘推荐系统、职业路径图谱" /></label>
-            <label class="field"><span>实习经历</span><textarea v-model="manualForm.internshipText" rows="2" placeholder="后端开发实习" /></label>
-            <label class="field"><span>竞赛经历</span><textarea v-model="manualForm.competitionText" rows="2" placeholder="数学建模、互联网+" /></label>
+            <label class="field"
+              ><span>专业技能</span
+              ><textarea
+                v-model="manualForm.skillText"
+                rows="3"
+                placeholder="Java、Spring、PostgreSQL"
+              />
+            </label>
+            <label class="field"
+              ><span>证书奖项</span
+              ><textarea
+                v-model="manualForm.certificateText"
+                rows="2"
+                placeholder="英语六级、蓝桥杯"
+              />
+            </label>
+            <label class="field"
+              ><span>项目经历</span
+              ><textarea
+                v-model="manualForm.projectText"
+                rows="3"
+                placeholder="招聘推荐系统、职业路径图谱"
+              />
+            </label>
+            <label class="field"
+              ><span>实习经历</span
+              ><textarea v-model="manualForm.internshipText" rows="2" placeholder="后端开发实习" />
+            </label>
+            <label class="field"
+              ><span>竞赛经历</span
+              ><textarea
+                v-model="manualForm.competitionText"
+                rows="2"
+                placeholder="数学建模、互联网+"
+              />
+            </label>
 
             <div class="rating-grid" aria-label="自评能力">
-              <label><span>沟通</span><input v-model.number="manualForm.communication" type="range" min="1" max="5" /><b>{{ manualForm.communication }}</b></label>
-              <label><span>学习</span><input v-model.number="manualForm.learning" type="range" min="1" max="5" /><b>{{ manualForm.learning }}</b></label>
-              <label><span>抗压</span><input v-model.number="manualForm.stressTolerance" type="range" min="1" max="5" /><b>{{ manualForm.stressTolerance }}</b></label>
-              <label><span>创新</span><input v-model.number="manualForm.innovation" type="range" min="1" max="5" /><b>{{ manualForm.innovation }}</b></label>
+              <label
+                ><span>沟通</span
+                ><input
+                  v-model.number="manualForm.communication"
+                  type="range"
+                  min="1"
+                  max="5"
+                /><b>{{ manualForm.communication }}</b></label
+              >
+              <label
+                ><span>学习</span
+                ><input v-model.number="manualForm.learning" type="range" min="1" max="5" /><b>{{
+                  manualForm.learning
+                }}</b></label
+              >
+              <label
+                ><span>抗压</span
+                ><input
+                  v-model.number="manualForm.stressTolerance"
+                  type="range"
+                  min="1"
+                  max="5"
+                /><b>{{ manualForm.stressTolerance }}</b></label
+              >
+              <label
+                ><span>创新</span
+                ><input v-model.number="manualForm.innovation" type="range" min="1" max="5" /><b>{{
+                  manualForm.innovation
+                }}</b></label
+              >
             </div>
 
-            <label class="field"><span>摘要</span><textarea v-model="manualForm.summary" rows="3" placeholder="一句话说明优势和当前状态" /></label>
-            <button class="primary-btn full" :disabled="loading.manualSubmit" @click="submitManualProfile">
+            <label class="field"
+              ><span>摘要</span
+              ><textarea
+                v-model="manualForm.summary"
+                rows="3"
+                placeholder="一句话说明优势和当前状态"
+              />
+            </label>
+            <button
+              class="primary-btn full"
+              :disabled="loading.manualSubmit"
+              @click="submitManualProfile"
+            >
               <span class="material-symbols-outlined">save</span>
               {{ loading.manualSubmit ? "保存中" : "保存画像" }}
             </button>
@@ -509,14 +610,27 @@ onMounted(() => {
 
             <label class="field compact-field">
               <span>目标岗位（可选）</span>
-              <select v-model="resumeUpload.targetRole" :disabled="loading.jobPortraits || jobPortraitOptions.length === 0">
-                <option value="">{{ loading.jobPortraits ? "岗位画像加载中" : "匹配时再选" }}</option>
-                <option v-for="item in jobPortraitOptions" :key="item" :value="item">{{ item }}</option>
+              <select
+                v-model="resumeUpload.targetRole"
+                :disabled="loading.jobPortraits || jobPortraitOptions.length === 0"
+              >
+                <option value="">
+                  {{ loading.jobPortraits ? "岗位画像加载中" : "匹配时再选" }}
+                </option>
+                <option v-for="item in jobPortraitOptions" :key="item" :value="item">
+                  {{ item }}
+                </option>
               </select>
-              <small v-if="!loading.jobPortraits && jobPortraitOptions.length === 0">暂无岗位画像，不影响生成学生画像。</small>
+              <small v-if="!loading.jobPortraits && jobPortraitOptions.length === 0"
+                >暂无岗位画像，不影响生成学生画像。</small
+              >
             </label>
 
-            <button class="primary-btn full" :disabled="loading.resumeSubmit" @click="submitResumeProfile">
+            <button
+              class="primary-btn full"
+              :disabled="loading.resumeSubmit"
+              @click="submitResumeProfile"
+            >
               <span class="material-symbols-outlined">auto_awesome</span>
               {{ loading.resumeSubmit ? "解析中" : "生成学生画像" }}
             </button>
@@ -531,11 +645,19 @@ onMounted(() => {
             </div>
           </header>
           <div class="history-list">
-            <button v-for="item in profileRecords" :key="item.id" :class="{ active: selectedProfile?.id === item.id }" @click="selectProfile(item.id)">
+            <button
+              v-for="item in profileRecords"
+              :key="item.id"
+              :class="{ active: selectedProfile?.id === item.id }"
+              @click="selectProfile(item.id)"
+            >
               <span class="history-id">#{{ item.id }}</span>
               <strong>{{ profileName(item) }}</strong>
               <em>{{ profileTargetRole(item) || "未绑定岗位" }}</em>
-              <small>{{ formatSourceType(item.source_type) }} · 完整度 {{ profileCompleteness(item) }}% · {{ formatDate(item.created_at) }}</small>
+              <small
+                >{{ formatSourceType(item.source_type) }} · 完整度 {{ profileCompleteness(item) }}%
+                · {{ formatDate(item.created_at) }}</small
+              >
             </button>
             <p v-if="profileRecords.length === 0" class="empty-note">暂无历史画像。</p>
           </div>
@@ -549,7 +671,11 @@ onMounted(() => {
             <div class="hero-main">
               <p>{{ formatSourceType(selectedProfile.source_type) }} · #{{ selectedProfile.id }}</p>
               <h3>{{ profileName(selectedProfile) }}</h3>
-              <span>{{ selectedProfile.education.school || "学校未填写" }} · {{ selectedProfile.education.major || "专业未填写" }} · {{ selectedProfile.education.graduation_year || "毕业年份未填" }}</span>
+              <span
+                >{{ selectedProfile.education.school || "学校未填写" }} ·
+                {{ selectedProfile.education.major || "专业未填写" }} ·
+                {{ selectedProfile.education.graduation_year || "毕业年份未填" }}</span
+              >
             </div>
             <strong class="target-badge" :class="{ muted: !profileTargetRole(selectedProfile) }">
               {{ profileTargetRole(selectedProfile) || "未绑定岗位" }}
@@ -557,15 +683,26 @@ onMounted(() => {
           </section>
 
           <section class="metric-strip">
-            <article class="metric-card"><span>完整度</span><strong>{{ profileCompleteness(selectedProfile) }}%</strong></article>
-            <article class="metric-card"><span>竞争力</span><strong>{{ profileCompetitiveness(selectedProfile) }}%</strong></article>
-            <article class="metric-card"><span>画像证据</span><strong>{{ usableEvidenceCount(selectedProfile) }}</strong></article>
-            <article class="metric-card"><span>经历</span><strong>{{ selectedProfile.experiences.length }}</strong></article>
+            <article class="metric-card">
+              <span>完整度</span><strong>{{ profileCompleteness(selectedProfile) }}%</strong>
+            </article>
+            <article class="metric-card">
+              <span>竞争力</span><strong>{{ profileCompetitiveness(selectedProfile) }}%</strong>
+            </article>
+            <article class="metric-card">
+              <span>画像证据</span><strong>{{ usableEvidenceCount(selectedProfile) }}</strong>
+            </article>
+            <article class="metric-card">
+              <span>经历</span><strong>{{ selectedProfile.experiences.length }}</strong>
+            </article>
           </section>
 
           <section class="content-grid">
             <article class="panel section-card score-card">
-              <header><h4>能力评分</h4><span>四维评估</span></header>
+              <header>
+                <h4>能力评分</h4>
+                <span>四维评估</span>
+              </header>
               <div class="meter-list">
                 <div v-for="item in dimensionCards" :key="item.label">
                   <span>{{ item.label }}</span>
@@ -576,57 +713,104 @@ onMounted(() => {
             </article>
 
             <article class="panel section-card">
-              <header><h4>缺失项</h4><span>{{ selectedProfile.evaluation.missing_items.length || "完整" }}</span></header>
+              <header>
+                <h4>缺失项</h4>
+                <span>{{ selectedProfile.evaluation.missing_items.length || "完整" }}</span>
+              </header>
               <div class="tag-list warn">
-                <span v-for="item in selectedProfile.evaluation.missing_items" :key="item">{{ formatMissingItem(item) }}</span>
+                <span v-for="item in selectedProfile.evaluation.missing_items" :key="item">{{
+                  formatMissingItem(item)
+                }}</span>
                 <span v-if="selectedProfile.evaluation.missing_items.length === 0">信息完整</span>
               </div>
             </article>
 
             <article class="panel section-card wide">
-              <header><h4>技能</h4><span>{{ selectedProfile.skills.length }} 项</span></header>
+              <header>
+                <h4>技能</h4>
+                <span>{{ selectedProfile.skills.length }} 项</span>
+              </header>
               <div class="tag-list">
-                <span v-for="skill in selectedProfile.skills" :key="skill.name">{{ skill.name }} · L{{ skill.level }}</span>
+                <span v-for="skill in selectedProfile.skills" :key="skill.name"
+                  >{{ skill.name }} · L{{ skill.level }}</span
+                >
                 <span v-if="selectedProfile.skills.length === 0" class="empty-chip">暂无技能</span>
               </div>
             </article>
 
             <article class="panel section-card">
-              <header><h4>经历</h4><span>项目 {{ profileExperienceCount(selectedProfile, "project") }} · 实习 {{ profileExperienceCount(selectedProfile, "internship") }} · 竞赛 {{ profileExperienceCount(selectedProfile, "competition") }}</span></header>
+              <header>
+                <h4>经历</h4>
+                <span
+                  >项目 {{ profileExperienceCount(selectedProfile, "project") }} · 实习
+                  {{ profileExperienceCount(selectedProfile, "internship") }} · 竞赛
+                  {{ profileExperienceCount(selectedProfile, "competition") }}</span
+                >
+              </header>
               <div class="experience-list">
-                <article v-for="item in selectedProfile.experiences" :key="`${item.kind}-${item.title}`">
+                <article
+                  v-for="item in selectedProfile.experiences"
+                  :key="`${item.kind}-${item.title}`"
+                >
                   <span>{{ formatExperienceKind(item.kind) }}</span>
                   <h5>{{ item.title }}</h5>
-                  <p>{{ [...item.responsibilities, ...item.outcomes].slice(0, 2).join("；") || "暂无职责和成果描述" }}</p>
+                  <p>
+                    {{
+                      [...item.responsibilities, ...item.outcomes].slice(0, 2).join("；") ||
+                      "暂无职责和成果描述"
+                    }}
+                  </p>
                 </article>
-                <p v-if="selectedProfile.experiences.length === 0" class="empty-note">暂无结构化经历。</p>
+                <p v-if="selectedProfile.experiences.length === 0" class="empty-note">
+                  暂无结构化经历。
+                </p>
               </div>
             </article>
 
             <article class="panel section-card">
-              <header><h4>证书</h4><span>{{ profileCertificateNames(selectedProfile).length }} 项</span></header>
+              <header>
+                <h4>证书</h4>
+                <span>{{ profileCertificateNames(selectedProfile).length }} 项</span>
+              </header>
               <div class="tag-list certificates">
-                <span v-for="name in profileCertificateNames(selectedProfile)" :key="name">{{ name }}</span>
-                <span v-if="profileCertificateNames(selectedProfile).length === 0" class="empty-chip">暂无证书</span>
+                <span v-for="name in profileCertificateNames(selectedProfile)" :key="name">{{
+                  name
+                }}</span>
+                <span
+                  v-if="profileCertificateNames(selectedProfile).length === 0"
+                  class="empty-chip"
+                  >暂无证书</span
+                >
               </div>
             </article>
 
             <article class="panel section-card wide">
-              <header><h4>画像证据</h4><span>展示可用于画像的证据</span></header>
+              <header>
+                <h4>画像证据</h4>
+                <span>展示可用于画像的证据</span>
+              </header>
               <ul class="evidence-list">
-                <li v-for="evidence in visibleEvidences(selectedProfile)" :key="evidence.id || evidence.quote">
+                <li
+                  v-for="evidence in visibleEvidences(selectedProfile)"
+                  :key="evidence.id || evidence.quote"
+                >
                   <strong>{{ formatEvidenceField(evidence.field_path) }}</strong>
                   <span>{{ evidence.quote }}</span>
                 </li>
               </ul>
-              <p v-if="visibleEvidences(selectedProfile).length === 0" class="empty-note">暂无可展示证据。</p>
+              <p v-if="visibleEvidences(selectedProfile).length === 0" class="empty-note">
+                暂无可展示证据。
+              </p>
               <p v-if="hiddenEvidenceCount(selectedProfile) > 0" class="privacy-note">
                 已隐藏 {{ hiddenEvidenceCount(selectedProfile) }} 条联系方式或非画像字段证据。
               </p>
             </article>
 
             <article class="panel section-card wide">
-              <header><h4>画像摘要</h4><span>系统生成</span></header>
+              <header>
+                <h4>画像摘要</h4>
+                <span>系统生成</span>
+              </header>
               <p class="summary-text">{{ selectedProfile.summary }}</p>
             </article>
           </section>

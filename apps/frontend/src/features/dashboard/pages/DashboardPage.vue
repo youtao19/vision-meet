@@ -77,14 +77,6 @@ const metricCards = computed(() => [
     icon: "compare_arrows",
     to: "/matching",
   },
-  {
-    label: "路径图谱",
-    value: portraits.value.filter((item) => item.job_id).length,
-    suffix: "个",
-    trend: "可进入晋升/转岗分析",
-    icon: "route",
-    to: "/career-paths",
-  },
 ]);
 
 function formatDate(value?: string | null): string {
@@ -164,7 +156,9 @@ onMounted(() => {
       <div>
         <p class="eyebrow">职业规划系统</p>
         <h2>综合仪表盘</h2>
-        <p class="dashboard-desc">聚合画像构建、岗位画像、路径图谱、人岗匹配和职业报告的当前状态。</p>
+        <p class="dashboard-desc">
+          聚合画像构建、岗位画像、路径图谱、人岗匹配和职业报告的当前状态。
+        </p>
       </div>
       <div class="head-actions">
         <RouterLink to="/profile">新建学生画像</RouterLink>
@@ -183,7 +177,9 @@ onMounted(() => {
         <span class="metric-icon material-symbols-outlined">{{ card.icon }}</span>
         <span class="metric-copy">
           <span class="metric-label">{{ card.label }}</span>
-          <strong>{{ isInitialLoading ? "--" : card.value }}<small>{{ card.suffix }}</small></strong>
+          <strong
+            >{{ isInitialLoading ? "--" : card.value }}<small>{{ card.suffix }}</small></strong
+          >
           <span class="metric-trend">{{ isInitialLoading ? "正在读取数据" : card.trend }}</span>
         </span>
         <span class="material-symbols-outlined metric-arrow">chevron_right</span>
@@ -212,11 +208,16 @@ onMounted(() => {
             </div>
             <div>
               <strong>{{ profileTargetRole(latestProfile) || "暂未选择目标岗位" }}</strong>
-              <span>{{ profileMajor(latestProfile) || "专业未填写" }} · {{ profileGraduationYear(latestProfile) || "届别未填" }}</span>
+              <span
+                >{{ profileMajor(latestProfile) || "专业未填写" }} ·
+                {{ profileGraduationYear(latestProfile) || "届别未填" }}</span
+              >
             </div>
           </div>
           <div class="tag-row">
-            <span v-for="skill in profileSkillNames(latestProfile).slice(0, 6)" :key="skill">{{ skill }}</span>
+            <span v-for="skill in profileSkillNames(latestProfile).slice(0, 6)" :key="skill">{{
+              skill
+            }}</span>
           </div>
           <dl class="profile-facts">
             <div>
@@ -256,8 +257,10 @@ onMounted(() => {
           <div v-for="item in recentMatches" :key="item.id" class="match-row">
             <div class="rank">#{{ item.id }}</div>
             <div class="match-main">
-              <strong>{{ item.job_title || `岗位 ${item.job_id}` }}</strong>
-              <span>学生画像 {{ item.student_profile_id }} · {{ formatDate(item.created_at) }}</span>
+              <strong>{{ item.job_title || item.job_portrait_name || "岗位画像" }}</strong>
+              <span
+                >学生画像 {{ item.student_profile_id }} · {{ formatDate(item.created_at) }}</span
+              >
             </div>
             <div class="score-cell">
               <strong>{{ item.total_score }}%</strong>
@@ -277,14 +280,26 @@ onMounted(() => {
           <RouterLink to="/career-paths">全屏查看</RouterLink>
         </header>
 
-        <div class="path-map" :class="{ 'is-skeleton': isInitialLoading }" aria-label="岗位路径示意">
-          <div v-for="item in topPortraits.slice(1, 3)" :key="item.job_name" class="path-node side-node">
+        <div
+          class="path-map"
+          :class="{ 'is-skeleton': isInitialLoading }"
+          aria-label="岗位路径示意"
+        >
+          <div
+            v-for="item in topPortraits.slice(1, 3)"
+            :key="item.job_name"
+            class="path-node side-node"
+          >
             {{ item.job_name }}
           </div>
           <div class="path-node target-node">
             {{ topPortraits[0]?.job_name || "目标岗位" }}
           </div>
-          <div v-for="item in topPortraits.slice(3, 5)" :key="item.job_name" class="path-node side-node">
+          <div
+            v-for="item in topPortraits.slice(3, 5)"
+            :key="item.job_name"
+            class="path-node side-node"
+          >
             {{ item.job_name }}
           </div>
         </div>
@@ -337,7 +352,9 @@ onMounted(() => {
             <p>职业规划报告</p>
             <h3>报告编辑与导出</h3>
           </div>
-          <RouterLink :to="latestMatch ? `/report?match_id=${latestMatch.id}` : '/report'">进入报告</RouterLink>
+          <RouterLink :to="latestMatch ? `/report?match_id=${latestMatch.id}` : '/report'"
+            >进入报告</RouterLink
+          >
         </header>
 
         <div class="report-preview">

@@ -8,22 +8,19 @@ import test from "node:test";
 
 import type {
   DimensionScores,
-  JobProfileV2Record,
-  JobRecord,
+  ManualJobPortraitRecord,
   MatchResultDetail,
   MatchResultListResponse,
   StudentProfileRecord,
 } from "@career/contracts/types";
 
-import type { JobsRepository } from "../../jobs/jobs.repository.js";
 import type { ProfileRepository } from "../../profile/profile.repository.js";
 import type {
   MatchResultCreateInput,
   MatchResultUniqueKey,
   MatchingRepository,
-  NormalizedJobHint,
 } from "../matching.repository.js";
-import { createMatchingService } from "../matching.service.js";
+import { createMatchingService, type JobPortraitRepository } from "../matching.service.js";
 
 function buildDimensionScores(value: number): DimensionScores {
   return {
@@ -130,47 +127,28 @@ function buildStudentProfile(input: { id: number; skills: string[] }): StudentPr
   };
 }
 
-function buildJobRecord(): JobRecord {
+function buildPortrait(): ManualJobPortraitRecord {
   return {
-    id: 101,
-    source_row_id: null,
-    normalized_source_key: null,
-    title: "Java后端开发工程师",
-    location: null,
-    salary_range: null,
-    company_name: null,
-    industry: "互联网",
-    company_size: null,
-    company_type: null,
-    job_code: null,
-    job_description: null,
-    company_intro: null,
-    raw_payload: {},
+    job_name: "Java后端开发工程师",
+    category: "计算机/互联网",
+    profile_detail: {
+      name: "Java后端开发工程师",
+      category: "计算机/互联网",
+      description: "负责后端服务开发与性能优化。",
+      educationRequirements: ["本科"],
+      skills: ["Java", "Spring", "MySQL", "Redis"],
+      softSkills: ["沟通", "学习能力", "抗压"],
+      certificates: ["英语六级"],
+      innovationAbility: "中",
+      learningAbility: "高",
+      stressResistance: "中",
+      communicationAbility: "中",
+      internshipAbility: "需要项目或实习经历",
+      careerPath: [],
+      subIndustries: [],
+    },
     created_at: new Date().toISOString(),
-  };
-}
-
-function buildJobProfile(): JobProfileV2Record {
-  return {
-    id: 1,
-    job_id: 101,
-    profile_version: 3,
-    normalized_title: "Java后端开发工程师",
-    job_family: "software_backend",
-    job_level: 3,
-    professional_skills: ["Java", "Spring", "MySQL", "Redis"],
-    certificate_requirements: ["英语六级"],
-    innovation_score: 72,
-    learning_score: 80,
-    stress_tolerance_score: 78,
-    communication_score: 74,
-    internship_score: 70,
-    summary: "负责后端服务开发与性能优化。",
-    confidence: 0.9,
-    generation_model: "test",
-    generation_mode: "heuristic",
-    extracted_features: {},
-    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -191,25 +169,12 @@ function createProfileRepository(profile: StudentProfileRecord): ProfileReposito
   };
 }
 
-function createJobsRepository(job: JobRecord, jobProfile: JobProfileV2Record): JobsRepository {
+function createJobPortraitRepository(
+  portrait: ManualJobPortraitRecord | null,
+): JobPortraitRepository {
   return {
-    async addJobs() {
-      throw new Error("not implemented in matching service test");
-    },
-    async listJobs() {
-      return {
-        total: 1,
-        items: [job],
-      };
-    },
-    async getJobById(jobId) {
-      return jobId === job.id ? job : null;
-    },
-    async findBestJobByTargetRole() {
-      return job;
-    },
-    async getLatestProfileV2ByJobId(jobId) {
-      return jobId === job.id ? jobProfile : null;
+    async getManualJobPortraitByName(jobName) {
+      return portrait && portrait.job_name === jobName ? portrait : null;
     },
   };
 }
@@ -241,19 +206,11 @@ function createMatchingRepository(): MatchingRepository {
     async findReusableResult(_uniqueKey: MatchResultUniqueKey) {
       return null;
     },
-    async getNormalizedJobHint(): Promise<NormalizedJobHint> {
-      return {
-        normalized_title: "Java后端开发工程师",
-        normalized_job_family: "software_backend",
-        confidence: 0.92,
-      };
-    },
   };
 }
 
 test("createMatch: 技能证据应影响职业技能匹配分并写入解释", async () => {
-  const job = buildJobRecord();
-  const jobProfile = buildJobProfile();
+  const portrait = buildPortrait();
   const strongProfile = buildStudentProfile({
     id: 1,
     skills: ["Java", "Spring Boot", "MySQL", "Redis", "Docker"],
@@ -266,24 +223,24 @@ test("createMatch: 技能证据应影响职业技能匹配分并写入解释", a
   const strongService = createMatchingService(
     createMatchingRepository(),
     createProfileRepository(strongProfile),
-    createJobsRepository(job, jobProfile),
+    createJobPortraitRepository(portrait),
     { scoringVersion: "test" },
   );
   const weakService = createMatchingService(
     createMatchingRepository(),
     createProfileRepository(weakProfile),
-    createJobsRepository(job, jobProfile),
+    createJobPortraitRepository(portrait),
     { scoringVersion: "test" },
   );
 
   const strongResult = await strongService.createMatch({
     student_profile_id: strongProfile.id,
-    job_id: job.id,
+    job_portrait_name: portrait.job_name,
     force_recalculate: true,
   });
   const weakResult = await weakService.createMatch({
     student_profile_id: weakProfile.id,
-    job_id: job.id,
+    job_portrait_name: portrait.job_name,
     force_recalculate: true,
   });
 
@@ -292,34 +249,34 @@ test("createMatch: 技能证据应影响职业技能匹配分并写入解释", a
       weakResult.dimension_scores.professional_skills,
   );
   assert.ok(strongResult.evidence_refs.some((item) => item.includes("核心技能覆盖率：100%")));
+  assert.equal(strongResult.scoring_snapshot.algorithm_version, "requirement-evidence-v1");
+  assert.ok(strongResult.requirement_scores.length > 0);
+  assert.ok(strongResult.confidence > 0);
   assert.ok(
     weakResult.explanations.some((item) =>
-      item.evidence_refs.some((evidence) => evidence.includes("待补齐技能")),
+      item.evidence_refs.some((evidence) => evidence.includes("待补齐要求")),
     ),
   );
+  assert.ok(weakResult.weak_requirements.length > 0);
 });
 
-test("createMatch: 非计算机岗位在无画像时应抛出 HttpError", async () => {
+test("createMatch: 岗位画像不存在时应抛出 HttpError", async () => {
   const profile = buildStudentProfile({ id: 3, skills: ["Java"] });
-  const nonCompJob = buildJobRecord();
-  nonCompJob.title = "销售经理";
-  nonCompJob.industry = "房地产";
 
   const service = createMatchingService(
     createMatchingRepository(),
     createProfileRepository(profile),
-    // 模拟 v2_job_profiles 未命中，触发 ensureJobProfileSnapshot 的计算机过滤
-    createJobsRepository(nonCompJob, null as unknown as JobProfileV2Record),
+    createJobPortraitRepository(null),
     { scoringVersion: "test" },
   );
 
   await assert.rejects(
     service.createMatch({
       student_profile_id: profile.id,
-      job_id: nonCompJob.id,
+      job_portrait_name: "不存在的岗位画像",
     }),
     (err: any) => {
-      return err.status === 400 && err.code === "INVALID_TARGET_JOB";
+      return err.status === 404 && err.code === "JOB_PORTRAIT_NOT_FOUND";
     },
   );
 });

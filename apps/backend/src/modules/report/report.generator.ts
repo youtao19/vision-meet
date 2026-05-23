@@ -3,7 +3,6 @@ import type {
   CareerRouteRecommendation,
   KnowledgeSearchResultItem,
   MatchResultDetail,
-  JobRecord,
   StudentProfileRecord,
 } from "@career/contracts/types";
 
@@ -24,10 +23,18 @@ export type ReportCareerPathContext = {
   transition_routes: CareerRouteRecommendation[];
 };
 
+export type ReportTargetJob = {
+  title: string;
+  category?: string | null;
+  description?: string | null;
+  skills?: string[];
+  career_path?: string[];
+};
+
 export type ReportGeneratorInput = {
   match: MatchResultDetail;
   profile: StudentProfileRecord;
-  job: JobRecord;
+  job: ReportTargetJob;
   career_path?: ReportCareerPathContext | null;
   knowledge_hits?: KnowledgeSearchResultItem[];
   agent_summary?: string;

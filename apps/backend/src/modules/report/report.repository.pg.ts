@@ -21,7 +21,6 @@ function mapCareerReportRecord(row: Record<string, unknown>): CareerReportRecord
     match_id: Number(row.match_id),
     version: Number(row.version),
     student_profile_id: Number(row.student_profile_id),
-    job_id: Number(row.job_id),
     total_score: Number(row.total_score),
     sections: (row.sections as CareerReportSection[]) ?? [],
     // 历史数据里可能残留 llm 标记；当前系统已删除独立 LLM 链路，读取时统一归并为 template。
@@ -49,7 +48,6 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
             match_id BIGINT NOT NULL REFERENCES match_results(id) ON DELETE CASCADE,
             version INTEGER NOT NULL,
             student_profile_id BIGINT NOT NULL REFERENCES student_profiles(id) ON DELETE CASCADE,
-            job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
             total_score DOUBLE PRECISION NOT NULL,
             sections JSONB NOT NULL DEFAULT '[]'::jsonb,
             generator_mode TEXT NOT NULL DEFAULT 'template',
@@ -90,21 +88,19 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
           match_id,
           version,
           student_profile_id,
-          job_id,
           total_score,
           sections,
           generator_mode,
           evidence_refs,
           action_plan
         )
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::text[], $9::jsonb)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::text[], $8::jsonb)
         RETURNING *
       `,
       [
         input.match_id,
         input.version,
         input.student_profile_id,
-        input.job_id,
         input.total_score,
         JSON.stringify(input.sections),
         input.generator_mode,
@@ -134,7 +130,6 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
         match_id: record.match_id,
         version: record.version,
         student_profile_id: record.student_profile_id,
-        job_id: record.job_id,
         total_score: record.total_score,
         created_at: record.created_at,
         updated_at: record.updated_at,

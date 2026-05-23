@@ -63,22 +63,27 @@ const relatedProfiles = computed(() => {
     .slice(0, 6);
 });
 
+function portraitDisplayName(profile: ManualJobPortraitRecord): string {
+  return profile.profile_detail.name.trim() || profile.job_name.trim();
+}
+
 function categoryLabel(category: string): string {
   if (category === "all") return "全部方向";
   return category;
 }
 
-function selectProfile(profile: ManualJobPortraitRecord, options: { keepDirection?: boolean } = {}): void {
+function selectProfile(
+  profile: ManualJobPortraitRecord,
+  options: { keepDirection?: boolean } = {},
+): void {
   selected.value = profile;
   selectedJobName.value = profile.job_name;
-  const nextSubIndustry =
-    options.keepDirection
-      ? profile.profile_detail.subIndustries.find((industry) => industry.industry === activeCategory.value)
-      : null;
-  selectedSubIndustry.value =
-    nextSubIndustry ??
-    profile.profile_detail.subIndustries[0] ??
-    null;
+  const nextSubIndustry = options.keepDirection
+    ? profile.profile_detail.subIndustries.find(
+        (industry) => industry.industry === activeCategory.value,
+      )
+    : null;
+  selectedSubIndustry.value = nextSubIndustry ?? profile.profile_detail.subIndustries[0] ?? null;
   activeCategory.value = selectedSubIndustry.value?.industry ?? "all";
 }
 
@@ -171,7 +176,9 @@ watch(selectedJobName, (jobName) => {
 watch(activeCategory, (industryName) => {
   if (!selected.value) return;
   selectedSubIndustry.value =
-    selected.value.profile_detail.subIndustries.find((industry) => industry.industry === industryName) ??
+    selected.value.profile_detail.subIndustries.find(
+      (industry) => industry.industry === industryName,
+    ) ??
     selected.value.profile_detail.subIndustries[0] ??
     null;
 });
@@ -194,7 +201,7 @@ onMounted(loadProfiles);
         <span>岗位</span>
         <select v-model="selectedJobName">
           <option v-for="item in profiles" :key="item.job_name" :value="item.job_name">
-            {{ item.job_name }}
+            {{ portraitDisplayName(item) }}
           </option>
         </select>
       </label>
@@ -228,7 +235,7 @@ onMounted(loadProfiles);
         <article class="summary-panel">
           <div>
             <span>{{ selected.category }}</span>
-            <h2>{{ selected.job_name }}</h2>
+            <h2>{{ portraitDisplayName(selected) }}</h2>
             <p>{{ selected.profile_detail.description }}</p>
           </div>
           <div class="summary-stat">
@@ -242,10 +249,7 @@ onMounted(loadProfiles);
           <article class="card">
             <h3>学历要求</h3>
             <ul>
-              <li
-                v-for="item in selected.profile_detail.educationRequirements"
-                :key="item"
-              >
+              <li v-for="item in selected.profile_detail.educationRequirements" :key="item">
                 {{ item }}
               </li>
             </ul>
@@ -267,10 +271,7 @@ onMounted(loadProfiles);
           <article class="card">
             <h3>证书</h3>
             <div class="chips">
-              <span
-                v-for="certificate in selected.profile_detail.certificates"
-                :key="certificate"
-              >
+              <span v-for="certificate in selected.profile_detail.certificates" :key="certificate">
                 {{ certificate }}
               </span>
               <span v-if="selected.profile_detail.certificates.length === 0">无强制证书</span>
@@ -334,10 +335,7 @@ onMounted(loadProfiles);
           <p>{{ selectedSubIndustry.description }}</p>
           <h4>代表公司</h4>
           <div class="chips">
-            <span
-              v-for="company in selectedSubIndustry.representCompanies"
-              :key="company"
-            >
+            <span v-for="company in selectedSubIndustry.representCompanies" :key="company">
               {{ company }}
             </span>
           </div>

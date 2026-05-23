@@ -14,28 +14,17 @@ import type {
   ReportListResponse,
   UpdateReportRequest,
   StudentProfileRecord,
+  MatchResultDetail,
 } from "@career/contracts/types";
 
-import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { MatchingRepository } from "../matching/matching.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { getProfileName } from "../profile/profile.selectors.js";
 import type { ReportExportRepository } from "./report-export.repository.js";
 import type { ReportExporter } from "./report.exporter.js";
-import type { ReportCareerPathContext, ReportGenerator } from "./report.generator.js";
+import type { ReportGenerator, ReportTargetJob } from "./report.generator.js";
 import type { ReportRepository } from "./report.repository.js";
-
-/**
- * 作用：解析“目标岗位 + 学生画像”对应的图谱推荐。
- * 设计原因：报告侧只关心“能不能拿到推荐路径”，不应直接依赖具体图谱 service。
- * 调用约定：实现需要自行处理图谱不可用 / 命中失败等场景，并返回 null（视为图谱缺失）。
- */
-export type ReportCareerPathResolver = (input: {
-  job_id: number;
-  student_profile_id?: number | null;
-  depth: number;
-}) => Promise<ReportCareerPathContext | null>;
 
 const SECTION_ORDER: CareerReportSectionKey[] = [
   "overview",
@@ -80,7 +69,7 @@ function normalizeSectionOrder(sections: CareerReportSection[]): CareerReportSec
 function renderReportMarkdown(input: {
   report: CareerReportRecord;
   profile: StudentProfileRecord;
-  job: { title: string };
+  job: ReportTargetJob;
 }): string {
   const lines: string[] = [
     "# 职业规划报告",
@@ -137,6 +126,23 @@ function renderReportMarkdown(input: {
 
   lines.push("");
   return lines.join("\n");
+}
+
+function resolveReportTargetJob(match: MatchResultDetail): ReportTargetJob {
+  const snapshot = match.job_portrait_snapshot;
+  const detail = snapshot?.profile_detail;
+  const title = detail?.name?.trim() || match.job_title || match.job_portrait_name;
+  if (!title.trim()) {
+    throw new HttpError(400, "REPORT_TARGET_JOB_MISSING", "匹配结果缺少目标岗位画像");
+  }
+
+  return {
+    title,
+    category: detail?.category || snapshot?.category || null,
+    description: detail?.description || null,
+    skills: detail?.skills ?? [],
+    career_path: detail?.careerPath ?? [],
+  };
 }
 
 /**
@@ -247,10 +253,8 @@ export function createReportService(
   reportExportRepository: ReportExportRepository,
   matchingRepository: MatchingRepository,
   profileRepository: ProfileRepository,
-  jobsRepository: JobsRepository,
   generator: ReportGenerator,
   exporter: ReportExporter,
-  careerPathResolver?: ReportCareerPathResolver,
   options: ReportServiceOptions = {},
 ): ReportService {
   const exportDir = options.exportDir || path.join(process.cwd(), "storage", "exports", "reports");
@@ -274,31 +278,15 @@ export function createReportService(
       throw new HttpError(404, "STUDENT_PROFILE_NOT_FOUND", "学生画像不存在");
     }
 
-    const job = await jobsRepository.getJobById(match.job_id);
-    if (!job) {
-      throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
-    }
+    const job = resolveReportTargetJob(match);
 
     const existing = (await reportRepository.listReports({ match_id: input.match_id })).items;
     const nextVersion = existing.length > 0 ? existing[0].version + 1 : 1;
-    let careerPath: ReportCareerPathContext | null = null;
-    if (careerPathResolver) {
-      try {
-        careerPath = await careerPathResolver({
-          job_id: job.id,
-          student_profile_id: profile.id,
-          depth: 2,
-        });
-      } catch {
-        // 图谱属于增强能力，不应阻断报告主链路。
-        careerPath = null;
-      }
-    }
     const generated = await generator.generate({
       match,
       profile,
       job,
-      career_path: careerPath,
+      career_path: null,
       knowledge_hits: context?.knowledge_hits,
       agent_summary: context?.agent_summary,
     });
@@ -310,7 +298,6 @@ export function createReportService(
         match_id: input.match_id,
         version: nextVersion,
         student_profile_id: match.student_profile_id,
-        job_id: match.job_id,
         total_score: match.total_score,
         sections: normalizeSectionOrder(generated.sections),
         generator_mode: generated.mode,
@@ -378,10 +365,8 @@ export function createReportService(
       throw new HttpError(404, "STUDENT_PROFILE_NOT_FOUND", "学生画像不存在");
     }
 
-    const job = await jobsRepository.getJobById(report.job_id);
-    if (!job) {
-      throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
-    }
+    const match = await ensureMatchExists(report.match_id);
+    const job = resolveReportTargetJob(match);
 
     try {
       const exported =

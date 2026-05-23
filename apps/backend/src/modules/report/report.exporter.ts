@@ -1,14 +1,15 @@
 import type {
   CareerReportExportFormat,
   CareerReportRecord,
-  JobRecord,
   StudentProfileRecord,
 } from "@career/contracts/types";
+
+import type { ReportTargetJob } from "./report.generator.js";
 
 export type ReportExportRenderInput = {
   report: CareerReportRecord;
   profile: StudentProfileRecord;
-  job: JobRecord;
+  job: ReportTargetJob;
 };
 
 export type ReportExportOutput = {
