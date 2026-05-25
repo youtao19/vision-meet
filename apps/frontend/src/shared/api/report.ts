@@ -4,6 +4,7 @@ import type {
   CreateReportExportRequest,
   CreateReportRequest,
   ReportExportListResponse,
+  ReportListParams,
   ReportListResponse,
   UpdateReportRequest,
 } from "@career/contracts/types";
@@ -20,8 +21,14 @@ export async function createReport(payload: CreateReportRequest): Promise<Career
   });
 }
 
-export async function fetchReportList(matchId: number): Promise<ReportListResponse> {
-  return requestJson<ReportListResponse>(`/api/v2/reports?match_id=${matchId}`);
+export async function fetchReportList(params: ReportListParams = {}): Promise<ReportListResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.match_id) {
+    searchParams.set("match_id", String(params.match_id));
+  }
+
+  const query = searchParams.toString();
+  return requestJson<ReportListResponse>(`/api/v2/reports${query ? `?${query}` : ""}`);
 }
 
 export async function fetchReportDetail(reportId: number): Promise<CareerReportRecord> {

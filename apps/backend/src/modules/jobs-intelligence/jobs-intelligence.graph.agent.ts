@@ -27,10 +27,10 @@ import type {
 } from "@career/contracts/types";
 
 import type { AppEnv } from "../../shared/config/env.js";
+import { resolvePiRuntimeModelRef } from "../../shared/agent/pi-runtime-config.js";
 import {
   ensureCompatibleAgentBootstrap,
   ensureDirectory,
-  parseModelRef,
   resolveDefaultPiAgentDir,
   summarizeAssistantMessage,
 } from "../ai/runtime/ai-agent.utils.js";
@@ -427,14 +427,14 @@ export async function generateCareerGraphByAgent(params: {
 
   const authStorage = AuthStorage.create(`${piAgentDir}/auth.json`);
   const modelRegistry = ModelRegistry.create(authStorage, `${piAgentDir}/models.json`);
-  const modelRef = parseModelRef(params.env.AGENT_MODEL);
+  const modelRef = resolvePiRuntimeModelRef(piAgentDir);
   if (!modelRef) {
-    throw new Error("AGENT_MODEL_REQUIRED: 图谱 Agent 生成需要配置 AGENT_MODEL");
+    throw new Error("AGENT_MODEL_REQUIRED: 图谱 Agent 生成需要先选择 Pi 模型");
   }
 
   const selectedModel = modelRegistry.find(modelRef.provider, modelRef.modelId);
   if (!selectedModel) {
-    throw new Error(`AGENT_MODEL_NOT_FOUND:${modelRef.provider}/${modelRef.modelId}`);
+    throw new Error(`AGENT_MODEL_NOT_FOUND:${modelRef.raw}`);
   }
 
   // 装配无工具的 Agent 会话（纯文本推理，不需要业务工具）
@@ -516,7 +516,7 @@ export async function generateCareerGraphByAgent(params: {
     const prompt = buildGraphAgentUserPrompt(compactInput);
 
     console.info(
-      `[career-graph-agent] start trace_id=${traceId} portraits=${params.portraits.length} model=${params.env.AGENT_MODEL} prompt_chars=${prompt.length}`,
+      `[career-graph-agent] start trace_id=${traceId} portraits=${params.portraits.length} model=${modelRef.raw} prompt_chars=${prompt.length}`,
     );
 
     await withTimeout(session.prompt(prompt), GRAPH_AGENT_TIMEOUT_MS);

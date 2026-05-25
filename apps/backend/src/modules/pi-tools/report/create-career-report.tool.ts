@@ -25,6 +25,7 @@ export function createCareerReportTool(context: PiToolFactoryContext): ToolDefin
           match_id: context.state.matchResult.id,
         },
         {
+          trace_id: context.options.traceId,
           knowledge_hits: context.state.knowledgeHits,
         },
       );

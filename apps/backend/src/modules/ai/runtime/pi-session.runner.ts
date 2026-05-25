@@ -11,10 +11,10 @@ import {
 } from "@mariozechner/pi-coding-agent";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
+import { resolvePiRuntimeModelRef } from "../../../shared/agent/pi-runtime-config.js";
 import {
   ensureCompatibleAgentBootstrap,
   ensureDirectory,
-  parseModelRef,
   resolveDefaultPiAgentDir,
   summarizeAssistantMessage,
 } from "./ai-agent.utils.js";
@@ -111,14 +111,28 @@ export async function runPiSession<T>(
 
   const authStorage = AuthStorage.create(path.join(piAgentDir, "auth.json"));
   const modelRegistry = ModelRegistry.create(authStorage, path.join(piAgentDir, "models.json"));
-  const modelRef = parseModelRef(options.model);
+  const modelRef = resolvePiRuntimeModelRef(piAgentDir, options.model);
   const selectedModel = modelRef
     ? modelRegistry.find(modelRef.provider, modelRef.modelId)
     : undefined;
   const selectedModelLabel = selectedModel
     ? `${selectedModel.provider}/${selectedModel.id}`
-    : options.model || "auto";
+    : modelRef?.raw || "auto";
+  if (modelRef && !selectedModel) {
+    throw new HttpError(
+      500,
+      "AGENT_MODEL_NOT_FOUND",
+      `未在独立 Agent 配置目录中找到模型 ${modelRef.raw}`,
+    );
+  }
   if (options.images?.length) {
+    if (!modelRef) {
+      throw new HttpError(
+        500,
+        "AGENT_MODEL_REQUIRED",
+        "图片简历解析需要先选择 Pi 模型，请运行 npm run agent:auth -- login <provider> 或 npm run agent:auth -- use <provider/model>",
+      );
+    }
     const supportedInputs = Array.isArray((selectedModel as { input?: unknown } | undefined)?.input)
       ? ((selectedModel as { input?: string[] }).input ?? [])
       : [];
@@ -167,6 +181,10 @@ export async function runPiSession<T>(
     tools: [],
     customTools: options.tools ?? [],
   });
+  if (!session.model) {
+    session.dispose();
+    throw new HttpError(500, "AGENT_MODEL_UNAVAILABLE", "当前 Pi 登录配置下没有可用模型");
+  }
 
   const assistantMessages: string[] = [];
   let streamingAssistantBuffer = "";

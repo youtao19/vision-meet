@@ -64,7 +64,6 @@ async function runValidatedPiSession<T>(params: {
     piAgentDir: params.env.AGENT_PI_DIR,
     sessionStoreDir: params.env.AGENT_SESSION_STORE_DIR,
     sessionScope: params.sessionScope,
-    model: params.env.AGENT_MODEL,
     thinkingLevel: (params.env.AGENT_THINKING_LEVEL || "medium") as AiThinkingLevel,
     timeoutMs: params.timeoutMs,
     systemPrompt: params.systemPrompt,
@@ -114,8 +113,8 @@ export async function parseResumeProfileWithPi(
   options: ParseResumeProfileWithPiOptions,
 ): Promise<{ extracted: AgentExtractedProfile; model: string | null }> {
   const env = options.env;
-  if (!env?.AGENT_MODEL) {
-    throw new HttpError(500, "AGENT_MODEL_REQUIRED", "简历画像解析需要配置 AGENT_MODEL");
+  if (!env) {
+    throw new HttpError(500, "APP_ENV_REQUIRED", "简历画像解析缺少运行环境配置");
   }
 
   const cwd = options.cwd || process.cwd();

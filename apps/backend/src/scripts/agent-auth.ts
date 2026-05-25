@@ -1,6 +1,6 @@
 /**
  * 文件作用：提供项目级 Pi Agent 登录、模型切换和认证状态检查入口。
- * 职责边界：本脚本只管理本项目独立 Agent 目录和本地 .env 的 AGENT_MODEL，不执行业务任务。
+ * 职责边界：本脚本只管理本项目独立 Agent 目录和运行时模型选择，不执行业务任务。
  */
 
 import { spawn } from "node:child_process";
@@ -14,6 +14,11 @@ import {
   ensureDirectory,
   resolveDefaultPiAgentDir,
 } from "../shared/agent/agent-bootstrap.js";
+import {
+  findDefaultModelForProvider,
+  readPiRuntimeConfig,
+  writeActivePiModel,
+} from "../shared/agent/pi-runtime-config.js";
 import { appEnv } from "../shared/config/env.js";
 import { resolveRepositoryRoot } from "../shared/utils/repository-root.js";
 
@@ -29,6 +34,17 @@ type ParsedArgs = {
   model?: string;
   smoke: boolean;
 };
+
+class CommandExitError extends Error {
+  constructor(
+    message: string,
+    readonly command: string,
+    readonly args: string[],
+    readonly code: number | null,
+  ) {
+    super(message);
+  }
+}
 
 /**
  * 解析命令行参数。
@@ -72,13 +88,14 @@ function printHelp(): void {
   npm run agent:auth -- status
   npm run agent:auth -- list
   npm run agent:auth -- models codex
+  npm run agent:auth -- login openai-codex
   npm run agent:auth -- login openai-codex --model openai-codex/gpt-5.4
-  npm run agent:auth -- switch kimi-coding/k2p5
+  npm run agent:auth -- use kimi-coding/k2p5
   npm run agent:smoke
 
 说明：
   login  使用 Pi 支持的 OAuth 登录方式，凭证写入本项目 Agent 目录
-  switch 只切换 apps/backend/.env 里的 AGENT_MODEL
+  use    切换本项目 Pi 运行时模型，不修改 .env
   models 用 Pi 当前模型注册表搜索 provider/model
 `);
 }
@@ -104,9 +121,36 @@ function runCommand(
         resolve();
         return;
       }
-      reject(new Error(`${command} ${args.join(" ")} failed with exit code ${code}`));
+      reject(
+        new CommandExitError(
+          `${command} ${args.join(" ")} failed with exit code ${code}`,
+          command,
+          args,
+          code,
+        ),
+      );
     });
   });
+}
+
+function isUnsupportedOpenAiRegionLoginError(error: unknown, provider?: string): boolean {
+  return (
+    provider === "openai-codex" &&
+    error instanceof CommandExitError &&
+    error.args[0] === "login" &&
+    error.args[1] === "openai-codex"
+  );
+}
+
+function buildOpenAiRegionLoginMessage(agentDir: string): string {
+  const activeModel = readPiRuntimeConfig(agentDir).active_model || "(未选择)";
+  return [
+    "openai-codex 登录失败：OpenAI 返回 unsupported_country_region_territory。",
+    "这表示当前网络所在国家/地区不被 OpenAI 登录或 token 交换支持，不是本项目 .env 或模型选择配置错误。",
+    `当前 Pi 运行模型仍保持为 ${activeModel}，没有被本次失败登录改动。`,
+    "可继续使用：npm run agent:auth -- use kimi-coding/k2p5",
+    "如需使用 Codex，请在 OpenAI 支持的国家/地区网络环境下重新运行：npm run agent:auth -- login openai-codex",
+  ].join("\n");
 }
 
 /**
@@ -144,37 +188,6 @@ function parseModelRef(modelRef: string): { provider: string; modelId: string; r
 }
 
 /**
- * 更新 .env 中的 AGENT_MODEL。
- * 逻辑：存在则替换第一条未注释的 AGENT_MODEL；不存在则追加，其他环境变量和密钥内容原样保留。
- */
-function updateBackendEnvModel(backendEnvPath: string, modelRef: string): void {
-  const line = `AGENT_MODEL=${modelRef}`;
-  if (!fs.existsSync(backendEnvPath)) {
-    fs.writeFileSync(backendEnvPath, `${line}\n`, "utf8");
-    return;
-  }
-
-  const lines = fs.readFileSync(backendEnvPath, "utf8").split(/\r?\n/);
-  let replaced = false;
-  const nextLines = lines.map((item) => {
-    if (!replaced && /^AGENT_MODEL\s*=/.test(item)) {
-      replaced = true;
-      return line;
-    }
-    return item;
-  });
-
-  if (!replaced) {
-    if (nextLines.length > 0 && nextLines[nextLines.length - 1] !== "") {
-      nextLines.push("");
-    }
-    nextLines.push(line);
-  }
-
-  fs.writeFileSync(backendEnvPath, nextLines.join("\n").replace(/\n*$/, "\n"), "utf8");
-}
-
-/**
  * 验证模型是否存在于 Pi 模型注册表。
  * 逻辑：先通过 AuthStorage/ModelRegistry 读取项目 Agent 目录，再按 provider/model 查找。
  */
@@ -188,6 +201,30 @@ function assertModelExists(agentDir: string, modelRef: string): void {
       `未找到模型 ${parsed.raw}。请先运行：npm run agent:auth -- models ${parsed.provider}`,
     );
   }
+}
+
+function chooseModelForProvider(agentDir: string, provider: string): string {
+  const authStorage = AuthStorage.create(path.join(agentDir, "auth.json"));
+  const modelRegistry = ModelRegistry.create(authStorage, path.join(agentDir, "models.json"));
+  const modelRef = findDefaultModelForProvider(modelRegistry, provider);
+  if (!modelRef) {
+    throw new Error(
+      `已登录 ${provider}，但没有找到可自动选择的默认模型。请运行 npm run agent:auth -- models ${provider} 后再执行 npm run agent:auth -- use <provider/model>`,
+    );
+  }
+  return modelRef;
+}
+
+function findNewProvider(before: AuthFile, after: AuthFile): string | null {
+  const beforeProviders = new Set(Object.keys(before));
+  const added = Object.keys(after).filter((provider) => !beforeProviders.has(provider));
+  return added.length === 1 ? added[0] : null;
+}
+
+function chooseFallbackAuthenticatedProvider(auth: AuthFile): string | null {
+  const preferred = ["openai-codex", "github-copilot", "kimi-coding", "moonshot"];
+  const providers = new Set(Object.keys(auth));
+  return preferred.find((provider) => providers.has(provider)) || Object.keys(auth)[0] || null;
 }
 
 /**
@@ -205,17 +242,17 @@ function printStatus(params: { agentDir: string; backendEnvPath: string }): void
     return `${provider}:${type}`;
   });
 
-  const currentModel = appEnv.AGENT_MODEL || "(未配置)";
+  const currentModel = readPiRuntimeConfig(params.agentDir).active_model || "(未选择)";
   console.log("AGENT_AUTH_STATUS");
   console.log(`agent_dir=${params.agentDir}`);
   console.log(`backend_env=${params.backendEnvPath}`);
-  console.log(`current_model=${currentModel}`);
+  console.log(`active_model=${currentModel}`);
   console.log(`auth_providers=${providers.length > 0 ? providers.join(",") : "(none)"}`);
 }
 
 /**
  * 主流程。
- * 逻辑：所有命令先准备项目 Agent 目录；OAuth 登录委托给 Pi 官方 pi-ai CLI；模型切换只改本地 .env。
+ * 逻辑：所有命令先准备项目 Agent 目录；OAuth 登录委托给 Pi 官方 pi-ai CLI；模型切换写入运行配置。
  */
 async function main(): Promise<void> {
   const repoRoot = resolveRepositoryRoot();
@@ -256,12 +293,33 @@ async function main(): Promise<void> {
 
   if (args.command === "login") {
     const provider = args.values[0];
-    await runCommand(piAiBin, provider ? ["login", provider] : ["login"], { cwd: agentDir });
-    const modelRef = args.model;
+    const authPath = path.join(agentDir, "auth.json");
+    const beforeAuth = readJsonFile<AuthFile>(authPath, {});
+    try {
+      await runCommand(piAiBin, provider ? ["login", provider] : ["login"], { cwd: agentDir });
+    } catch (error) {
+      if (isUnsupportedOpenAiRegionLoginError(error, provider)) {
+        throw new Error(buildOpenAiRegionLoginMessage(agentDir));
+      }
+      throw error;
+    }
+    const afterAuth = readJsonFile<AuthFile>(authPath, {});
+    const modelRef =
+      args.model ||
+      (provider ? chooseModelForProvider(agentDir, provider) : null) ||
+      (() => {
+        const newProvider = findNewProvider(beforeAuth, afterAuth);
+        return newProvider ? chooseModelForProvider(agentDir, newProvider) : null;
+      })() ||
+      readPiRuntimeConfig(agentDir).active_model ||
+      (() => {
+        const fallbackProvider = chooseFallbackAuthenticatedProvider(afterAuth);
+        return fallbackProvider ? chooseModelForProvider(agentDir, fallbackProvider) : null;
+      })();
     if (modelRef) {
       assertModelExists(agentDir, modelRef);
-      updateBackendEnvModel(backendEnvPath, modelRef);
-      console.log(`AGENT_MODEL_UPDATED ${modelRef}`);
+      writeActivePiModel(agentDir, modelRef);
+      console.log(`AGENT_ACTIVE_MODEL_UPDATED ${modelRef}`);
     }
     if (args.smoke) {
       await runCommand("npm", ["run", "agent:smoke", "-w", "career-backend"], { cwd: repoRoot });
@@ -272,11 +330,11 @@ async function main(): Promise<void> {
   if (args.command === "switch" || args.command === "use") {
     const modelRef = args.values[0];
     if (!modelRef) {
-      throw new Error("缺少模型，例如：npm run agent:auth -- switch openai-codex/gpt-5.4");
+      throw new Error("缺少模型，例如：npm run agent:auth -- use openai-codex/gpt-5.4");
     }
     assertModelExists(agentDir, modelRef);
-    updateBackendEnvModel(backendEnvPath, modelRef);
-    console.log(`AGENT_MODEL_UPDATED ${modelRef}`);
+    writeActivePiModel(agentDir, modelRef);
+    console.log(`AGENT_ACTIVE_MODEL_UPDATED ${modelRef}`);
     if (args.smoke) {
       await runCommand("npm", ["run", "agent:smoke", "-w", "career-backend"], { cwd: repoRoot });
     }

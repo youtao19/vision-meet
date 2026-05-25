@@ -12,7 +12,8 @@ import { createReportExportDownloadRouter, createReportRouter } from "./report.r
 import { createPgReportRepository } from "./report.repository.pg.js";
 import type { ReportRepository } from "./report.repository.js";
 import { createReportService } from "./report.service.js";
-import { createTemplateReportGenerator } from "./template-report.generator.js";
+import { createCareerReportGenerator } from "../pi-tools/report/career-report.generator.js";
+import type { AiThinkingLevel } from "../ai/runtime/ai-agent.types.js";
 
 export type ReportModuleOptions = {
   pool: Pool;
@@ -28,13 +29,26 @@ export type ReportServiceDependencies = {
 
 export type ReportServiceFactoryOptions = {
   reportExportDir?: string;
+  piAgentDir?: string;
+  sessionStoreDir?: string;
+  model?: string;
+  thinkingLevel?: AiThinkingLevel;
+  reportTimeoutMs?: number;
+  cwd?: string;
 };
 
 export function createReportServiceFromDependencies(
   dependencies: ReportServiceDependencies,
   options: ReportServiceFactoryOptions = {},
 ) {
-  const generator = createTemplateReportGenerator();
+  const generator = createCareerReportGenerator({
+    cwd: options.cwd || process.cwd(),
+    piAgentDir: options.piAgentDir,
+    sessionStoreDir: options.sessionStoreDir,
+    model: options.model,
+    thinkingLevel: options.thinkingLevel || "medium",
+    timeoutMs: options.reportTimeoutMs,
+  });
   const exporter = createPlaywrightReportExporter();
 
   return createReportService(

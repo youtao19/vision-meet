@@ -14,6 +14,7 @@ import {
   resolveLegacyOpenClawApiKey,
   resolveDefaultPiAgentDir,
 } from "../shared/agent/agent-bootstrap.js";
+import { readPiRuntimeConfig, writeActivePiModel } from "../shared/agent/pi-runtime-config.js";
 
 type AgentApiKeyCredential = {
   type: "api_key";
@@ -80,63 +81,6 @@ function readJsonFile<T>(filePath: string, fallback: T): T {
 function writeJsonFile(filePath: string, value: unknown): void {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   fs.chmodSync(filePath, 0o600);
-}
-
-/**
- * 作用：解析当前 Agent 选用的 provider/model。
- * 参数：modelRef 为环境中的 AGENT_MODEL。
- * 返回：provider 与 modelId；未配置时回退到本项目默认的 Kimi Coding 组合。
- * 注意：这里优先服从现有 AGENT_MODEL，避免 auth.json 写进了与运行时不一致的 provider。
- */
-function resolveModelRef(modelRef?: string): { provider: string; modelId: string; raw: string } {
-  const normalized = modelRef?.trim() || "kimi-coding/k2p5";
-  const slashIndex = normalized.indexOf("/");
-
-  if (slashIndex <= 0 || slashIndex === normalized.length - 1) {
-    throw new Error("AGENT_MODEL 必须采用 provider/model 格式，例如 kimi-coding/k2p5");
-  }
-
-  return {
-    provider: normalized.slice(0, slashIndex),
-    modelId: normalized.slice(slashIndex + 1),
-    raw: normalized,
-  };
-}
-
-/**
- * 作用：按 openclaw 的 provider 语义解析当前 Agent 应使用的 API key。
- * 参数：provider 为当前 `AGENT_MODEL` 对应的 provider。
- * 返回：可直接写入 auth.json 的真实 API key。
- * 注意：
- * 1. `moonshot` 只认 `MOONSHOT_API_KEY`，并可回退到 OpenClaw 的 `moonshot:default`。
- * 2. `kimi-coding` 只认 `KIMI_API_KEY/KIMICODE_API_KEY`，并可回退到 OpenClaw 的同名 profile。
- * 3. 不再把 `KIMI_API_KEY` 和 `MOONSHOT_API_KEY` 混写到同一个 provider。
- */
-function resolveProviderApiKey(provider: string): string {
-  if (provider === "moonshot") {
-    const apiKey = appEnv.MOONSHOT_API_KEY || resolveLegacyOpenClawApiKey("moonshot");
-    if (!apiKey) {
-      throw new Error(
-        "未找到 Moonshot API Key。请配置 MOONSHOT_API_KEY，或先在 OpenClaw 中完成 moonshot 认证后再导入",
-      );
-    }
-    return apiKey;
-  }
-
-  if (provider === "kimi-coding") {
-    const apiKey =
-      appEnv.KIMI_API_KEY || appEnv.KIMICODE_API_KEY || resolveLegacyOpenClawApiKey("kimi-coding");
-    if (!apiKey) {
-      throw new Error(
-        "未找到 Kimi Coding API Key。请配置 KIMI_API_KEY/KIMICODE_API_KEY，或先在 OpenClaw 中完成 kimi-coding 认证后再导入",
-      );
-    }
-    return apiKey;
-  }
-
-  throw new Error(
-    `当前脚本仅支持 openclaw 风格的 moonshot 与 kimi-coding provider，收到 ${provider}`,
-  );
 }
 
 /**
@@ -239,25 +183,53 @@ async function main(): Promise<void> {
   const agentDir = appEnv.AGENT_PI_DIR || resolveDefaultPiAgentDir();
   const authPath = path.join(agentDir, "auth.json");
   const modelsPath = path.join(agentDir, "models.json");
-  const modelRef = resolveModelRef(appEnv.AGENT_MODEL);
-  const apiKey = resolveProviderApiKey(modelRef.provider);
 
   ensureDirectory(agentDir);
   ensureCompatibleAgentBootstrap(agentDir);
-  ensureMoonshotModelRegistry(modelsPath, modelRef);
 
   const authFile = readJsonFile<AgentAuthFile>(authPath, {});
-  authFile[modelRef.provider] = {
-    type: "api_key",
-    key: apiKey,
-  } satisfies AgentApiKeyCredential;
+  const writtenProviders: string[] = [];
+
+  const kimiApiKey =
+    appEnv.KIMI_API_KEY || appEnv.KIMICODE_API_KEY || resolveLegacyOpenClawApiKey("kimi-coding");
+  if (kimiApiKey) {
+    authFile["kimi-coding"] = {
+      type: "api_key",
+      key: kimiApiKey,
+    } satisfies AgentApiKeyCredential;
+    writtenProviders.push("kimi-coding");
+  }
+
+  const moonshotApiKey = appEnv.MOONSHOT_API_KEY || resolveLegacyOpenClawApiKey("moonshot");
+  if (moonshotApiKey) {
+    ensureMoonshotModelRegistry(modelsPath, { provider: "moonshot", modelId: "kimi-k2.5" });
+    authFile.moonshot = {
+      type: "api_key",
+      key: moonshotApiKey,
+    } satisfies AgentApiKeyCredential;
+    writtenProviders.push("moonshot");
+  }
+
+  if (writtenProviders.length === 0) {
+    throw new Error(
+      "未找到 Kimi/Moonshot API Key。请配置 KIMI_API_KEY/KIMICODE_API_KEY 或 MOONSHOT_API_KEY",
+    );
+  }
 
   writeJsonFile(authPath, authFile);
 
+  let activeModel = readPiRuntimeConfig(agentDir).active_model;
+  if (!activeModel) {
+    activeModel = writtenProviders.includes("kimi-coding")
+      ? "kimi-coding/k2p5"
+      : "moonshot/kimi-k2.5";
+    writeActivePiModel(agentDir, activeModel);
+  }
+
   console.log("AGENT_AUTH_OK");
   console.log(`agent_dir=${agentDir}`);
-  console.log(`provider=${modelRef.provider}`);
-  console.log(`model=${modelRef.raw}`);
+  console.log(`providers=${writtenProviders.join(",")}`);
+  console.log(`active_model=${activeModel}`);
   console.log("auth_source=auth.json");
 }
 

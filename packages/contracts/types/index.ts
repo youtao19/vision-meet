@@ -608,6 +608,7 @@ export type MatchResultListResponse = {
 export type CareerReportSectionKey =
   | "overview"
   | "match_analysis"
+  | "job_recommendations"
   | "strengths"
   | "gaps_and_actions"
   | "career_path"
@@ -632,7 +633,7 @@ export type CareerReportSummary = {
 
 export type CareerReportRecord = CareerReportSummary & {
   sections: CareerReportSection[];
-  generator_mode: "template";
+  generator_mode: "template" | "ai";
   evidence_refs: string[];
   action_plan: {
     short_term: string[];
@@ -649,7 +650,7 @@ export type UpdateReportRequest = {
 };
 
 export type ReportListParams = {
-  match_id: number;
+  match_id?: number;
 };
 
 export type ReportListResponse = {

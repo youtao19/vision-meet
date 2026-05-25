@@ -26,7 +26,9 @@ export function createReportRouter(service: ReportService): Router {
     }
 
     try {
-      const created = await service.createReport(parsed.data);
+      const created = await service.createReport(parsed.data, {
+        trace_id: res.locals.trace_id as string | undefined,
+      });
       return res.status(201).json(created);
     } catch (error) {
       return next(error);

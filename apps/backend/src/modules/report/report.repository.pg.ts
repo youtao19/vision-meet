@@ -14,17 +14,23 @@ import type {
 
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 import type { CareerReportCreateInput, ReportRepository } from "./report.repository.js";
+import { createLegacyReportSection, REPORT_SECTION_ORDER } from "./report.sections.js";
+
+function normalizeStoredSections(sections: CareerReportSection[]): CareerReportSection[] {
+  const sectionMap = new Map(sections.map((section) => [section.key, section]));
+  return REPORT_SECTION_ORDER.map((key) => sectionMap.get(key) ?? createLegacyReportSection(key));
+}
 
 function mapCareerReportRecord(row: Record<string, unknown>): CareerReportRecord {
+  const sections = Array.isArray(row.sections) ? (row.sections as CareerReportSection[]) : [];
   return {
     id: Number(row.id),
     match_id: Number(row.match_id),
     version: Number(row.version),
     student_profile_id: Number(row.student_profile_id),
     total_score: Number(row.total_score),
-    sections: (row.sections as CareerReportSection[]) ?? [],
-    // 历史数据里可能残留 llm 标记；当前系统已删除独立 LLM 链路，读取时统一归并为 template。
-    generator_mode: "template",
+    sections: normalizeStoredSections(sections),
+    generator_mode: row.generator_mode === "ai" ? "ai" : "template",
     evidence_refs: Array.isArray(row.evidence_refs) ? (row.evidence_refs as string[]) : [],
     action_plan: (row.action_plan as CareerReportRecord["action_plan"]) ?? {
       short_term: [],
@@ -71,6 +77,20 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
           ADD COLUMN IF NOT EXISTS action_plan JSONB NOT NULL DEFAULT '{}'::jsonb
         `);
         await pool.query(`
+          DO $$
+          BEGIN
+            IF EXISTS (
+              SELECT 1
+              FROM information_schema.columns
+              WHERE table_schema = 'public'
+                AND table_name = 'career_reports'
+                AND column_name = 'job_id'
+            ) THEN
+              ALTER TABLE career_reports ALTER COLUMN job_id DROP NOT NULL;
+            END IF;
+          END $$;
+        `);
+        await pool.query(`
           CREATE INDEX IF NOT EXISTS career_reports_match_idx
           ON career_reports (match_id, version DESC)
         `);
@@ -113,15 +133,23 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
 
   async function listReports(params: ReportListParams): Promise<ReportListResponse> {
     await ensureSchema();
-    const result = await pool.query(
-      `
-        SELECT *
-        FROM career_reports
-        WHERE match_id = $1
-        ORDER BY version DESC
-      `,
-      [params.match_id],
-    );
+    const result = params.match_id
+      ? await pool.query(
+          `
+            SELECT *
+            FROM career_reports
+            WHERE match_id = $1
+            ORDER BY version DESC
+          `,
+          [params.match_id],
+        )
+      : await pool.query(
+          `
+            SELECT *
+            FROM career_reports
+            ORDER BY updated_at DESC, id DESC
+          `,
+        );
 
     const items = result.rows.map((row) => {
       const record = mapCareerReportRecord(row);

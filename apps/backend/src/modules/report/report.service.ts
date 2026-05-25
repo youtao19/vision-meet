@@ -6,7 +6,6 @@ import type {
   CareerReportRecord,
   KnowledgeSearchResultItem,
   CareerReportSection,
-  CareerReportSectionKey,
   CreateReportExportRequest,
   CreateReportRequest,
   ReportListParams,
@@ -25,28 +24,21 @@ import type { ReportExportRepository } from "./report-export.repository.js";
 import type { ReportExporter } from "./report.exporter.js";
 import type { ReportGenerator, ReportTargetJob } from "./report.generator.js";
 import type { ReportRepository } from "./report.repository.js";
-
-const SECTION_ORDER: CareerReportSectionKey[] = [
-  "overview",
-  "match_analysis",
-  "strengths",
-  "gaps_and_actions",
-  "career_path",
-  "short_term_plan",
-  "mid_term_plan",
-];
+import { REPORT_SECTION_ORDER } from "./report.sections.js";
 
 function assertValidSectionSet(sections: CareerReportSection[]): void {
-  if (sections.length !== SECTION_ORDER.length) {
+  if (sections.length !== REPORT_SECTION_ORDER.length) {
     throw new HttpError(400, "REPORT_SECTION_INVALID", "报告章节数量不合法");
   }
 
   const keys = sections.map((item) => item.key);
   const unique = new Set(keys);
-  const expected = SECTION_ORDER.join(",");
   const actual = [...unique].sort().join(",");
 
-  if (unique.size !== SECTION_ORDER.length || actual !== [...SECTION_ORDER].sort().join(",")) {
+  if (
+    unique.size !== REPORT_SECTION_ORDER.length ||
+    actual !== [...REPORT_SECTION_ORDER].sort().join(",")
+  ) {
     throw new HttpError(400, "REPORT_SECTION_INVALID", "报告章节集合不完整或存在重复");
   }
 
@@ -59,7 +51,7 @@ function assertValidSectionSet(sections: CareerReportSection[]): void {
 
 function normalizeSectionOrder(sections: CareerReportSection[]): CareerReportSection[] {
   const sectionMap = new Map(sections.map((item) => [item.key, item]));
-  return SECTION_ORDER.map((key) => sectionMap.get(key)!);
+  return REPORT_SECTION_ORDER.map((key) => sectionMap.get(key)!);
 }
 
 /**
@@ -173,10 +165,10 @@ export interface ReportService {
   ): Promise<ReportCreateResult>;
 
   /**
-   * 作用：查询某个匹配结果下的所有报告版本。
-   * 参数：params 目前只支持 match_id。
-   * 返回：按 version 倒序排列的报告摘要列表。
-   * 注意：若 match_id 不存在，应优先返回明确 404。
+   * 作用：查询报告历史；传 match_id 时只查该匹配结果下的报告版本。
+   * 参数：params.match_id 可选。
+   * 返回：报告摘要列表。
+   * 注意：传 match_id 且匹配结果不存在时，应优先返回明确 404。
    */
   listReports(params: ReportListParams): Promise<ReportListResponse>;
 
@@ -239,13 +231,14 @@ export type ReportServiceOptions = {
 };
 
 export type ReportCreateContext = {
+  trace_id?: string;
   knowledge_hits?: KnowledgeSearchResultItem[];
   agent_summary?: string;
 };
 
 export type ReportCreateResult = {
   report: CareerReportRecord;
-  generator_mode: "template";
+  generator_mode: "template" | "ai";
 };
 
 export function createReportService(
@@ -283,6 +276,7 @@ export function createReportService(
     const existing = (await reportRepository.listReports({ match_id: input.match_id })).items;
     const nextVersion = existing.length > 0 ? existing[0].version + 1 : 1;
     const generated = await generator.generate({
+      trace_id: context?.trace_id,
       match,
       profile,
       job,
@@ -317,7 +311,9 @@ export function createReportService(
   }
 
   async function listReports(params: ReportListParams): Promise<ReportListResponse> {
-    await ensureMatchExists(params.match_id);
+    if (params.match_id) {
+      await ensureMatchExists(params.match_id);
+    }
     return reportRepository.listReports(params);
   }
 

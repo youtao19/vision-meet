@@ -73,12 +73,13 @@ npm run dev
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `npm run dev:backend`                                                   | 启动后端开发服务，默认监听 `http://127.0.0.1:8000`。                                 |
 | `npm run dev:frontend`                                                  | 启动前端开发服务，默认监听 `http://127.0.0.1:5173`。                                 |
-| `npm run agent:auth -- status`                                          | 查看当前 Pi Agent 配置目录、当前模型和已登录 provider，不打印密钥。                  |
+| `npm run agent:auth -- status`                                          | 查看当前 Pi Agent 配置目录、当前运行模型和已登录 provider，不打印密钥。              |
 | `npm run agent:auth -- list`                                            | 查看 Pi 当前支持的登录方式，例如 Codex、Claude、Gemini、Copilot。                    |
-| `npm run agent:auth -- login openai-codex --model openai-codex/gpt-5.4` | 使用 Pi 支持的 Codex 登录方式重新登录，并把后端当前模型切到 `openai-codex/gpt-5.4`。 |
+| `npm run agent:auth -- login openai-codex`                              | 进入 Pi 的 Codex 登录流程，并自动记录该 provider 的默认运行模型。                    |
+| `npm run agent:auth -- use openai-codex/gpt-5.4`                        | 切换当前 Pi 运行模型，不修改 `.env`。                                                |
 | `npm run type-check`                                                    | 执行 contracts、后端、前端的 TypeScript 类型检查。                                   |
 | `npm run build`                                                         | 构建 contracts、后端、前端，检查项目是否能完整产出。                                 |
-| `npm run agent:smoke`                                                   | 跑一次最小 Pi Agent 联通性检查，确认当前 `AGENT_MODEL` 和认证可用。                  |
+| `npm run agent:smoke`                                                   | 跑一次最小 Pi Agent 联通性检查，确认当前 Pi 运行模型和认证可用。                     |
 | `npm run evaluation:manual`                                             | 执行手工抽样评测，读取 `data/evaluation/*.jsonl` 并生成评测结果文档。                |
 | `npm run knowledge:init`                                                | 初始化知识库相关数据库结构。                                                         |
 | `npm run knowledge:index:jobs`                                          | 将岗位数据索引进业务知识库命名空间 `career_runtime`。                                |
@@ -140,14 +141,11 @@ npm run dev
 ## Agent 说明
 
 1. 当前 `/api/v2/ai/tasks` 使用真实的 Pi SDK 运行时：后端不再手写固定 workflow，而是把 `load_task_context`、`search_knowledge`、`create_match`、`create_report` 封装成 Pi 可调用工具，由 Pi 决定调用顺序并返回最终总结。
-2. Agent 默认使用独立配置目录 `~/.career-agent/pi-agent`，不会把其他项目目录当成自己的运行目录；如果独立目录缺少 `auth.json` 或 `models.json`，会优先从标准 Pi 目录 `~/.pi/agent` 复制缺失文件做一次兼容导入。若检测到 OpenClaw 主智能体目录 `~/.openclaw/agents/main/agent`，还会把其中的 `auth-profiles.json` 按 Pi `auth.json` 结构转换导入。后续运行仍以独立目录为准。如需自定义，可通过 `AGENT_PI_DIR`、`AGENT_SESSION_STORE_DIR`、`AGENT_MODEL`、`AGENT_THINKING_LEVEL` 覆盖。
+2. Agent 默认使用独立配置目录 `~/.career-agent/pi-agent`，不会把其他项目目录当成自己的运行目录；如果独立目录缺少 `auth.json` 或 `models.json`，会优先从标准 Pi 目录 `~/.pi/agent` 复制缺失文件做一次兼容导入。若检测到 OpenClaw 主智能体目录 `~/.openclaw/agents/main/agent`，还会把其中的 `auth-profiles.json` 按 Pi `auth.json` 结构转换导入。后续运行仍以独立目录为准。如需自定义目录，可通过 `AGENT_PI_DIR`、`AGENT_SESSION_STORE_DIR` 覆盖；模型选择保存在该目录的 `career-agent-runtime.json`，不再写入 `.env`。
 3. 当前职业报告生成已回到稳定可复现的模板链路，不再依赖独立聊天补全客户端。
-4. 若未显式设置 `AGENT_MODEL`，后端会优先沿用 `KIMI_MODEL`，其次才回退到 `MOONSHOT_MODEL`。
-5. 若只想让 Pi Agent 跑起来，推荐使用项目封装的 `npm run agent:auth -- login <provider> --model <provider/model>`。它会调用 Pi 支持的登录方式，把凭证写入 `~/.career-agent/pi-agent/auth.json`，并把选中的模型写入 `apps/backend/.env` 的 `AGENT_MODEL`。若显式设置 `AGENT_MODEL`，格式必须为 `provider/model`。
-6. 当前项目默认使用 `kimi-coding/k2p5`。也就是说，Agent 主链路优先按 Kimi Code 接入，对应 `KIMI_API_KEY` 或 `KIMICODE_API_KEY`。
-7. 若你确实需要兼容 Moonshot 开放平台 Kimi，仍可显式设置 `AGENT_MODEL=moonshot/kimi-k2.5`，此时使用 `MOONSHOT_API_KEY`。
-8. 常用切换命令：`npm run agent:auth -- list` 查看 Pi 支持的登录方式；`npm run agent:auth -- models codex` 搜索可用模型；`npm run agent:auth -- switch openai-codex/gpt-5.4` 只切换当前模型；`npm run agent:auth -- status` 查看当前模型和已登录 provider。旧的 `npm run agent:auth:kimi` 仍保留，只用于把 Kimi/Moonshot API key 固化到项目独立 Agent 目录。
-9. 当前代码已通过 `npm run type-check`、`npm run build:backend` 和 `createApp()` 级别验证；如需单独做 Agent 联通性检查，可运行 `npm run agent:smoke`。
+4. 若只想让 Pi Agent 跑起来，推荐使用项目封装的 `npm run agent:auth -- login <provider>`。它会调用 Pi 支持的登录方式，把凭证写入 `~/.career-agent/pi-agent/auth.json`，并把当前运行模型写入 `career-agent-runtime.json`。也可以追加 `--model <provider/model>` 显式指定登录后使用的模型。
+5. 常用切换命令：`npm run agent:auth -- list` 查看 Pi 支持的登录方式；`npm run agent:auth -- models codex` 搜索可用模型；`npm run agent:auth -- use openai-codex/gpt-5.4` 只切换当前运行模型；`npm run agent:auth -- status` 查看当前模型和已登录 provider。旧的 `npm run agent:auth:kimi` 仍保留，只用于把 Kimi/Moonshot API key 固化到项目独立 Agent 目录。
+6. 当前代码已通过 `npm run type-check`、`npm run build:backend` 和 `createApp()` 级别验证；如需单独做 Agent 联通性检查，可运行 `npm run agent:smoke`。
 
 ## 协作规范
 

@@ -126,10 +126,10 @@ async function loadMatchDetail(matchId: number): Promise<void> {
   }
 }
 
-async function loadReportList(matchId: number): Promise<void> {
+async function loadReportList(matchId?: number): Promise<void> {
   loading.list = true;
   try {
-    const response = await fetchReportList(matchId);
+    const response = await fetchReportList(matchId ? { match_id: matchId } : {});
     reports.value = response.items;
   } finally {
     loading.list = false;
@@ -185,14 +185,61 @@ async function refreshByMatchId(matchId: number): Promise<void> {
   }
 }
 
+async function refreshAllReports(): Promise<void> {
+  uiState.error = "";
+  uiState.success = "";
+  matchDetail.value = null;
+
+  try {
+    await loadReportList();
+
+    if (reports.value[0]) {
+      await openReport(reports.value[0].id);
+    } else {
+      selectedReport.value = null;
+      exportsList.value = [];
+      syncEditableSections(null);
+    }
+  } catch (error) {
+    selectedReport.value = null;
+    exportsList.value = [];
+    syncEditableSections(null);
+    uiState.error = formatApiError(error);
+  }
+}
+
+function shouldCreateReportFromQuery(rawValue: unknown): boolean {
+  return rawValue === "1" || rawValue === "true";
+}
+
+async function clearCreateReportQuery(): Promise<void> {
+  if (!shouldCreateReportFromQuery(route.query.create_report)) {
+    return;
+  }
+
+  const nextQuery = { ...route.query };
+  delete nextQuery.create_report;
+  await router.replace({
+    path: "/report",
+    query: nextQuery,
+  });
+}
+
 async function handleQueryMatchId(rawMatchId: unknown): Promise<void> {
   const matchId = typeof rawMatchId === "string" ? toPositiveInt(rawMatchId) : undefined;
   if (!matchId) {
+    form.matchId = "";
+    await refreshAllReports();
     return;
   }
 
   form.matchId = String(matchId);
   await refreshByMatchId(matchId);
+
+  if (shouldCreateReportFromQuery(route.query.create_report)) {
+    await createNewVersion();
+    await clearCreateReportQuery();
+  }
 }
 
 async function handlePolishSection(section: CareerReportSection): Promise<void> {
@@ -299,6 +346,8 @@ async function saveCurrentReport(): Promise<void> {
     const matchId = toPositiveInt(form.matchId);
     if (matchId) {
       await loadReportList(matchId);
+    } else {
+      await loadReportList();
     }
   } catch (error) {
     uiState.error = formatApiError(error);
@@ -521,7 +570,9 @@ onMounted(async () => {
                   @change="openReport(Number(($event.target as HTMLSelectElement).value))"
                 >
                   <option v-for="item in reports" :key="item.id" :value="item.id">
-                    V{{ item.version }} ({{ new Date(item.updated_at).toLocaleDateString() }})
+                    匹配 #{{ item.match_id }} / V{{ item.version }} ({{
+                      new Date(item.updated_at).toLocaleDateString()
+                    }})
                   </option>
                 </select>
               </div>

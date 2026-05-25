@@ -19,29 +19,8 @@ import {
   ensureCompatibleAgentBootstrap,
   resolveDefaultPiAgentDir,
 } from "../shared/agent/agent-bootstrap.js";
+import { resolvePiRuntimeModelRef } from "../shared/agent/pi-runtime-config.js";
 import { appEnv } from "../shared/config/env.js";
-
-/**
- * 作用：把 provider/model 形式的配置解析为模型注册表可查询的引用。
- * 参数：modelRef 为 AGENT_MODEL 配置值。
- * 返回：provider 与 modelId；未配置时返回 null。
- * 注意：格式非法时直接抛错，避免 smoke 结果被“自动回退”掩盖。
- */
-function parseModelRef(modelRef?: string): { provider: string; modelId: string } | null {
-  if (!modelRef?.trim()) {
-    return null;
-  }
-
-  const slashIndex = modelRef.indexOf("/");
-  if (slashIndex <= 0 || slashIndex === modelRef.length - 1) {
-    throw new Error("AGENT_MODEL 必须采用 provider/model 格式，例如 kimi-coding/k2p5");
-  }
-
-  return {
-    provider: modelRef.slice(0, slashIndex),
-    modelId: modelRef.slice(slashIndex + 1),
-  };
-}
 
 function summarizeAssistantMessage(message: unknown): string {
   if (!message || typeof message !== "object") {
@@ -77,15 +56,13 @@ async function main(): Promise<void> {
 
   const authStorage = AuthStorage.create(path.join(agentDir, "auth.json"));
   const modelRegistry = ModelRegistry.create(authStorage, path.join(agentDir, "models.json"));
-  const modelRef = parseModelRef(appEnv.AGENT_MODEL);
+  const modelRef = resolvePiRuntimeModelRef(agentDir);
   const selectedModel = modelRef
     ? modelRegistry.find(modelRef.provider, modelRef.modelId)
     : undefined;
 
   if (modelRef && !selectedModel) {
-    throw new Error(
-      `未找到模型 ${modelRef.provider}/${modelRef.modelId}，请检查 AGENT_MODEL 与 models.json`,
-    );
+    throw new Error(`未找到模型 ${modelRef.raw}，请检查 Pi 运行配置与 models.json`);
   }
 
   const resourceLoader = new DefaultResourceLoader({

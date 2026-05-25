@@ -40,10 +40,10 @@ import type {
 
 import type { AppEnv } from "../../shared/config/env.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import { resolvePiRuntimeModelRef } from "../../shared/agent/pi-runtime-config.js";
 import {
   ensureCompatibleAgentBootstrap,
   ensureDirectory,
-  parseModelRef,
   resolveDefaultPiAgentDir,
   summarizeAssistantMessage,
 } from "../ai/runtime/ai-agent.utils.js";
@@ -361,14 +361,14 @@ async function generateJobPortraitsByAgent(params: {
 
   const authStorage = AuthStorage.create(`${piAgentDir}/auth.json`);
   const modelRegistry = ModelRegistry.create(authStorage, `${piAgentDir}/models.json`);
-  const modelRef = parseModelRef(params.env.AGENT_MODEL);
+  const modelRef = resolvePiRuntimeModelRef(piAgentDir);
   if (!modelRef) {
-    throw new Error("AGENT_MODEL_REQUIRED");
+    throw new Error("AGENT_MODEL_REQUIRED: 请先运行 npm run agent:auth -- login <provider> 或 npm run agent:auth -- use <provider/model>");
   }
 
   const selectedModel = modelRegistry.find(modelRef.provider, modelRef.modelId);
   if (!selectedModel) {
-    throw new Error(`AGENT_MODEL_NOT_FOUND:${modelRef.provider}/${modelRef.modelId}`);
+    throw new Error(`AGENT_MODEL_NOT_FOUND:${modelRef.raw}`);
   }
 
   const resourceLoader = new DefaultResourceLoader({
@@ -846,7 +846,7 @@ export function createJobsIntelligenceService(
     try {
       const jobs = await repository.listPipelineJobs(mode);
       console.info(
-        `[jobs:pipeline] start task_id=${taskId} mode=${mode} total_jobs=${jobs.length} agent_model=${env.AGENT_MODEL || "unset"}`,
+        `[jobs:pipeline] start task_id=${taskId} mode=${mode} total_jobs=${jobs.length}`,
       );
       await repository.updatePipelineTask(taskId, {
         status: "running",

@@ -8,7 +8,7 @@ import type {
 
 /**
  * 文件作用：定义报告生成器抽象。
- * 设计边界：service 只依赖该接口，当前默认实现为稳定可复现的模板生成。
+ * 设计边界：report service 只依赖该接口，具体报告生成能力由 pi-tools/report 提供。
  */
 /**
  * 报告生成层使用的图谱上下文。
@@ -32,6 +32,7 @@ export type ReportTargetJob = {
 };
 
 export type ReportGeneratorInput = {
+  trace_id?: string;
   match: MatchResultDetail;
   profile: StudentProfileRecord;
   job: ReportTargetJob;
@@ -42,7 +43,7 @@ export type ReportGeneratorInput = {
 
 export type ReportGeneratorResult = {
   sections: CareerReportSection[];
-  mode: "template";
+  mode: "template" | "ai";
   evidence_refs: string[];
   action_plan: {
     short_term: string[];

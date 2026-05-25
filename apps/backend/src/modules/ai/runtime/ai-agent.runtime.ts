@@ -16,6 +16,7 @@ import {
 import type { AiStepTraceItem, AiWarningCode } from "@career/contracts/types";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
+import { resolvePiRuntimeModelRef } from "../../../shared/agent/pi-runtime-config.js";
 import { createCorePiTools } from "../../pi-tools/pi-tools.registry.js";
 import type {
   AiAgentDependencies,
@@ -29,7 +30,6 @@ import {
   createSessionSubscription,
   ensureCompatibleAgentBootstrap,
   ensureDirectory,
-  parseModelRef,
   resolveDefaultPiAgentDir,
   serializeJsonPreview,
 } from "./ai-agent.utils.js";
@@ -120,7 +120,7 @@ export async function runAiTaskAgent(
    * 如果传了模型，就从模型注册表中查找；
    * 如果没传，就交给 Pi Agent 自己选择默认可用模型。
    */
-  const modelRef = parseModelRef(options.model);
+  const modelRef = resolvePiRuntimeModelRef(piAgentDir, options.model);
   const selectedModel = modelRef
     ? modelRegistry.find(modelRef.provider, modelRef.modelId)
     : undefined;
@@ -133,7 +133,7 @@ export async function runAiTaskAgent(
     throw new HttpError(
       500,
       "AGENT_MODEL_NOT_FOUND",
-      `未在独立 Agent 配置目录中找到模型 ${modelRef.provider}/${modelRef.modelId}`,
+      `未在独立 Agent 配置目录中找到模型 ${modelRef.raw}`,
     );
   }
 

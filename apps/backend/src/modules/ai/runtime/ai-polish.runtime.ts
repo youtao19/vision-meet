@@ -12,10 +12,10 @@ import {
   SessionManager,
 } from "@mariozechner/pi-coding-agent";
 import { HttpError } from "../../../shared/errors/http-error.js";
+import { resolvePiRuntimeModelRef } from "../../../shared/agent/pi-runtime-config.js";
 import {
   ensureCompatibleAgentBootstrap,
   ensureDirectory,
-  parseModelRef,
   resolveDefaultPiAgentDir,
 } from "./ai-agent.utils.js";
 import type { CreateAiPolishRequest, AiPolishResponse } from "@career/contracts/types";
@@ -159,7 +159,7 @@ export async function runPolishAgent(options: RunPolishAgentOptions): Promise<Ai
 
   const authStorage = AuthStorage.create(path.join(piAgentDir, "auth.json"));
   const modelRegistry = ModelRegistry.create(authStorage, path.join(piAgentDir, "models.json"));
-  const modelRef = parseModelRef(options.model);
+  const modelRef = resolvePiRuntimeModelRef(piAgentDir, options.model);
   const selectedModel = modelRef
     ? modelRegistry.find(modelRef.provider, modelRef.modelId)
     : undefined;

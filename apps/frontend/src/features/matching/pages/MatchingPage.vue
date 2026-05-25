@@ -335,6 +335,7 @@ function goToReport(matchId: number): void {
     path: "/report",
     query: {
       match_id: String(matchId),
+      create_report: "1",
     },
   });
 }

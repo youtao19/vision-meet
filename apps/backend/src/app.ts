@@ -85,6 +85,11 @@ export function createApp(): express.Express {
     },
     {
       reportExportDir: appEnv.REPORT_EXPORT_DIR,
+      piAgentDir: appEnv.AGENT_PI_DIR,
+      sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
+      thinkingLevel: appEnv.AGENT_REPORT_THINKING_LEVEL,
+      reportTimeoutMs: appEnv.AGENT_REPORT_TIMEOUT_MS,
+      cwd: process.cwd(),
     },
   );
 
@@ -165,7 +170,6 @@ export function createApp(): express.Express {
         pool: appDataPool,
         piAgentDir: appEnv.AGENT_PI_DIR,
         sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
-        model: appEnv.AGENT_MODEL,
         thinkingLevel: appEnv.AGENT_THINKING_LEVEL,
         resumeTimeoutMs: appEnv.AGENT_RESUME_TIMEOUT_MS,
         cwd: process.cwd(),
