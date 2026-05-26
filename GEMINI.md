@@ -1,86 +1,89 @@
-# GEMINI.md
+# 仓库贡献指南
 
-## Project Overview
+## 项目结构与模块组织
 
-**Career Agent** is an AI-powered monorepo project designed to provide career planning and job matching for college students. It integrates career path analysis, job intelligence, and student profiling using a modern tech stack centered around AI agents and vector search.
+- `apps/frontend/`：前端应用（Vue 3 + TypeScript + Vite）。
+  - 必须按 `src/app`、`src/features`、`src/shared` 分层。
+- `apps/backend/`：后端应用（Node.js + Express + TypeScript）。
+  - 必须按 `src/modules/<domain>` + `src/shared` 组织。
+  - `src/modules/ai/` 放 AI 入口与 AI 子服务。
+  - `src/modules/pi-tools/` 放 Pi 工具能力；AI 能力型工具可内聚 prompt、parser、generator。
+- `packages/contracts/`：前后端共享契约（OpenAPI、共享类型），禁止前后端重复定义接口类型。
+- `infra/`：基础设施编排文件（如 `docker-compose`）。
+- `data/`：原始数据文件（如 `岗位数据.xls`）。
+- `docs/`：项目文档与规范。
+- `scripts/`：开发脚本（必须使用相对路径，禁止硬编码绝对路径）。
+- `services/`：集成服务目录（如暂未启用，需在文档中标记为占位）。
 
-### Core Technologies
+## 强制结构约束（必须遵守）
 
-- **Monorepo:** Managed via `npm workspaces`.
-- **Frontend:** Vue 3, TypeScript, Pinia, Vite.
-- **Backend:** Node.js, Express, TypeScript, Zod, pgvector.
-- **Data Layer:** PostgreSQL (with pgvector for RAG), Neo4j (target for graph-based path analysis).
-- **AI Agent:** Integrated via **Pi Coding Agent SDK** as the primary runtime model.
-- **Contracts:** OpenAPI 3.0 + Shared TypeScript types for cross-layer consistency.
+1. 前端：
 
-## Building and Running
+- `src/app` 只放应用装配（入口、路由、provider、全局样式）。
+- `src/features/<feature>` 放业务功能，页面/状态/路由必须在 feature 内聚。
+- `src/shared` 放跨 feature 复用能力（`api`、`ui`、`utils`）。
+- 禁止在 `src/` 根目录直接堆放业务代码。
 
-### Prerequisites
+2. 后端：
 
-- **Node.js:** `22.20.0` (strict requirement via `.nvmrc` and `.node-version`).
-- **Docker:** Required for running the database services.
+- 每个业务域必须放在 `src/modules/<domain>/`。
+- 每个 domain 至少包含：`*.route.ts`、`*.schemas.ts`、`*.service.ts`、`*.repository.ts`。
+- 数据源实现必须通过适配器文件（如 `*.repository.json.ts`、未来 `*.repository.pg.ts`）注入。
+- `route` 层禁止直接访问存储；必须经 `service -> repository`。
+- 确定性业务接口采用 `route -> service -> pi-tools capability -> service -> repository`。
+- 业务前后置、持久化、状态流转写在具体 `service`。
+- prompt、模型调用、结果解析放在对应 `pi-tools/<domain>/` 能力目录。
+- 不做本地假成功兜底；Pi/Agent 超时、报错或输出不合规必须失败。
 
-### Key Commands (Run from root)
+3. 契约：
 
-- **Setup:** `npm install`
-- **Infrastructure:** `docker compose -f infra/docker-compose.yml up -d postgres`
-- **Development:** `npm run dev` (starts both frontend and backend).
-- **Type Checking:** `npm run type-check` (runs type checks for all workspaces).
-- **Building:** `npm run build` (builds contracts, backend, and frontend).
-- **Formatting:** `npm run format` (uses Prettier).
-- **Data Pipeline:** `npm run data:pipeline:sync` (prepares and imports job data).
-- **AI Tasks:**
-  - `npm run agent:smoke` (model connectivity check).
-  - `npm run knowledge:init` (initialize vector store).
-  - `npm run knowledge:index:jobs` (index job data).
+- OpenAPI 放在 `packages/contracts/openapi/`。
+- 共享类型放在 `packages/contracts/types/`。
+- 前后端接口字段变更必须先更新 contracts，再改实现。
 
-## Development Conventions
+详见：`docs/工程结构与协作规范.md`。
 
-### 1. Contracts-First Development
+## 构建、测试与开发命令（统一从仓库根目录执行）
 
-All API changes **MUST** follow this sequence:
+- 安装所有工作区依赖：`npm install`
+- 启动前后端：`npm run dev`
+- 仅启动后端：`npm run dev:backend`
+- 仅启动前端：`npm run dev:frontend`
+- 全量类型检查：`npm run type-check`
+- 全量格式化：`npm run format`
+- 格式检查（不落盘）：`npm run format:check`
+- 全量构建：`npm run build`
+- 可选 make 入口：`make dev`、`make type-check`、`make build`
 
-1. Update `packages/contracts/openapi/career-agent.openapi.yaml`.
-2. Update `packages/contracts/types/index.ts`.
-3. Implement backend changes (`apps/backend`).
-4. Implement frontend changes (`apps/frontend`).
+## 代码风格与命名规范
 
-### 2. Backend Architecture (`apps/backend`)
+- Vue/TypeScript 使用 2 空格缩进，采用 ES Module 与 `<script setup lang="ts">` 风格。
+- 后端 TypeScript 使用 2 空格缩进，文件命名使用 `kebab-case`。
+- 前端导入优先使用 `@/` 别名。
+- 后端模块文件建议命名：`jobs.route.ts`、`jobs.service.ts`、`jobs.repository.ts`。
+- 提交前至少执行 `npm run type-check`，保证前后端与 contracts 一致。
+- 编码、审查、重构默认遵守 `$karpathy-guidelines`：先说明假设，保持简单，只做必要修改，给出可验证结果。
 
-Follow the strict layered pattern for every module in `src/modules/<domain>`:
+## 测试规范
 
-- `*.route.ts`: Protocol handling and response mapping.
-- `*.schemas.ts`: Parameter validation using Zod.
-- `*.service.ts`: Business logic and workflow orchestration.
-- `*.repository.ts`: Abstract storage interface.
-- `*.repository.<adapter>.ts`: Implementation (e.g., `pg.ts` for PostgreSQL).
+- 前端测试放在 `apps/frontend/src/**/__tests__/`。
+- 后端测试放在 `apps/backend/tests/` 或 `apps/backend/src/**/__tests__/`。
+- 命名统一 `*.test.ts`。
+- 在测试体系逐步完善前，`npm run type-check` + 本地可运行为最低合并门槛。
+- 不需要验证手机端
 
-### 3. Frontend Architecture (`apps/frontend`)
+## 提交与合并请求规范
 
-Strict modularity in `src/`:
+- 统一使用 Conventional Commits：`feat:`、`fix:`、`docs:`、`refactor:`。
+- 提交应小而聚焦，按模块注明范围，例如 `refactor(backend): 模块化 jobs 域`。
+- PR 需包含：变更内容与原因、影响路径、必要截图/GIF、关联任务或 Issue。
 
-- `app/`: Application assembly (entry, router, providers).
-- `features/<feature>/`: Business domains (pages, local components, stores).
-- `shared/`: Cross-cutting concerns (api client, common ui, utils).
-- **Rule:** Features must not couple directly; shared logic must descend to `shared/`.
+## 安全与配置建议
 
-### 4. AI & Model Constraints
+- 不要提交密钥或凭证；本地配置放在 `.env`。
+- 必须维护 `apps/backend/.env.example`、`apps/frontend/.env.example`。
+- 配置读取必须集中管理并做校验（建议 zod），禁止业务代码到处直读 `process.env`。
 
-- **Primary Path:** Use `Pi Coding Agent` for all business LLM logic.
-- **Prohibited:** Do not introduce direct `OpenAI Chat Completions` clients or independent LLM scripts in the backend business flow.
-- **Configuration:** Agent settings are stored in `~/.career-agent/pi-agent`. Use `npm run agent:auth -- list` and `npm run agent:auth -- login <provider> --model <provider/model>` to set up Pi-supported login methods.
 
-### 5. Environment & Documentation
 
-- Maintain `.env.example` in both `apps/frontend` and `apps/backend`.
-- Update `docs/问题记录库.jsonl` (Problem Log) after fixing significant bugs.
-- Align with `docs/工程结构与协作规范.md` for any structural changes.
-
-## Directory Structure Highlights
-
-- `apps/`: Main applications (frontend/backend).
-- `packages/contracts/`: Source of truth for API and shared types.
-- `infra/`: Docker and SQL initialization scripts.
-- `data/`: Sample data and evaluation datasets.
-- `docs/`: In-depth architecture, specifications, and collaboration norms.
-- `scripts/`: Utility scripts for data pipelines and maintenance.
+Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
