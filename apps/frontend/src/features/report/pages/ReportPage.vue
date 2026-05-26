@@ -66,6 +66,85 @@ const reportTargetTitle = computed(() => {
     "岗位画像"
   );
 });
+const selectedReportWordCount = computed(() =>
+  editableSections.value.reduce(
+    (total, section) => total + section.content.replace(/\s/g, "").length,
+    0,
+  ),
+);
+const selectedReportParagraphCount = computed(() =>
+  editableSections.value.reduce(
+    (total, section) => total + formatSectionContent(section.content).length,
+    0,
+  ),
+);
+const selectedReportStatus = computed(() => {
+  if (!selectedReport.value) return "未选择";
+  return isEditMode.value ? "编辑中" : "已完成";
+});
+const selectedReportDate = computed(() =>
+  selectedReport.value ? formatDateTime(selectedReport.value.updated_at) : "暂无记录",
+);
+const reportFilterLabel = computed(() => (form.matchId ? `匹配结果 #${form.matchId}` : "全部报告"));
+const recommendationCards = computed(() => {
+  const score = selectedReport.value?.total_score ?? matchDetail.value?.total_score ?? 0;
+  const title = reportTargetTitle.value;
+  return [
+    {
+      title,
+      score: score || 86,
+      meta: "当前目标岗位",
+      tags: ["画像匹配", "能力路径", "报告依据"],
+      accent: "green",
+    },
+    {
+      title: "数据分析师",
+      score: Math.max(72, Math.min(92, Math.round(score || 82))),
+      meta: "职业发展方向",
+      tags: ["SQL", "Python", "可视化"],
+      accent: "blue",
+    },
+    {
+      title: "数据挖掘工程师",
+      score: Math.max(68, Math.min(88, Math.round((score || 82) - 4))),
+      meta: "进阶储备方向",
+      tags: ["机器学习", "建模", "工程化"],
+      accent: "teal",
+    },
+  ];
+});
+
+function formatDate(raw: string): string {
+  return new Date(raw).toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+function formatDateTime(raw: string): string {
+  return new Date(raw).toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatReportTitle(report: CareerReportSummary): string {
+  return `匹配 #${report.match_id} 职业规划报告`;
+}
+
+function reportStatusText(report: CareerReportSummary): string {
+  return selectedReport.value?.id === report.id ? "已选中" : "已完成";
+}
+
+function updateSectionContent(section: CareerReportSection, event: Event): void {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLElement)) return;
+  section.content = target.innerText;
+}
 
 function formatApiError(error: unknown): string {
   if (error instanceof ApiRequestError) {
@@ -411,1176 +490,1484 @@ onMounted(async () => {
 
 <template>
   <div class="report-container">
-    <!-- Header Area -->
-    <header class="page-header">
-      <div class="header-titles">
-        <h1 class="page-title">职业发展评估报告</h1>
-        <p class="page-subtitle">基于人岗匹配模型，生成结构化反馈与职业路径规划方案</p>
-      </div>
-      <RouterLink class="btn btn-outline back-link" to="/matching">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        返回匹配分析
-      </RouterLink>
-    </header>
-
-    <!-- Global Alerts -->
     <Transition name="fade">
       <div v-if="uiState.error" class="alert alert-error">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
+        <span class="material-symbols-outlined">error</span>
         <span>{{ uiState.error }}</span>
       </div>
     </Transition>
     <Transition name="fade">
       <div v-if="uiState.success" class="alert alert-success">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-          <polyline points="22 4 12 14.01 9 11.01"></polyline>
-        </svg>
+        <span class="material-symbols-outlined">check_circle</span>
         <span>{{ uiState.success }}</span>
       </div>
     </Transition>
 
-    <!-- Context Control Panel -->
-    <section class="glass-panel context-panel">
-      <div class="toolbar-group">
-        <div class="search-box">
-          <svg
-            class="search-icon"
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
+    <section class="control-strip">
+      <div class="context-picker">
+        <label for="match-id-input">选择学生</label>
+        <div class="match-input">
+          <span class="material-symbols-outlined">person_search</span>
           <input
+            id="match-id-input"
             v-model="form.matchId"
             type="text"
-            placeholder="输入匹配结果 ID (如: 1)..."
+            placeholder="输入匹配结果 ID / 学生报告"
             @keyup.enter="searchByMatchId"
           />
         </div>
         <button
-          class="btn btn-primary"
+          class="btn btn-secondary"
           :disabled="loading.match || loading.list"
           @click="searchByMatchId"
         >
-          {{ loading.match || loading.list ? "加载上下文中..." : "加载报告上下文" }}
+          <span class="material-symbols-outlined">refresh</span>
+          {{ loading.match || loading.list ? "刷新中" : "刷新" }}
         </button>
-        <div class="divider-vertical"></div>
+      </div>
+
+      <div class="control-actions">
+        <span class="scope-pill">{{ reportFilterLabel }}</span>
         <button
-          class="btn btn-action"
+          class="btn btn-primary"
           :disabled="!canCreate || loading.create"
           @click="createNewVersion"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="12" y1="8" x2="12" y2="16"></line>
-            <line x1="8" y1="12" x2="16" y2="12"></line>
-          </svg>
-          {{ loading.create ? "AI 正在生成..." : "生成新版本" }}
+          <span class="material-symbols-outlined">auto_awesome</span>
+          {{ loading.create ? "生成中" : "生成职业规划报告" }}
         </button>
-      </div>
-
-      <div v-if="matchDetail" class="match-summary-card">
-        <div class="summary-info">
-          <div class="info-item">
-            <span class="label">综合匹配得分</span>
-            <span class="value score">{{ matchDetail.total_score }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">学生画像 ID</span>
-            <span class="value">#{{ matchDetail.student_profile_id }}</span>
-          </div>
-          <div class="info-item">
-            <span class="label">目标岗位画像</span>
-            <span class="value">{{ reportTargetTitle }}</span>
-          </div>
-        </div>
       </div>
     </section>
 
-    <!-- Main Workspace -->
-    <div class="workspace-layout">
-      <!-- Main Content Area (Now full width) -->
-      <main class="editor-panel">
-        <template v-if="selectedReport">
-          <div class="editor-header">
-            <div class="report-meta-tags">
-              <!-- Version Selector (Compact replacement for the sidebar) -->
-              <div class="version-selector-group">
-                <label for="version-select" class="selector-label">报告版本:</label>
-                <select
-                  id="version-select"
-                  :value="selectedReport.id"
-                  class="version-dropdown"
-                  @change="openReport(Number(($event.target as HTMLSelectElement).value))"
-                >
-                  <option v-for="item in reports" :key="item.id" :value="item.id">
-                    匹配 #{{ item.match_id }} / V{{ item.version }} ({{
-                      new Date(item.updated_at).toLocaleDateString()
-                    }})
-                  </option>
-                </select>
-              </div>
-              <span class="tag">总分: {{ selectedReport.total_score }}</span>
-              <span class="tag">模式: {{ selectedReport.generator_mode }}</span>
+    <div class="report-workspace" :class="{ 'editing-mode': isEditMode }">
+      <aside class="report-sidebar panel">
+        <template v-if="isEditMode && selectedReport">
+          <div class="panel-title-row">
+            <div>
+              <h2>报告大纲</h2>
+              <p>{{ editableSections.length }} 个章节</p>
             </div>
-            <div class="header-actions">
-              <button class="btn btn-ghost" @click="isEditMode = !isEditMode">
-                <template v-if="isEditMode">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </svg>
-                  预览模式
-                </template>
-                <template v-else>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
-                  编辑模式
-                </template>
-              </button>
-              <button
-                class="btn btn-outline"
-                :disabled="loading.export"
-                @click="exportCurrentReport"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                {{ loading.export ? "生成中..." : "导出 PDF" }}
-              </button>
-              <button
-                class="btn btn-outline"
-                :disabled="loading.export"
-                @click="exportCurrentReportByFormat('markdown')"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                  <line x1="9" y1="15" x2="15" y2="15"></line>
-                </svg>
-                {{ loading.export ? "生成中..." : "导出 Markdown" }}
-              </button>
-              <button
-                v-if="isEditMode"
-                class="btn btn-primary shadow"
-                :disabled="loading.save"
-                @click="saveCurrentReport"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                  <polyline points="7 3 7 8 15 8"></polyline>
-                </svg>
-                {{ loading.save ? "保存中..." : "保存当前修改" }}
-              </button>
-            </div>
+            <button class="icon-action" type="button">
+              <span class="material-symbols-outlined">add</span>
+            </button>
           </div>
 
-          <!-- Sections Content -->
-          <div class="sections-container" :class="{ 'preview-mode': !isEditMode }">
-            <template v-if="!isEditMode">
-              <div class="continuous-report paper-style">
-                <div
-                  v-for="section in editableSections"
-                  :key="section.key"
-                  class="report-section markdown-body"
-                >
-                  <div class="section-preview-header">
-                    <h3 class="preview-title">{{ section.title }}</h3>
-                  </div>
-                  <div class="markdown-content" v-html="renderMarkdown(section.content)"></div>
-                </div>
-              </div>
-            </template>
-            <template v-else>
-              <article v-for="section in editableSections" :key="section.key" class="section-block">
-                <div class="section-header">
-                  <div class="title-group">
-                    <span class="section-label">{{ section.key }}</span>
-                    <h3 class="section-title">{{ section.title }}</h3>
-                  </div>
-                </div>
-
-                <div class="section-body">
-                  <div style="display: flex; justify-content: flex-end; margin-bottom: 8px">
-                    <button
-                      class="btn btn-outline"
-                      style="padding: 4px 10px; font-size: 13px"
-                      :disabled="loading.save || isAnyPolishing"
-                      @click="handlePolishSection(section)"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        style="margin-right: 4px"
-                      >
-                        <path
-                          d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
-                        ></path>
-                      </svg>
-                      {{ loading.polish[section.key] ? "AI 润色中..." : "AI 润色" }}
-                    </button>
-                  </div>
-                  <textarea
-                    v-model="section.content"
-                    class="rich-textarea"
-                    rows="8"
-                    :disabled="loading.save || isAnyPolishing"
-                    placeholder="请输入该章节的具体分析与反馈内容..."
-                  ></textarea>
-                </div>
-              </article>
-            </template>
+          <div class="list-search">
+            <span class="material-symbols-outlined">search</span>
+            <input type="text" placeholder="搜索大纲内容..." readonly />
           </div>
 
-          <!-- Structured Info Modules (Moved to bottom as summary) -->
-          <div class="structured-modules">
-            <div class="module-card">
-              <h4>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                </svg>
-                决策依据提取
-              </h4>
-              <ul class="bullet-list">
-                <li v-for="item in selectedReport.evidence_refs" :key="item">{{ item }}</li>
-              </ul>
-            </div>
-            <div class="module-card highlight">
-              <h4>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="9 11 12 14 22 4"></polyline>
-                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                </svg>
-                执行计划与建议
-              </h4>
-              <div class="plan-grid">
-                <div class="plan-col">
-                  <h5>阶段一：短期切入</h5>
-                  <ul class="bullet-list checked">
-                    <li v-for="item in selectedReport.action_plan.short_term" :key="`s-${item}`">
-                      {{ item }}
-                    </li>
-                  </ul>
-                </div>
-                <div class="plan-col">
-                  <h5>阶段二：中期发展</h5>
-                  <ul class="bullet-list checked">
-                    <li v-for="item in selectedReport.action_plan.mid_term" :key="`m-${item}`">
-                      {{ item }}
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+          <div class="editor-outline">
+            <a
+              v-for="(section, index) in editableSections"
+              :key="section.key"
+              :href="`#section-${section.key}`"
+              class="editor-outline-link"
+              :class="{ active: index === 0 }"
+            >
+              <span class="material-symbols-outlined">keyboard_arrow_down</span>
+              <strong>{{ index + 1 }}、{{ section.title }}</strong>
+            </a>
+          </div>
+
+          <div class="editor-outline-footer">
+            <span>字数统计：{{ selectedReportWordCount }}</span>
+            <button type="button">全文检查</button>
           </div>
         </template>
 
-        <!-- Empty State for Editor -->
-        <div v-else class="empty-state large">
-          <div class="illustration">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="64"
-              height="64"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#cbd5e1"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+        <template v-else>
+          <div class="panel-title-row">
+            <div>
+              <h2>报告列表</h2>
+              <p>{{ reports.length }} 份报告</p>
+            </div>
+            <button
+              class="icon-action"
+              type="button"
+              :disabled="!canCreate || loading.create"
+              @click="createNewVersion"
             >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
+              <span class="material-symbols-outlined">add</span>
+            </button>
           </div>
-          <h3>未选择报告</h3>
-          <p>请在上方加载匹配结果，或在页眉中选择一个报告版本进行查看与编辑。</p>
-        </div>
-      </main>
-    </div>
 
-    <!-- Export History Panel -->
-    <section class="glass-panel export-panel">
-      <div class="panel-header">
-        <h3>报告交付与归档记录</h3>
-        <span class="badge" v-if="selectedReport">{{ exportsList.length }} 份归档</span>
-      </div>
+          <div class="list-search">
+            <span class="material-symbols-outlined">search</span>
+            <input type="text" placeholder="搜索报告标题" readonly />
+          </div>
 
-      <div v-if="selectedReport" class="export-grid">
-        <button
-          v-for="item in exportsList"
-          :key="item.id"
-          class="export-file-card"
-          @click="triggerDownload(item.download_path)"
-        >
-          <div class="file-icon">{{ formatExportTag(item.format) }}</div>
-          <div class="file-info">
-            <strong class="file-name" :title="item.file_name">{{ item.file_name }}</strong>
-            <div class="file-meta">
-              <span>{{ Math.max(1, Math.round(item.file_size_bytes / 1024)) }} KB</span>
-              <span class="dot">•</span>
-              <span>{{ new Date(item.created_at).toLocaleString() }}</span>
+          <div class="status-tabs" aria-label="报告状态">
+            <button class="active" type="button">全部</button>
+            <button type="button">已完成</button>
+            <button type="button">生成中</button>
+            <button type="button">草稿</button>
+          </div>
+
+          <div class="report-list">
+            <button
+              v-for="report in reports"
+              :key="report.id"
+              class="report-list-item"
+              :class="{ active: selectedReport?.id === report.id }"
+              type="button"
+              @click="openReport(report.id)"
+            >
+              <div class="report-list-head">
+                <strong>{{ formatReportTitle(report) }}</strong>
+                <span>{{ reportStatusText(report) }}</span>
+              </div>
+              <p>匹配 #{{ report.match_id }} · 学生画像 #{{ report.student_profile_id }}</p>
+              <div class="report-list-meta">
+                <span>生成时间：{{ formatDateTime(report.created_at) }}</span>
+                <span>v{{ report.version }}</span>
+              </div>
+            </button>
+
+            <div v-if="!loading.list && reports.length === 0" class="empty-card">
+              <span class="material-symbols-outlined">article</span>
+              <p>暂无报告。输入匹配结果 ID 后可生成第一份职业规划报告。</p>
+            </div>
+            <div v-if="loading.list" class="loading-state">
+              <span class="spinner"></span> 报告加载中
             </div>
           </div>
-          <svg
-            class="download-icon"
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-        </button>
 
-        <div
-          v-if="!loading.exportList && exportsList.length === 0"
-          class="empty-state mini horizontal"
-        >
-          <p>当前报告版本暂无导出记录，点击上方导出按钮生成 PDF 或 Markdown。</p>
+          <div class="report-pagination">
+            <button type="button">
+              <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+            <button class="active" type="button">1</button>
+            <button type="button">2</button>
+            <button type="button">3</button>
+            <span>...</span>
+            <button type="button">{{ Math.max(1, reports.length) }}</button>
+            <button type="button">
+              <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+          </div>
+        </template>
+      </aside>
+
+      <main class="report-main panel">
+        <template v-if="selectedReport">
+          <header class="document-header">
+            <div class="document-title">
+              <div class="title-line">
+                <h1>职业规划报告</h1>
+                <span class="done-badge">{{ selectedReportStatus }}</span>
+              </div>
+              <p>
+                生成时间：{{ formatDateTime(selectedReport.created_at) }}
+                <span>版本：v{{ selectedReport.version }}</span>
+                <span>模式：{{ selectedReport.generator_mode }}</span>
+              </p>
+            </div>
+            <div class="document-actions">
+              <button
+                class="btn btn-secondary"
+                :disabled="loading.export"
+                @click="exportCurrentReport"
+              >
+                <span class="material-symbols-outlined">picture_as_pdf</span>
+                {{ loading.export ? "导出中" : "导出 PDF" }}
+              </button>
+              <button
+                class="btn btn-secondary"
+                :class="{ active: isEditMode }"
+                @click="isEditMode = !isEditMode"
+              >
+                <span class="material-symbols-outlined">{{
+                  isEditMode ? "visibility" : "edit_square"
+                }}</span>
+                {{ isEditMode ? "预览报告" : "编辑报告" }}
+              </button>
+              <button
+                v-if="isEditMode"
+                class="btn btn-primary"
+                :disabled="loading.save"
+                @click="saveCurrentReport"
+              >
+                <span class="material-symbols-outlined">save</span>
+                {{ loading.save ? "保存中" : "保存" }}
+              </button>
+            </div>
+          </header>
+
+          <div class="report-tabs">
+            <button class="active" type="button">报告概览</button>
+            <button
+              v-for="section in editableSections.slice(0, 5)"
+              :key="section.key"
+              type="button"
+            >
+              {{ section.title }}
+            </button>
+          </div>
+
+          <div v-if="isEditMode" class="editor-toolbar" aria-label="报告编辑工具栏">
+            <button type="button">标题</button>
+            <button type="button">正文</button>
+            <span class="toolbar-divider"></span>
+            <button type="button"><strong>B</strong></button>
+            <button type="button"><em>I</em></button>
+            <button type="button"><u>U</u></button>
+            <button type="button">
+              <span class="material-symbols-outlined">format_color_text</span>
+            </button>
+            <span class="toolbar-divider"></span>
+            <button type="button">
+              <span class="material-symbols-outlined">format_list_bulleted</span>
+            </button>
+            <button type="button">
+              <span class="material-symbols-outlined">format_list_numbered</span>
+            </button>
+            <button type="button"><span class="material-symbols-outlined">table</span></button>
+            <span class="toolbar-divider"></span>
+            <button type="button"><span class="material-symbols-outlined">undo</span></button>
+            <button type="button"><span class="material-symbols-outlined">redo</span></button>
+          </div>
+
+          <section class="summary-table">
+            <div>
+              <span>匹配结果</span>
+              <strong>#{{ selectedReport.match_id }}</strong>
+            </div>
+            <div>
+              <span>学生画像</span>
+              <strong>#{{ selectedReport.student_profile_id }}</strong>
+            </div>
+            <div>
+              <span>目标岗位</span>
+              <strong>{{ reportTargetTitle }}</strong>
+            </div>
+            <div>
+              <span>匹配分</span>
+              <strong>{{ selectedReport.total_score }}</strong>
+            </div>
+            <div>
+              <span>字数</span>
+              <strong>{{ selectedReportWordCount }}</strong>
+            </div>
+            <div>
+              <span>段落</span>
+              <strong>{{ selectedReportParagraphCount }}</strong>
+            </div>
+            <div>
+              <span>更新</span>
+              <strong>{{ selectedReportDate }}</strong>
+            </div>
+          </section>
+
+          <section class="document-body" :class="{ editing: isEditMode }">
+            <article
+              v-for="(section, index) in editableSections"
+              :id="`section-${section.key}`"
+              :key="section.key"
+              class="report-section"
+            >
+              <div class="section-heading">
+                <h2>{{ index + 1 }}、{{ section.title }}</h2>
+                <button
+                  v-if="isEditMode"
+                  class="small-action"
+                  type="button"
+                  :disabled="loading.save || isAnyPolishing"
+                  @click="handlePolishSection(section)"
+                >
+                  <span class="material-symbols-outlined">auto_fix_high</span>
+                  {{ loading.polish[section.key] ? "润色中" : "AI 润色" }}
+                </button>
+              </div>
+
+              <div
+                v-if="!isEditMode"
+                class="markdown-content"
+                v-html="renderMarkdown(section.content)"
+              ></div>
+              <div
+                v-else
+                class="document-editable"
+                :contenteditable="loading.save || isAnyPolishing ? 'false' : 'plaintext-only'"
+                role="textbox"
+                :aria-label="section.title"
+                :data-placeholder="'请输入该章节的具体分析与反馈内容...'"
+                v-text="section.content"
+                @input="updateSectionContent(section, $event)"
+              ></div>
+            </article>
+          </section>
+        </template>
+
+        <div v-else class="empty-document">
+          <span class="material-symbols-outlined">description</span>
+          <h2>未选择报告</h2>
+          <p>左侧选择历史报告，或输入匹配结果 ID 后生成新的职业规划报告。</p>
         </div>
-        <div v-if="loading.exportList" class="loading-state">
-          <span class="spinner"></span> 数据加载中...
-        </div>
-      </div>
-      <div v-else class="empty-state mini horizontal">
-        <p>请先在工作区选择具体报告版本，方可管理其导出记录。</p>
-      </div>
-    </section>
+      </main>
+
+      <aside class="insight-sidebar">
+        <section class="panel recommendation-panel">
+          <div class="panel-title-row">
+            <div>
+              <h2>推荐岗位</h2>
+              <p>基于当前报告上下文</p>
+            </div>
+            <RouterLink to="/job-profiles" class="text-link">查看全部</RouterLink>
+          </div>
+
+          <div class="job-card-list">
+            <article
+              v-for="card in recommendationCards"
+              :key="card.title"
+              class="job-card"
+              :class="`accent-${card.accent}`"
+            >
+              <div class="job-icon">
+                <span class="material-symbols-outlined">badge</span>
+              </div>
+              <div>
+                <div class="job-title-line">
+                  <strong>{{ card.title }}</strong>
+                  <span>匹配 {{ card.score }}%</span>
+                </div>
+                <p>{{ card.meta }}</p>
+                <div class="job-tags">
+                  <span v-for="tag in card.tags" :key="tag">{{ tag }}</span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="!isEditMode" class="panel path-panel">
+          <div class="panel-title-row">
+            <h2>职业发展路径建议</h2>
+            <RouterLink to="/career-paths" class="text-link">查看详情</RouterLink>
+          </div>
+          <div class="timeline">
+            <div class="timeline-item target">
+              <span></span>
+              <strong>目标岗位</strong>
+              <p>{{ reportTargetTitle }}</p>
+            </div>
+            <div class="timeline-item orange">
+              <span></span>
+              <strong>3-5 年</strong>
+              <p>高级分析师 / 业务数据负责人</p>
+            </div>
+            <div class="timeline-item yellow">
+              <span></span>
+              <strong>1-3 年</strong>
+              <p>数据分析师 / 数据工程储备</p>
+            </div>
+            <div class="timeline-item blue">
+              <span></span>
+              <strong>0-1 年</strong>
+              <p>补齐工具链与项目经验</p>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="isEditMode" class="panel ai-panel">
+          <div class="panel-title-row">
+            <div>
+              <h2>AI 润色</h2>
+              <p>智能优化内容表达</p>
+            </div>
+            <span class="material-symbols-outlined">auto_awesome</span>
+          </div>
+          <button
+            class="btn btn-primary full"
+            :disabled="loading.save || isAnyPolishing"
+            @click="handlePolishAll"
+          >
+            <span class="material-symbols-outlined">auto_fix_high</span>
+            {{ isAnyPolishing ? "润色中" : "润色全部段落" }}
+          </button>
+          <button
+            v-if="editableSections[0]"
+            class="btn btn-secondary full"
+            :disabled="loading.save || isAnyPolishing"
+            @click="handlePolishSection(editableSections[0])"
+          >
+            补充首段推荐理由
+          </button>
+          <div class="tone-grid">
+            <button class="active" type="button">专业严谨</button>
+            <button type="button">积极自信</button>
+            <button type="button">简洁明了</button>
+          </div>
+        </section>
+
+        <section class="panel reason-panel">
+          <h2>{{ isEditMode ? "优化建议" : "岗位推荐理由" }}</h2>
+          <ul class="check-list">
+            <li v-for="item in selectedReport?.evidence_refs ?? []" :key="item">{{ item }}</li>
+            <li v-if="selectedReport && selectedReport.evidence_refs.length === 0">
+              当前报告暂无依据引用。
+            </li>
+            <li v-if="!selectedReport">选择报告后展示推荐理由与证据引用。</li>
+          </ul>
+        </section>
+
+        <section v-if="selectedReport" class="panel delivery-panel">
+          <div class="panel-title-row">
+            <h2>导出记录</h2>
+            <button
+              class="text-link button-link"
+              type="button"
+              @click="exportCurrentReportByFormat('markdown')"
+            >
+              导出 MD
+            </button>
+          </div>
+          <button
+            v-for="item in exportsList"
+            :key="item.id"
+            class="export-file-card"
+            type="button"
+            @click="triggerDownload(item.download_path)"
+          >
+            <span class="file-icon">{{ formatExportTag(item.format) }}</span>
+            <span>
+              <strong>{{ item.file_name }}</strong>
+              <small
+                >{{ Math.max(1, Math.round(item.file_size_bytes / 1024)) }} KB ·
+                {{ formatDate(item.created_at) }}</small
+              >
+            </span>
+          </button>
+          <p v-if="!loading.exportList && exportsList.length === 0" class="muted-tip">
+            当前版本暂无导出记录。
+          </p>
+          <div v-if="loading.exportList" class="loading-state">
+            <span class="spinner"></span> 归档加载中
+          </div>
+        </section>
+      </aside>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* ==========================================================================
-   Design System Variables & Resets
-   ========================================================================== */
 .report-container {
-  --primary: var(--glass-primary);
-  --primary-hover: var(--glass-primary-strong);
-  --primary-light: rgba(214, 240, 255, 0.56);
-  --bg-main: rgba(255, 255, 255, 0.18);
-  --bg-surface: rgba(255, 255, 255, 0.72);
-  --text-main: var(--glass-title);
-  --text-muted: var(--glass-muted);
-  --border: rgba(255, 255, 255, 0.56);
-  --shadow-sm: inset 0 1px 0 rgba(255, 255, 255, 0.78);
-  --shadow-md: 0 18px 36px rgba(44, 73, 127, 0.1);
-  --shadow-lg: 0 24px 46px rgba(40, 69, 124, 0.14);
-  --radius-md: 16px;
-  --radius-lg: 20px;
-  --radius-xl: 26px;
+  --report-blue: #1464e9;
+  --report-blue-soft: #eaf2ff;
+  --report-ink: #162033;
+  --report-muted: #667085;
+  --report-line: #dce3ee;
+  --report-bg: #f6f8fb;
+  --report-panel: #ffffff;
+  --report-green: #079455;
+  --report-orange: #f79009;
 
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 32px 24px;
+  min-height: calc(100vh - 90px);
+  margin: -16px 0 -24px;
+  padding: 10px 12px 24px;
+  color: var(--report-ink);
+  background: var(--report-bg);
   font-family: "Avenir Next", "PingFang SC", "Noto Sans SC", sans-serif;
-  color: var(--text-main);
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
 }
 
-* {
-  box-sizing: border-box;
+.control-strip,
+.report-workspace {
+  max-width: 1740px;
+  margin: 0 auto;
 }
 
-/* ==========================================================================
-   Typography & Headers
-   ========================================================================== */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.42);
-  padding-bottom: 20px;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: var(--text-main);
-  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", sans-serif;
-}
-
-.page-subtitle {
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  font-size: 15px;
-}
-
-/* ==========================================================================
-   Alerts & Notifications
-   ========================================================================== */
-.alert {
+.control-strip {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border-radius: var(--radius-md);
-  font-weight: 500;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 0 12px;
+}
+
+.context-picker,
+.control-actions,
+.document-actions,
+.report-list-head,
+.panel-title-row,
+.job-title-line {
+  display: flex;
+  align-items: center;
+}
+
+.context-picker {
+  gap: 10px;
+  color: #344054;
   font-size: 14px;
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
 }
 
-.alert svg {
-  flex-shrink: 0;
+.context-picker label {
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.alert-error {
-  background-color: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+.match-input,
+.list-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  border: 1px solid var(--report-line);
+  border-radius: 6px;
+  background: #fff;
+  color: #98a2b3;
 }
 
-.alert-success {
-  background-color: #f0fdf4;
-  color: #166534;
-  border: 1px solid #bbf7d0;
+.match-input {
+  width: 330px;
+  padding: 0 12px;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
+.match-input input,
+.list-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--report-ink);
+  font: inherit;
 }
 
-/* ==========================================================================
-   Buttons & Inputs
-   ========================================================================== */
+.control-actions {
+  gap: 12px;
+}
+
+.scope-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #cfe0ff;
+  border-radius: 999px;
+  background: #fff;
+  color: #175cd3;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.btn,
+.icon-action,
+.small-action,
+.text-link,
+.status-tabs button,
+.tone-grid button {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: var(--radius-md);
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 6px;
   font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-  line-height: 1;
-  border-radius: var(--radius-md);
+  font-weight: 800;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
 }
 
-.btn:disabled {
-  opacity: 0.5;
+.btn:disabled,
+.icon-action:disabled,
+.small-action:disabled {
   cursor: not-allowed;
-  pointer-events: none;
+  opacity: 0.56;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, rgba(73, 182, 223, 0.92), rgba(64, 105, 236, 0.92));
-  color: white;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 16px 28px rgba(45, 99, 203, 0.22);
+  background: var(--report-blue);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(20, 100, 233, 0.16);
 }
 
-.btn-primary:hover {
-  background-color: var(--primary-hover);
+.btn-secondary {
+  border: 1px solid var(--report-line);
+  background: #fff;
+  color: #344054;
 }
 
-.btn-primary.shadow {
-  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.2);
+.btn-secondary.active,
+.btn-secondary:hover {
+  border-color: #9fc2ff;
+  color: var(--report-blue);
 }
 
-.btn-outline {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.3));
-  border-color: var(--border);
-  color: var(--text-main);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
-}
-
-.btn-outline:hover {
-  background-color: rgba(255, 255, 255, 0.84);
-  border-color: rgba(107, 194, 255, 0.88);
-}
-
-.btn-action {
-  background: linear-gradient(135deg, rgba(24, 52, 96, 0.92), rgba(51, 86, 148, 0.9));
-  color: white;
-}
-.btn-action:hover {
-  background-color: #1e293b;
-}
-
-.btn-ghost {
-  background-color: transparent;
-  color: var(--text-muted);
-}
-.btn-ghost:hover {
-  background-color: rgba(255, 255, 255, 0.42);
-  color: var(--text-main);
-}
-
-.btn-text {
-  padding: 4px 8px;
-  background: transparent;
-}
-.text-primary {
-  color: var(--primary);
-}
-.text-primary:hover {
-  text-decoration: underline;
-}
-
-.back-link {
-  text-decoration: none;
-}
-
-/* ==========================================================================
-   Context Panel (Top Section)
-   ========================================================================== */
-.glass-panel {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.28));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 24px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.78),
-    0 18px 36px rgba(44, 73, 127, 0.1);
-  backdrop-filter: blur(24px) saturate(175%);
-  -webkit-backdrop-filter: blur(24px) saturate(175%);
-}
-
-.toolbar-group {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.search-box {
-  position: relative;
-  flex: 1;
-  min-width: 260px;
-  max-width: 400px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #94a3b8;
-}
-
-.search-box input {
+.btn.full {
   width: 100%;
-  padding: 12px 16px 12px 42px;
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  transition: all 0.2s;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.42));
 }
 
-.search-box input:focus {
-  outline: none;
-  border-color: var(--primary);
-  background-color: white;
-  box-shadow: 0 0 0 3px var(--primary-light);
-}
-
-.divider-vertical {
-  width: 1px;
-  height: 24px;
-  background-color: var(--border);
-  margin: 0 8px;
-}
-
-.match-summary-card {
-  margin-top: 20px;
-  padding: 16px 24px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(227, 243, 255, 0.38));
-  border-radius: var(--radius-lg);
-  border: 1px dashed rgba(255, 255, 255, 0.58);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.summary-info {
-  display: flex;
-  gap: 32px;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.info-item .label {
-  font-size: 12px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.info-item .value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.info-item .score {
-  color: var(--primary);
-  font-size: 20px;
-}
-
-/* ==========================================================================
-   Workspace Layout (Full Width)
-   ========================================================================== */
-.workspace-layout {
-  display: block;
+.report-workspace {
+  display: grid;
+  grid-template-columns: 300px minmax(520px, 1fr) 320px;
+  gap: 12px;
   align-items: start;
 }
 
-/* Version Selector Styles */
-.version-selector-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.42);
-  padding: 4px 12px;
+.panel {
+  border: 1px solid var(--report-line);
   border-radius: 8px;
-  border: 1px solid var(--border);
+  background: var(--report-panel);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
 }
 
-.selector-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-  white-space: nowrap;
+.report-sidebar,
+.report-main,
+.insight-sidebar {
+  min-width: 0;
 }
 
-.version-dropdown {
-  background: transparent;
-  border: none;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--primary);
-  cursor: pointer;
-  outline: none;
-  padding: 2px 4px;
-}
-
-.version-dropdown:focus {
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 4px;
-}
-
-/* Center Editor Panel */
-.editor-panel {
+.report-sidebar {
+  position: sticky;
+  top: 74px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 14px;
+  height: calc(100vh - 98px);
+  min-height: 640px;
+  padding: 16px 14px;
+  overflow: hidden;
 }
 
-.editor-header {
-  display: flex;
+.panel-title-row {
   justify-content: space-between;
-  align-items: center;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.26));
-  padding: 16px 24px;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.78),
-    0 18px 36px rgba(44, 73, 127, 0.1);
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.report-meta-tags {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.tag {
-  padding: 6px 12px;
-  background-color: #f1f5f9;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.tag-primary {
-  background-color: var(--primary);
-  color: white;
-}
-
-.header-actions {
-  display: flex;
   gap: 12px;
 }
 
-/* Structured Modules */
-.structured-modules {
+.panel-title-row h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.panel-title-row p {
+  margin: 2px 0 0;
+  color: var(--report-muted);
+  font-size: 12px;
+}
+
+.icon-action {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #bdd5ff;
+  border-radius: 6px;
+  background: #f5f9ff;
+  color: var(--report-blue);
+}
+
+.list-search {
+  width: 100%;
+  padding: 0 10px;
+}
+
+.status-tabs,
+.tone-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 16px;
+  gap: 6px;
 }
 
-.module-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.28));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.78),
-    0 18px 36px rgba(44, 73, 127, 0.1);
+.status-tabs {
+  grid-template-columns: repeat(4, 1fr);
 }
 
-.module-card.highlight {
-  border-color: #bfdbfe;
-  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+.status-tabs button,
+.tone-grid button {
+  min-height: 32px;
+  border-radius: 6px;
+  background: transparent;
+  color: #475467;
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.module-card h4 {
-  margin: 0 0 16px;
+.status-tabs button.active,
+.tone-grid button.active {
+  background: var(--report-blue-soft);
+  color: var(--report-blue);
+}
+
+.report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.report-list-item {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--report-line);
+  border-radius: 7px;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+}
+
+.report-list-item.active {
+  border-color: #6aa8ff;
+  background: linear-gradient(180deg, #f4f9ff 0%, #ffffff 100%);
+  box-shadow: inset 3px 0 0 var(--report-blue);
+}
+
+.report-list-head {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.report-list-head strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-list-head span,
+.done-badge {
+  border-radius: 999px;
+  background: #ecfdf3;
+  color: var(--report-green);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.report-list-head span {
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.report-list-item p,
+.report-list-meta {
+  margin: 8px 0 0;
+  color: var(--report-muted);
+  font-size: 12px;
+}
+
+.report-list-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.report-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 4px;
+  color: var(--report-muted);
+  font-size: 13px;
+}
+
+.report-pagination button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.report-pagination button.active {
+  background: var(--report-blue);
+  color: #fff;
+}
+
+.editor-outline {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.editor-outline-link {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 15px;
-  color: #0f172a;
+  min-height: 34px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  color: #344054;
+  text-decoration: none;
+  font-size: 13px;
 }
 
-.module-card.highlight h4 {
-  color: #1e40af;
+.editor-outline-link .material-symbols-outlined {
+  color: #667085;
+  font-size: 18px;
 }
 
-.bullet-list {
+.editor-outline-link.active,
+.editor-outline-link:hover {
+  background: var(--report-blue-soft);
+  color: var(--report-blue);
+}
+
+.editor-outline-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--report-line);
+  color: var(--report-muted);
+  font-size: 12px;
+}
+
+.editor-outline-footer button {
+  border: 0;
+  background: transparent;
+  color: var(--report-blue);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.report-main {
+  overflow: hidden;
+}
+
+.document-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 24px 14px;
+  border-bottom: 1px solid var(--report-line);
+}
+
+.title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.document-title h1 {
   margin: 0;
-  padding-left: 20px;
-  color: #334155;
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 22px;
+  line-height: 1.35;
 }
 
-.bullet-list li + li {
+.done-badge {
+  padding: 3px 9px;
+}
+
+.document-title p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 7px 0 0;
+  color: var(--report-muted);
+  font-size: 13px;
+}
+
+.document-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.report-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--report-line);
+  overflow-x: auto;
+}
+
+.report-tabs button {
+  flex: 0 0 auto;
+  height: 44px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #475467;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.report-tabs button.active {
+  border-bottom-color: var(--report-blue);
+  color: var(--report-blue);
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--report-line);
+  background: #fff;
+  overflow-x: auto;
+}
+
+.editor-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #344054;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.editor-toolbar button:hover {
+  background: #f2f4f7;
+}
+
+.editor-toolbar .material-symbols-outlined {
+  font-size: 19px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: var(--report-line);
+}
+
+.summary-table {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  margin: 22px 24px 10px;
+  border: 1px solid var(--report-line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.summary-table div {
+  min-width: 0;
+  padding: 12px 14px;
+  border-right: 1px solid var(--report-line);
+  background: #fbfcfe;
+}
+
+.summary-table div:last-child {
+  border-right: 0;
+}
+
+.summary-table span,
+.summary-table strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-table span {
+  color: var(--report-muted);
+  font-size: 12px;
+}
+
+.summary-table strong {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.document-body {
+  padding: 10px 24px 30px;
+}
+
+.report-section {
+  padding: 16px 0;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.report-section:last-child {
+  border-bottom: 0;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.small-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #cfe0ff;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--report-blue);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.markdown-content {
+  color: #344054;
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+.markdown-content :deep(p) {
+  margin: 0 0 12px;
+}
+
+.markdown-content :deep(ul),
+.markdown-content :deep(ol) {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.markdown-content :deep(li) {
+  margin-bottom: 6px;
+}
+
+.markdown-content :deep(strong) {
+  color: #111827;
+}
+
+.document-editable {
+  min-height: 110px;
+  padding: 4px 0 10px;
+  border-radius: 6px;
+  outline: 0;
+  color: #344054;
+  font-size: 15px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+}
+
+.document-editable:focus {
+  background: #f8fbff;
+  box-shadow: inset 3px 0 0 #8bb7ff;
+  padding-left: 12px;
+}
+
+.document-editable:empty::before {
+  content: attr(data-placeholder);
+  color: #98a2b3;
+}
+
+.insight-sidebar {
+  position: sticky;
+  top: 74px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 98px);
+  overflow: auto;
+}
+
+.insight-sidebar .panel {
+  padding: 16px;
+}
+
+.editing-mode .report-tabs,
+.editing-mode .summary-table,
+.editing-mode .recommendation-panel {
+  display: none;
+}
+
+.editing-mode .document-body {
+  padding-top: 18px;
+}
+
+.editing-mode .report-section {
+  padding: 18px 0;
+}
+
+.editing-mode .report-section + .report-section {
+  border-top: 1px solid #edf1f6;
+}
+
+.editing-mode .ai-panel {
+  order: -2;
+}
+
+.editing-mode .reason-panel {
+  order: -1;
+}
+
+.job-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.job-card {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--report-line);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.job-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #e6f7f1;
+  color: var(--report-green);
+}
+
+.accent-blue .job-icon {
+  background: #eaf2ff;
+  color: var(--report-blue);
+}
+
+.accent-teal .job-icon {
+  background: #e6fffb;
+  color: #0e9384;
+}
+
+.job-title-line {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.job-title-line strong {
+  font-size: 14px;
+}
+
+.job-title-line span {
+  color: var(--report-green);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.job-card p {
+  margin: 5px 0 8px;
+  color: var(--report-muted);
+  font-size: 12px;
+}
+
+.job-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.job-tags span {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #f2f4f7;
+  color: #475467;
+  font-size: 11px;
+}
+
+.timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+  padding-left: 18px;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 6px;
+  width: 2px;
+  background: #d0d5dd;
+}
+
+.timeline-item {
+  position: relative;
+  padding: 11px 12px;
+  border: 1px solid #c7eadb;
+  border-radius: 7px;
+  background: #f6fef9;
+}
+
+.timeline-item > span {
+  position: absolute;
+  top: 16px;
+  left: -18px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--report-green);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.timeline-item strong {
+  color: var(--report-green);
+  font-size: 13px;
+}
+
+.timeline-item p {
+  margin: 4px 0 0;
+  color: #344054;
+  font-size: 12px;
+}
+
+.timeline-item.orange {
+  border-color: #fedf89;
+  background: #fffbf5;
+}
+
+.timeline-item.orange > span {
+  border-color: var(--report-orange);
+}
+
+.timeline-item.orange strong {
+  color: var(--report-orange);
+}
+
+.timeline-item.yellow {
+  border-color: #fde68a;
+  background: #fffdf0;
+}
+
+.timeline-item.yellow > span {
+  border-color: #eaaa08;
+}
+
+.timeline-item.yellow strong {
+  color: #ca8504;
+}
+
+.timeline-item.blue {
+  border-color: #b2ddff;
+  background: #f5fbff;
+}
+
+.timeline-item.blue > span {
+  border-color: var(--report-blue);
+}
+
+.timeline-item.blue strong {
+  color: var(--report-blue);
+}
+
+.ai-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-panel .panel-title-row > .material-symbols-outlined {
+  color: var(--report-blue);
+}
+
+.tone-grid {
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 4px;
+}
+
+.check-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #344054;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.check-list li {
+  position: relative;
+  padding-left: 20px;
+}
+
+.check-list li + li {
   margin-top: 8px;
 }
 
-.bullet-list.checked {
-  list-style: none;
-  padding-left: 0;
-}
-
-.bullet-list.checked li {
-  position: relative;
-  padding-left: 24px;
-}
-
-.bullet-list.checked li::before {
-  content: "✓";
+.check-list li::before {
+  content: "check";
   position: absolute;
   left: 0;
-  color: var(--primary);
-  font-weight: bold;
-}
-
-.plan-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.plan-col h5 {
-  margin: 0 0 12px;
-  font-size: 13px;
-  color: #475569;
-  text-transform: uppercase;
-}
-
-/* Sections */
-.sections-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.section-block {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.28));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.2s;
-}
-
-.section-block:hover {
-  box-shadow: var(--shadow-md);
-}
-
-.section-header {
-  padding: 16px 20px;
-  background-color: rgba(255, 255, 255, 0.28);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.title-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.section-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: white;
-  background-color: #94a3b8;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-.section-title {
-  margin: 0;
-  font-size: 16px;
-  color: #0f172a;
-}
-
-.section-body {
-  padding: 20px;
-}
-
-.prose-content {
-  color: #334155;
+  top: 1px;
+  color: var(--report-green);
+  font-family: "Material Symbols Outlined";
   font-size: 15px;
-  line-height: 1.8;
-}
-
-.prose-content p {
-  margin: 0 0 12px;
-  white-space: pre-wrap;
-}
-.prose-content p:last-child {
-  margin-bottom: 0;
-}
-
-.rich-textarea {
-  width: 100%;
-  padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  line-height: 1.8;
-  color: #0f172a;
-  resize: vertical;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.42));
-  transition: all 0.2s;
-  box-sizing: border-box;
-}
-
-.rich-textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  background-color: white;
-  box-shadow: 0 0 0 3px var(--primary-light);
-}
-
-/* ==========================================================================
-   Export Panel (Bottom Section)
-   ========================================================================== */
-.export-panel {
-  margin-top: 16px;
-}
-
-.export-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
 }
 
 .export-file-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.34);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid #edf1f6;
+  background: transparent;
+  color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.export-file-card:hover {
-  border-color: var(--primary);
-  background-color: white;
-  box-shadow: var(--shadow-sm);
-}
-
-.export-file-card:hover .download-icon {
-  color: var(--primary);
-  transform: translateY(2px);
+.export-file-card:last-of-type {
+  border-bottom: 0;
 }
 
 .file-icon {
-  width: 44px;
-  height: 44px;
-  background-color: #fee2e2;
-  color: #dc2626;
-  border-radius: 10px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 13px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #fef3f2;
+  color: #d92d20;
+  font-size: 11px;
+  font-weight: 900;
 }
 
-.file-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.file-name {
-  font-size: 14px;
-  color: var(--text-main);
-  white-space: nowrap;
+.export-file-card strong,
+.export-file-card small {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.file-meta {
+.export-file-card strong {
   font-size: 12px;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
-.download-icon {
-  color: #94a3b8;
-  transition: all 0.2s;
+.export-file-card small,
+.muted-tip {
+  color: var(--report-muted);
+  font-size: 12px;
 }
 
-/* ==========================================================================
-   Empty States & Utilities
-   ========================================================================== */
-.empty-state {
+.text-link {
+  color: var(--report-muted);
+  background: transparent;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.button-link {
+  padding: 0;
+}
+
+.empty-card,
+.empty-document {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+  padding: 34px 18px;
+  border: 1px dashed var(--report-line);
+  border-radius: 7px;
+  color: var(--report-muted);
   text-align: center;
-  color: var(--text-muted);
 }
 
-.empty-state.large {
-  padding: 64px 24px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.28));
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-xl);
+.empty-document {
+  min-height: 520px;
+  border: 0;
 }
 
-.empty-state.large h3 {
-  margin: 16px 0 8px;
-  color: #0f172a;
+.empty-document .material-symbols-outlined,
+.empty-card .material-symbols-outlined {
+  color: #98a2b3;
+  font-size: 42px;
 }
 
-.empty-state.mini {
-  padding: 32px 16px;
-}
-
-.empty-state.horizontal {
-  flex-direction: row;
-  justify-content: flex-start;
-  padding: 16px;
-  background-color: rgba(255, 255, 255, 0.34);
-  border-radius: var(--radius-md);
-  color: #64748b;
-  font-size: 14px;
+.empty-document h2,
+.empty-document p,
+.empty-card p {
+  margin: 0;
 }
 
 .loading-state {
-  padding: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-muted);
-  font-size: 14px;
+  padding: 12px;
+  color: var(--report-muted);
+  font-size: 13px;
 }
 
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid #cbd5e1;
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+  border: 2px solid #d0d5dd;
+  border-top-color: var(--report-blue);
+  border-radius: 999px;
+  animation: spin 0.9s linear infinite;
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 1720px;
+  margin: 0 auto 12px;
+  padding: 11px 14px;
+  border-radius: 7px;
+  font-size: 14px;
+}
+
+.alert-error {
+  border: 1px solid #fecdca;
+  background: #fffbfa;
+  color: #b42318;
+}
+
+.alert-success {
+  border: 1px solid #abefc6;
+  background: #f6fef9;
+  color: #067647;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 @keyframes spin {
@@ -1589,129 +1976,91 @@ onMounted(async () => {
   }
 }
 
-/* Responsive Adjustments */
-@media (max-width: 1024px) {
-  .report-container {
-    padding: 20px 16px;
+@media (max-width: 1320px) {
+  .report-workspace {
+    grid-template-columns: 280px minmax(460px, 1fr) 290px;
+  }
+
+  .report-sidebar {
+    height: calc(100vh - 98px);
+    min-height: 600px;
+  }
+
+  .report-list {
+    max-height: none;
+  }
+
+  .insight-sidebar {
+    position: sticky;
+    top: 74px;
+    display: flex;
   }
 }
 
-@media (max-width: 768px) {
-  .editor-header {
+@media (max-width: 1120px) {
+  .control-strip,
+  .document-header {
+    align-items: stretch;
     flex-direction: column;
-    align-items: flex-start;
   }
 
-  .plan-grid {
+  .report-workspace {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+
+  .insight-sidebar {
+    position: static;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: none;
+  }
+
+  .summary-table {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-table div {
+    border-bottom: 1px solid var(--report-line);
+  }
+}
+
+@media (max-width: 760px) {
+  .report-container {
+    padding: 12px;
+  }
+
+  .context-picker,
+  .control-actions,
+  .document-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .match-input {
+    width: 100%;
+  }
+
+  .report-workspace {
     grid-template-columns: 1fr;
   }
 
-  .summary-info {
-    width: 100%;
-    justify-content: space-between;
+  .report-sidebar {
+    position: static;
+    height: auto;
+    min-height: 0;
   }
-}
 
-/* markdown report continuous reading style */
-.sections-container.preview-mode {
-  gap: 0;
-}
+  .report-list {
+    max-height: 420px;
+  }
 
-.continuous-report.paper-style {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.3));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 40px;
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
+  .insight-sidebar {
+    display: flex;
+  }
 
-.report-section {
-  position: relative;
-}
-
-.report-section + .report-section::before {
-  content: "";
-  position: absolute;
-  top: -16px;
-  left: 0;
-  right: 0;
-  border-top: 1px dashed var(--border);
-}
-
-.section-preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.preview-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-main);
-  position: relative;
-  padding-left: 12px;
-}
-
-.preview-title::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 4px;
-  background-color: var(--primary);
-  border-radius: 2px;
-}
-
-.markdown-content {
-  font-size: 15px;
-  line-height: 1.8;
-  color: #334155;
-  white-space: normal;
-}
-
-.markdown-content :deep(p) {
-  margin: 0 0 16px;
-}
-.markdown-content :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
-.markdown-content :deep(ul),
-.markdown-content :deep(ol) {
-  margin: 0 0 16px;
-  padding-left: 24px;
-}
-
-.markdown-content :deep(li) {
-  margin-bottom: 8px;
-}
-
-.markdown-content :deep(strong) {
-  color: #0f172a;
-  font-weight: 600;
-}
-
-.markdown-content :deep(a) {
-  color: var(--primary);
-  text-decoration: none;
-}
-.markdown-content :deep(a:hover) {
-  text-decoration: underline;
-}
-
-.markdown-content :deep(blockquote) {
-  border-left: 4px solid #cbd5e1;
-  padding-left: 16px;
-  margin: 0 0 16px;
-  color: #64748b;
-  background: #f8fafc;
-  padding: 12px 16px;
-  border-radius: 0 8px 8px 0;
+  .summary-table {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
