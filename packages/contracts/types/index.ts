@@ -927,6 +927,7 @@ export type PiToolName =
   | "knowledge_search"
   | "match_evaluation"
   | "report_generation"
+  | "job_comic_generation"
   | "final_answer";
 
 export type AiStepTraceStatus = "success" | "warning" | "error" | "skipped";

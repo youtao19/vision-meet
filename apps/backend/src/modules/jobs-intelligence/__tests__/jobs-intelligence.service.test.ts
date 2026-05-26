@@ -27,7 +27,9 @@ function buildEnv(): AppEnv {
     PORT: 8000,
     REPORT_EXPORT_DIR: "./tmp",
     JOB_COMIC_OUTPUT_DIR: "./tmp/job-comics",
-    BAOYU_IMAGINE_SCRIPT: undefined,
+    CODEX_APP_SERVER_COMMAND: "codex",
+    CODEX_APP_SERVER_MODEL: undefined,
+    CODEX_APP_SERVER_TIMEOUT_MS: 300000,
     MATCH_SCORING_VERSION: "v2",
     PGHOST: "127.0.0.1",
     PGPORT: 5432,
@@ -2028,10 +2030,15 @@ test("generateCareerPathGraph: 应从 v2_manual_job_portraits 生成并写入图
           ["typescript", "node", "架构"],
           { created_at: now, updated_at: now },
         ),
-        buildManualPortrait("后端开发工程师", "backend_engineering", ["node", "typescript", "api"], {
-          created_at: now,
-          updated_at: now,
-        }),
+        buildManualPortrait(
+          "后端开发工程师",
+          "backend_engineering",
+          ["node", "typescript", "api"],
+          {
+            created_at: now,
+            updated_at: now,
+          },
+        ),
         buildManualPortrait(
           "测试开发工程师",
           "quality_engineering",

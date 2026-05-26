@@ -15,6 +15,7 @@ import type {
 } from "@career/contracts/types";
 
 import type { JobsRepository } from "../../jobs/jobs.repository.js";
+import type { JobComicsService } from "../../job-comics/job-comics.service.js";
 import type { KnowledgeService } from "../../knowledge/knowledge.service.js";
 import type { MatchingService } from "../../matching/matching.service.js";
 import type { ProfileRepository } from "../../profile/profile.repository.js";
@@ -44,6 +45,7 @@ export type AiAgentDependencies = {
   knowledgeService: KnowledgeService;
   matchingService: MatchingService;
   reportService: ReportService;
+  jobComicsService?: JobComicsService;
 };
 
 /**
@@ -80,7 +82,6 @@ export type AiAgentRunResult = {
   finalSummary: string | null;
   warnings: AiWarningCode[];
 };
-
 
 /**
  * 工具执行快照。

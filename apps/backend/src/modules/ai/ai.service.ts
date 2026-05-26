@@ -10,6 +10,7 @@ import type {
 } from "@career/contracts/types";
 
 import type { JobsRepository } from "../jobs/jobs.repository.js";
+import type { JobComicsService } from "../job-comics/job-comics.service.js";
 import type { KnowledgeService } from "../knowledge/knowledge.service.js";
 import type { MatchingService } from "../matching/matching.service.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
@@ -30,6 +31,7 @@ import type { AiThinkingLevel } from "./runtime/ai-agent.types.js";
  * - knowledgeService：知识库服务
  * - matchingService：岗位匹配服务
  * - reportService：报告生成服务
+ * - jobComicsService：岗位漫画生成服务
  *
  * 选填：
  * - piAgentDir：Pi Agent 工作目录
@@ -46,6 +48,7 @@ type AiServiceDependencies = {
   knowledgeService: KnowledgeService;
   matchingService: MatchingService;
   reportService: ReportService;
+  jobComicsService?: JobComicsService;
   piAgentDir?: string;
   sessionStoreDir?: string;
   model?: string;
@@ -89,7 +92,8 @@ export function createAiService(dependencies: AiServiceDependencies): AiService 
   return {
     createTask: (input, runtime) => taskService.createTask(input, runtime),
     generateResumeHtml: (input, runtime) => resumeHtmlService.generateResumeHtml(input, runtime),
-    listResumeHtmlRecords: (offset, limit) => resumeHtmlService.listResumeHtmlRecords(offset, limit),
+    listResumeHtmlRecords: (offset, limit) =>
+      resumeHtmlService.listResumeHtmlRecords(offset, limit),
     polishText: (input, runtime) => polishService.polishText(input, runtime),
     getResumeHtmlRecordById: (resumeId) => resumeHtmlService.getResumeHtmlRecordById(resumeId),
     getTask: (taskId) => taskService.getTask(taskId),

@@ -1,17 +1,17 @@
 /**
  * 文件作用：把“生成岗位漫画”封装成 Pi 可调用工具。
- * 设计边界：工具只做参数校验和协议包装，真实图片生成逻辑继续由 jobs-intelligence service 承担。
+ * 设计边界：工具只做参数校验和协议包装，真实图片生成逻辑由 job-comics service 承担。
  */
 
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import type { JobPortraitComicContext } from "@career/contracts/types";
 
-import type { JobsIntelligenceService } from "../../jobs-intelligence/jobs-intelligence.service.js";
+import type { JobComicsService } from "../../job-comics/job-comics.service.js";
 import { readBooleanParam, readStringParam } from "../../ai/runtime/ai-agent.utils.js";
 
 export type GenerateJobComicToolContext = {
-  jobsIntelligenceService: JobsIntelligenceService;
+  jobComicsService: JobComicsService;
 };
 
 function readStringArrayParam(params: unknown, key: string): string[] | undefined {
@@ -27,7 +27,7 @@ function readStringArrayParam(params: unknown, key: string): string[] | undefine
 
 /**
  * 创建岗位漫画生成工具。
- * 参数：context 注入岗位智能 service；Pi 侧传岗位名称和可选展示上下文。
+ * 参数：context 注入岗位漫画 service；Pi 侧传岗位名称和可选展示上下文。
  * 返回：岗位名称和漫画资源 URL，供最终回答或前端渲染使用。
  */
 export function createGenerateJobComicTool(context: GenerateJobComicToolContext): ToolDefinition {
@@ -62,7 +62,7 @@ export function createGenerateJobComicTool(context: GenerateJobComicToolContext)
         not_suitable_for: readStringArrayParam(params, "not_suitable_for"),
       };
 
-      const result = await context.jobsIntelligenceService.generateManualJobPortraitComic({
+      const result = await context.jobComicsService.generateManualJobPortraitComic({
         jobName,
         force: readBooleanParam(params, "force") ?? false,
         comicContext,

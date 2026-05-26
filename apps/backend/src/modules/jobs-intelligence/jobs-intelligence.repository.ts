@@ -98,12 +98,6 @@ export type AgentJobPortraitUpsertInput = {
   experience: AgentJobPortraitDimensionInput;
 };
 
-export type ManualJobPortraitComicUpdateInput = {
-  job_name: string;
-  comic_image_url: string;
-  comic_generated_at: string;
-};
-
 export type PipelineTaskUpdateInput = Partial<
   Pick<
     JobPipelineTaskRecord,
@@ -147,9 +141,6 @@ export interface JobsIntelligenceRepository {
   listManualJobPortraits?(): Promise<ManualJobPortraitRecord[]>;
   getManualJobPortraitByName?(jobName: string): Promise<ManualJobPortraitRecord | null>;
   listManualJobPortraitsFromTable?(): Promise<ManualJobPortraitRecord[]>;
-  updateManualJobPortraitComic?(
-    input: ManualJobPortraitComicUpdateInput,
-  ): Promise<ManualJobPortraitRecord>;
   replaceAgentJobPortraits?(
     taskId: number,
     input: AgentJobPortraitUpsertInput[],

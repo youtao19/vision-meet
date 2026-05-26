@@ -24,8 +24,6 @@ import type {
   CareerPathV2GraphResponse,
   CareerRouteRecommendation,
   CareerRouteStep,
-  GenerateJobPortraitComicResponse,
-  JobPortraitComicContext,
   JobPipelineMode,
   JobPipelineTaskRecord,
   JobFactsListParams,
@@ -60,10 +58,6 @@ import { generateCareerGraphByAgent } from "./jobs-intelligence.graph.agent.js";
 import { MANUAL_JOB_PORTRAITS_SEED } from "./manual-job-portraits.seed.js";
 import type { JobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
-import {
-  generateJobPortraitComicImage,
-  resolveJobPortraitComicAsset,
-} from "./jobs-intelligence.comic.js";
 
 const PIPELINE_PROGRESS_FLUSH_INTERVAL = 50;
 const JOB_PORTRAIT_TARGET_COUNT = 10;
@@ -363,7 +357,9 @@ async function generateJobPortraitsByAgent(params: {
   const modelRegistry = ModelRegistry.create(authStorage, `${piAgentDir}/models.json`);
   const modelRef = resolvePiRuntimeModelRef(piAgentDir);
   if (!modelRef) {
-    throw new Error("AGENT_MODEL_REQUIRED: 请先运行 npm run agent:auth -- login <provider> 或 npm run agent:auth -- use <provider/model>");
+    throw new Error(
+      "AGENT_MODEL_REQUIRED: 请先运行 npm run agent:auth -- login <provider> 或 npm run agent:auth -- use <provider/model>",
+    );
   }
 
   const selectedModel = modelRegistry.find(modelRef.provider, modelRef.modelId);
@@ -715,7 +711,10 @@ function buildRouteRecommendations(params: {
       pathEdges.reduce((sum, edge) => sum + edge.score, 0) / Math.max(pathEdges.length, 1),
     );
 
-    const titleChain = [titleOf(pathEdges[0].source), ...pathEdges.map((edge) => titleOf(edge.target))];
+    const titleChain = [
+      titleOf(pathEdges[0].source),
+      ...pathEdges.map((edge) => titleOf(edge.target)),
+    ];
 
     return {
       route_id: pathEdges.map((edge) => edge.id).join("__"),
@@ -804,15 +803,6 @@ export interface JobsIntelligenceService {
   getCanonicalRole(roleKey: string): Promise<CanonicalRoleRecord>;
   listManualJobPortraits(): Promise<ManualJobPortraitRecord[]>;
   seedManualJobPortraits(): Promise<{ seeded: number }>;
-  generateManualJobPortraitComic(input: {
-    jobName: string;
-    force: boolean;
-    comicContext?: JobPortraitComicContext;
-  }): Promise<GenerateJobPortraitComicResponse>;
-  getManualJobPortraitComic(jobName: string): Promise<{
-    job_name: string;
-    comic_image_url: string | null;
-  }>;
   generateCareerPathGraph(
     options: CareerPathGenerateOptions,
   ): Promise<CareerPathV2GenerateResponse>;
@@ -1136,76 +1126,6 @@ export function createJobsIntelligenceService(
   }
 
   /**
-   * 作用：为指定人工岗位画像生成单张四格漫画，并把图片地址写回画像 payload。
-   * 参数：jobName 为岗位画像主键；force 控制是否覆盖已有漫画。
-   * 返回：前端可直接展示的静态图片地址。
-   * 注意：MVP 同步等待图片生成，不引入任务队列；失败会直接返回给调用方展示。
-   */
-  async function generateManualJobPortraitComic(input: {
-    jobName: string;
-    force: boolean;
-    comicContext?: JobPortraitComicContext;
-  }): Promise<GenerateJobPortraitComicResponse> {
-    if (
-      typeof repository.getManualJobPortraitByName !== "function" ||
-      typeof repository.updateManualJobPortraitComic !== "function"
-    ) {
-      throw new HttpError(
-        501,
-        "MANUAL_JOB_PORTRAIT_COMIC_UNSUPPORTED",
-        "当前仓储未实现岗位漫画生成所需能力",
-      );
-    }
-
-    const portrait = await repository.getManualJobPortraitByName(input.jobName);
-    if (!portrait) {
-      throw new HttpError(404, "MANUAL_JOB_PORTRAIT_NOT_FOUND", "目标岗位画像不存在");
-    }
-
-    if (!input.force && portrait?.comic_image_url) {
-      return {
-        job_name: portrait.job_name,
-        comic_image_url: portrait.comic_image_url,
-      };
-    }
-
-    const generated = await generateJobPortraitComicImage({
-      portrait,
-      comicContext: input.comicContext,
-      env,
-      force: input.force,
-      cwd: process.cwd(),
-    });
-
-    const updated = await repository.updateManualJobPortraitComic({
-      job_name: portrait.job_name,
-      comic_image_url: generated.imageUrl,
-      comic_generated_at: new Date().toISOString(),
-    });
-
-    return {
-      job_name: updated.job_name,
-      comic_image_url: updated.comic_image_url || generated.imageUrl,
-    };
-  }
-
-  /**
-   * 作用：查询指定岗位本地是否已有漫画文件。
-   * 参数：jobName 为前端当前岗位名，不要求数据库存在该岗位画像。
-   * 返回：存在则返回静态图片地址，否则返回 null。
-   */
-  async function getManualJobPortraitComic(jobName: string): Promise<{
-    job_name: string;
-    comic_image_url: string | null;
-  }> {
-    const asset = resolveJobPortraitComicAsset({ jobName, env });
-    return {
-      job_name: jobName,
-      comic_image_url: asset.exists ? asset.imageUrl : null,
-    };
-  }
-
-  /**
    * 作用：基于 v2_manual_job_portraits 重新生成职业图谱并写入图数据库。
    * 参数：
    *   - use_agent: 是否使用 Agent 推理生成图谱关系（含智能 reason），默认 false 走规则引擎。
@@ -1439,7 +1359,9 @@ export function createJobsIntelligenceService(
     );
     const filteredNodes =
       currentPortraitNames.size > 0
-        ? nodes.filter((node) => currentPortraitNames.has(normalizeCareerPathTargetName(node.title)))
+        ? nodes.filter((node) =>
+            currentPortraitNames.has(normalizeCareerPathTargetName(node.title)),
+          )
         : nodes;
 
     return {
@@ -1466,8 +1388,6 @@ export function createJobsIntelligenceService(
     getCanonicalRole,
     listManualJobPortraits,
     seedManualJobPortraits,
-    generateManualJobPortraitComic,
-    getManualJobPortraitComic,
     generateCareerPathGraph,
     listCareerPathTargets,
     getCareerPathGraph,

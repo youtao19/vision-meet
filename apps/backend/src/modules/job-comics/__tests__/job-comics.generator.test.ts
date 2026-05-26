@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 
 import type { ManualJobPortraitRecord } from "@career/contracts/types";
 
-import { buildJobPortraitComicPrompt } from "../jobs-intelligence.comic.js";
+import { buildJobPortraitComicPrompt } from "../job-comics.generator.js";
 
 function buildPortrait(jobName: string, category: string): ManualJobPortraitRecord {
   return {

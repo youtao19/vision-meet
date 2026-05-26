@@ -1,20 +1,17 @@
 /**
  * 文件作用：将岗位画像转换为四格漫画生成任务。
- * 职责边界：只负责 prompt 组织、本地文件路径规划和调用 baoyu-imagine，不参与岗位画像读写。
+ * 职责边界：只负责 prompt 组织、本地文件路径规划和调用 Codex 生图能力，不参与岗位画像读写。
  */
 
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
-import { spawn, spawnSync } from "node:child_process";
 
 import type { JobPortraitComicContext, ManualJobPortraitRecord } from "@career/contracts/types";
 
 import type { AppEnv } from "../../shared/config/env.js";
-
-const BAOYU_IMAGINE_TIMEOUT_MS = 180000;
+import { generateImageWithCodexAppServer } from "../pi-tools/codex/codex-image.js";
 
 type JobComicScenario = {
   label: string;
@@ -36,21 +33,11 @@ export type JobPortraitComicAsset = JobPortraitComicGenerationResult & {
   exists: boolean;
 };
 
-function resolveBaoyuImagineScript(env: AppEnv): string {
-  return (
-    env.BAOYU_IMAGINE_SCRIPT ||
-    path.join(os.homedir(), ".codex", "skills", "baoyu-imagine", "scripts", "main.ts")
-  );
-}
-
-function resolveBunCommand(): { command: string; argsPrefix: string[] } {
-  const bunCheck = spawnSync("bun", ["--version"], { stdio: "ignore" });
-  if (bunCheck.status === 0) {
-    return { command: "bun", argsPrefix: [] };
-  }
-  return { command: "npx", argsPrefix: ["-y", "bun"] };
-}
-
+/**
+ * 作用：根据岗位名生成稳定文件名。
+ * 参数：jobName 为岗位画像名称。
+ * 返回：可用于本地图片文件的短名称。
+ */
 export function toJobPortraitComicFileStem(jobName: string): string {
   const normalized = jobName
     .toLowerCase()
@@ -61,6 +48,11 @@ export function toJobPortraitComicFileStem(jobName: string): string {
   return `${normalized || "job"}-${hash}`;
 }
 
+/**
+ * 作用：计算岗位漫画静态资源路径。
+ * 参数：jobName 为岗位名；env 提供漫画输出目录。
+ * 返回：图片绝对路径、前端可访问 URL 和文件是否存在。
+ */
 export function resolveJobPortraitComicAsset(params: {
   jobName: string;
   env: AppEnv;
@@ -344,69 +336,9 @@ export function buildJobPortraitComicPrompt(
   ].join("\n");
 }
 
-function runBaoyuImagine(params: {
-  env: AppEnv;
-  prompt: string;
-  imagePath: string;
-  cwd: string;
-}): Promise<void> {
-  const scriptPath = resolveBaoyuImagineScript(params.env);
-  if (!existsSync(scriptPath)) {
-    throw new Error(`BAOYU_IMAGINE_SCRIPT_NOT_FOUND:${scriptPath}`);
-  }
-
-  const runtime = resolveBunCommand();
-  const args = [
-    ...runtime.argsPrefix,
-    scriptPath,
-    "--prompt",
-    params.prompt,
-    "--image",
-    params.imagePath,
-    "--ar",
-    "4:3",
-    "--quality",
-    "normal",
-  ];
-
-  return new Promise((resolve, reject) => {
-    const child = spawn(runtime.command, args, {
-      cwd: params.cwd,
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let stdout = "";
-    let stderr = "";
-    const timeout = setTimeout(() => {
-      child.kill("SIGTERM");
-      reject(new Error(`BAOYU_IMAGINE_TIMEOUT:${BAOYU_IMAGINE_TIMEOUT_MS}`));
-    }, BAOYU_IMAGINE_TIMEOUT_MS);
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf8");
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-    child.on("error", (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timeout);
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      const detail = [stderr.trim(), stdout.trim()].filter(Boolean).join("\n").slice(0, 1000);
-      reject(new Error(`BAOYU_IMAGINE_FAILED:${code}:${detail}`));
-    });
-  });
-}
-
 /**
- * 作用：调用 baoyu-imagine 为岗位画像生成并保存漫画图片。
- * 参数：portrait 为画像数据；env 提供输出目录和可选脚本路径；force 表示是否覆盖已存在图片。
+ * 作用：调用 Codex app-server 为岗位画像生成并保存漫画图片。
+ * 参数：portrait 为画像数据；env 提供输出目录和 Codex app-server 参数；force 表示是否覆盖已存在图片。
  * 返回：本地静态资源 URL 与绝对路径。
  * 注意：MVP 采用同步等待，调用失败直接把错误抛给 HTTP 层。
  */
@@ -427,12 +359,19 @@ export async function generateJobPortraitComicImage(params: {
   }
 
   await fs.mkdir(params.env.JOB_COMIC_OUTPUT_DIR, { recursive: true });
-  await runBaoyuImagine({
-    env: params.env,
-    prompt: buildJobPortraitComicPrompt(params.portrait, params.comicContext),
-    imagePath: asset.imagePath,
-    cwd: params.cwd,
-  });
+  await generateImageWithCodexAppServer(
+    {
+      prompt: buildJobPortraitComicPrompt(params.portrait, params.comicContext),
+      outputPath: asset.imagePath,
+      cwd: params.cwd,
+    },
+    {
+      command: params.env.CODEX_APP_SERVER_COMMAND,
+      model: params.env.CODEX_APP_SERVER_MODEL,
+      timeoutMs: params.env.CODEX_APP_SERVER_TIMEOUT_MS,
+      cwd: params.cwd,
+    },
+  );
 
   return { imagePath: asset.imagePath, imageUrl: asset.imageUrl };
 }

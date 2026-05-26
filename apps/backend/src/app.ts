@@ -4,12 +4,11 @@ import cors from "cors";
 import express from "express";
 
 import { createAiModule } from "./modules/ai/ai.module.js";
+import { createJobComicsModule } from "./modules/job-comics/job-comics.module.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createPgJobsRepository } from "./modules/jobs/jobs.repository.pg.js";
 import { createJobsIntelligenceModule } from "./modules/jobs-intelligence/jobs-intelligence.module.js";
-import { createNeo4jJobsIntelligenceGraphRepository } from "./modules/jobs-intelligence/jobs-intelligence.repository.neo4j.js";
 import { createPgJobsIntelligenceRepository } from "./modules/jobs-intelligence/jobs-intelligence.repository.pg.js";
-import { createJobsIntelligenceService } from "./modules/jobs-intelligence/jobs-intelligence.service.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
 import { createMatchingRouter } from "./modules/matching/matching.route.js";
 import { createPgMatchingRepository } from "./modules/matching/matching.repository.pg.js";
@@ -52,15 +51,11 @@ export function createApp(): express.Express {
     defaultTopK: appEnv.KNOWLEDGE_TOP_K,
     reindexBatchSize: appEnv.KNOWLEDGE_REINDEX_BATCH_SIZE,
   });
-  const jobsIntelligenceService = createJobsIntelligenceService(
-    jobsIntelligenceRepository,
-    createNeo4jJobsIntelligenceGraphRepository({
-      uri: appEnv.NEO4J_URI,
-      username: appEnv.NEO4J_USERNAME,
-      password: appEnv.NEO4J_PASSWORD,
-    }),
-    appEnv,
-  );
+  const jobComicsModule = createJobComicsModule({
+    pool: appDataPool,
+    env: appEnv,
+    cwd: process.cwd(),
+  });
   const matchingService = createMatchingServiceFromDependencies(
     {
       matchingRepository,
@@ -153,6 +148,7 @@ export function createApp(): express.Express {
       env: appEnv,
     }),
   );
+  app.use("/api/v2", jobComicsModule.router);
   app.use("/api/v2/matches", createMatchingRouter(matchingService));
   app.use("/api/v2/reports", createReportRouter(reportService));
   app.use("/api/v2/report-exports", createReportExportDownloadRouter(reportService));
@@ -165,6 +161,7 @@ export function createApp(): express.Express {
         knowledgeService: knowledgeModule.service,
         matchingService,
         reportService,
+        jobComicsService: jobComicsModule.service,
       },
       {
         pool: appDataPool,

@@ -168,6 +168,13 @@ export function buildToolOutputSummary(tool: PiToolName, result: unknown): strin
         return `report #${payload.report.id}，生成模式 ${payload.generator_mode ?? "unknown"}`;
       }
     }
+
+    if (tool === "job_comic_generation") {
+      const payload = details as { job_name?: string; comic_image_url?: string };
+      if (payload.comic_image_url) {
+        return `${payload.job_name ?? "岗位"}漫画已生成`;
+      }
+    }
   }
 
   const text = extractToolResultText(result);
@@ -195,6 +202,11 @@ export function mapRuntimeTool(toolName: string): { tool: PiToolName; title: str
       return {
         tool: "report_generation",
         title: "生成职业报告",
+      };
+    case "generate_job_comic":
+      return {
+        tool: "job_comic_generation",
+        title: "生成岗位漫画",
       };
     default:
       return null;

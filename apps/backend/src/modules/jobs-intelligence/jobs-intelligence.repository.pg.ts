@@ -37,7 +37,6 @@ import type {
   PipelineRetryQueueCreateInput,
   JobProfileV2CreateInput,
   JobsIntelligenceRepository,
-  ManualJobPortraitComicUpdateInput,
   ManualJobPortraitUpsertInput,
   PipelineJobRecord,
   PipelineTaskUpdateInput,
@@ -1304,30 +1303,6 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     return result.rows.map((row) => mapManualJobPortrait(row));
   }
 
-  async function updateManualJobPortraitComic(
-    input: ManualJobPortraitComicUpdateInput,
-  ): Promise<ManualJobPortraitRecord> {
-    await ensureSchema();
-    const result = await pool.query(
-      `
-        UPDATE v2_manual_job_portraits
-        SET
-          payload = payload || $2::jsonb,
-          updated_at = NOW()
-        WHERE job_name = $1
-        RETURNING *
-      `,
-      [
-        input.job_name,
-        JSON.stringify({
-          comic_image_url: input.comic_image_url,
-          comic_generated_at: input.comic_generated_at,
-        }),
-      ],
-    );
-    return mapManualJobPortrait(result.rows[0]);
-  }
-
   async function replaceAgentJobPortraits(
     taskId: number,
     input: AgentJobPortraitUpsertInput[],
@@ -1824,7 +1799,6 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     listManualJobPortraits,
     getManualJobPortraitByName,
     listManualJobPortraitsFromTable,
-    updateManualJobPortraitComic,
     replaceAgentJobPortraits,
     replaceManualJobPortraits,
     getLatestProfileByJobId,
