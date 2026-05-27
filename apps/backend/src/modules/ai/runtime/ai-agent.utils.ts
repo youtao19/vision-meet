@@ -172,7 +172,7 @@ export function buildToolOutputSummary(tool: PiToolName, result: unknown): strin
     if (tool === "job_comic_generation") {
       const payload = details as { job_name?: string; comic_image_url?: string };
       if (payload.comic_image_url) {
-        return `${payload.job_name ?? "岗位"}漫画已生成`;
+        return `${payload.job_name ?? "岗位"}绘本已生成`;
       }
     }
   }
@@ -203,10 +203,10 @@ export function mapRuntimeTool(toolName: string): { tool: PiToolName; title: str
         tool: "report_generation",
         title: "生成职业报告",
       };
-    case "generate_job_comic":
+    case "generate_job_picture_book":
       return {
         tool: "job_comic_generation",
-        title: "生成岗位漫画",
+        title: "生成岗位绘本",
       };
     default:
       return null;

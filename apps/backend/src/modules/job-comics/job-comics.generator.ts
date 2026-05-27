@@ -10,9 +10,15 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 
-import type { JobPortraitComicContext, ManualJobPortraitRecord } from "@career/contracts/types";
+import type {
+  JobPictureBook as ComicBook,
+  PictureBookPage as ComicBookPage,
+  JobPortraitPictureBookContext as JobPortraitComicContext,
+  ManualJobPortraitRecord,
+} from "@career/contracts/types";
 
 import type { AppEnv } from "../../shared/config/env.js";
+import type { TtsEngine } from "../pi-tools/tts/tts-engine.js";
 
 const BAOYU_IMAGINE_TIMEOUT_MS = 180000;
 
@@ -52,8 +58,8 @@ export function toJobPortraitComicFileStem(jobName: string): string {
 }
 
 /**
- * 作用：计算岗位漫画静态资源路径。
- * 参数：jobName 为岗位名；env 提供漫画输出目录。
+ * 作用：计算岗位绘本静态资源路径。
+ * 参数：jobName 为岗位名；env 提供绘本输出目录。
  * 返回：图片绝对路径、前端可访问 URL 和文件是否存在。
  */
 export function resolveJobPortraitComicAsset(params: {
@@ -61,10 +67,10 @@ export function resolveJobPortraitComicAsset(params: {
   env: AppEnv;
 }): JobPortraitComicAsset {
   const fileStem = toJobPortraitComicFileStem(params.jobName);
-  const imagePath = path.join(params.env.JOB_COMIC_OUTPUT_DIR, `${fileStem}.png`);
+  const imagePath = path.join(params.env.JOB_PICTURE_BOOK_OUTPUT_DIR, `${fileStem}.png`);
   return {
     imagePath,
-    imageUrl: `/assets/job-comics/${fileStem}.png`,
+    imageUrl: `/assets/job-picture-books/${fileStem}.png`,
     exists: existsSync(imagePath),
   };
 }
@@ -436,7 +442,7 @@ export async function generateJobPortraitComicImage(params: {
     return { imagePath: asset.imagePath, imageUrl: asset.imageUrl };
   }
 
-  await fs.mkdir(params.env.JOB_COMIC_OUTPUT_DIR, { recursive: true });
+  await fs.mkdir(params.env.JOB_PICTURE_BOOK_OUTPUT_DIR, { recursive: true });
   await runBaoyuImagine({
     env: params.env,
     prompt: buildJobPortraitComicPrompt(params.portrait, params.comicContext),
@@ -445,4 +451,218 @@ export async function generateJobPortraitComicImage(params: {
   });
 
   return { imagePath: asset.imagePath, imageUrl: asset.imageUrl };
+}
+
+type ComicBookPageScene = {
+  label: string;
+  promptBuilder: (portrait: ManualJobPortraitRecord, scenario: JobComicScenario) => string;
+  narrationBuilder: (portrait: ManualJobPortraitRecord, scenario: JobComicScenario) => string;
+};
+
+const COMIC_BOOK_PAGES: ComicBookPageScene[] = [
+  {
+    label: "岗位概览",
+    promptBuilder: (portrait, scenario) =>
+      [
+        `请生成一张中文职业科普插图，主题是"${portrait.job_name}是做什么的？"。`,
+        "目标读者：大学生、转专业学生、准备找实习的同学。",
+        "整体风格：简洁黑白线稿、清晰黑色描边、白色背景，只用少量蓝色作为强调色。",
+        "画面内容：一位主角站在工作场景入口处，周围漂浮着该岗位最典型的 2-3 个工具或符号。",
+        `岗位名称：${portrait.job_name}`,
+        `岗位分类：${portrait.category}`,
+        `核心技能：${portrait.profile_detail.skills.slice(0, 4).join("、")}`,
+        "底部文字标注岗位名称和一句话简介。",
+        `简介建议：${scenario.summary}`,
+        "禁止：不要画成程序员写代码的通用画面；不要出现复杂背景。",
+        "输出必须是一张完整插图，不要生成说明文字。",
+      ].join("\n"),
+    narrationBuilder: (portrait, scenario) =>
+      [
+        `${portrait.job_name}，${scenario.summary}`,
+        `这个岗位主要需要掌握${portrait.profile_detail.skills.slice(0, 3).join("、")}等技能。`,
+        portrait.profile_detail.educationRequirements.length > 0
+          ? `学历方面，通常要求${portrait.profile_detail.educationRequirements.join("、")}。`
+          : "",
+        `接下来，让我们一起看看${portrait.job_name}每天的工作是什么样的吧。`,
+      ]
+        .filter(Boolean)
+        .join(""),
+  },
+  {
+    label: "日常核心工作",
+    promptBuilder: (portrait, scenario) =>
+      [
+        `请生成一张中文职业科普插图，主题是"${portrait.job_name}的日常核心工作"。`,
+        "整体风格：简洁黑白线稿、清晰黑色描边、白色背景，只用少量蓝色作为强调色。",
+        "画面内容：主角正在专注完成该岗位最典型的 3 个具体动作，每个动作配一个小标签。",
+        `典型任务：${scenario.taskExamples.join("、")}`,
+        `核心动作：${scenario.coreActions.join("、")}`,
+        `使用的技能：${portrait.profile_detail.skills.slice(0, 5).join("、")}`,
+        "禁止：不要只写'架构设计、方案优化、业务赋能'这类空泛词汇；每个动作必须具体。",
+        "输出必须是一张完整插图，不要生成说明文字。",
+      ].join("\n"),
+    narrationBuilder: (portrait, scenario) =>
+      [
+        `${portrait.job_name}的日常工作包括${scenario.coreActions.join("、")}等。`,
+        `比如，${scenario.taskExamples[0]}的时候，就需要用到${portrait.profile_detail.skills.slice(0, 2).join("和")}。`,
+        scenario.taskExamples.length > 1 ? `还可能遇到${scenario.taskExamples[1]}这样的任务。` : "",
+      ]
+        .filter(Boolean)
+        .join(""),
+  },
+  {
+    label: "协作与排错",
+    promptBuilder: (portrait, scenario) =>
+      [
+        `请生成一张中文职业科普插图，主题是"${portrait.job_name}的协作与排错"。`,
+        "整体风格：简洁黑白线稿、清晰黑色描边、白色背景，只用少量蓝色作为强调色。",
+        "画面内容：主角和 2-3 位同事围在一起讨论问题，桌上有白板、日志或原型图。",
+        `协作对象：${scenario.collaborators.join("、")}`,
+        `使用的技能：${portrait.profile_detail.skills.slice(0, 3).join("、")}`,
+        `软技能：${portrait.profile_detail.softSkills.slice(0, 3).join("、")}`,
+        "每个协作对象旁边标注角色名。",
+        "禁止：不要所有人都看着电脑屏幕；要体现沟通和讨论的场景。",
+        "输出必须是一张完整插图，不要生成说明文字。",
+      ].join("\n"),
+    narrationBuilder: (portrait, scenario) =>
+      [
+        `在工作中，${portrait.job_name}不是一个人在战斗。`,
+        `通常需要和${scenario.collaborators.slice(0, 3).join("、")}紧密配合。`,
+        `遇到问题时，${portrait.profile_detail.softSkills[0] ?? "良好的沟通能力"}和${portrait.profile_detail.softSkills[1] ?? "学习能力"}就特别重要了。`,
+        `大家一起排查问题、对齐方案，最终把事情搞定。`,
+      ].join(""),
+  },
+  {
+    label: "交付与成长",
+    promptBuilder: (portrait, scenario) =>
+      [
+        `请生成一张中文职业科普插图，主题是"${portrait.job_name}的交付与成长"。`,
+        "整体风格：简洁黑白线稿、清晰黑色描边、白色背景，只用少量蓝色作为强调色。",
+        "画面内容：左半边展示该岗位的典型交付成果，右半边用台阶或上升箭头展示成长路径。",
+        `交付成果：${scenario.resultExamples.join("、")}`,
+        `职业路径：${portrait.profile_detail.careerPath.join(" → ")}`,
+        `学习能力要求：${portrait.profile_detail.learningAbility}，创新能力：${portrait.profile_detail.innovationAbility}`,
+        "台阶上标注每个阶段对应的岗位级别。",
+        "禁止：不要画成考试或证书场景；要体现实际工作中的成长。",
+        "输出必须是一张完整插图，不要生成说明文字。",
+      ].join("\n"),
+    narrationBuilder: (portrait, scenario) =>
+      [
+        `当${portrait.job_name}把任务完成后，最终能看到${scenario.resultExamples[0] ?? "具体的交付成果"}。`,
+        `随着经验积累，可以从${portrait.profile_detail.careerPath[0] ?? portrait.job_name}成长为${portrait.profile_detail.careerPath[portrait.profile_detail.careerPath.length - 1] ?? "更高级的专家"}。`,
+        `这个岗位的学习能力要求是${portrait.profile_detail.learningAbility}，抗压能力${portrait.profile_detail.stressResistance}。`,
+        `只要持续学习和实践，${portrait.job_name}是一个非常有发展空间的职业方向！`,
+      ].join(""),
+  },
+];
+
+export function buildComicBookPagePrompts(
+  portrait: ManualJobPortraitRecord,
+  context?: JobPortraitComicContext,
+): string[] {
+  const scenario = resolveJobComicScenario(portrait, context);
+  return COMIC_BOOK_PAGES.map((page) => page.promptBuilder(portrait, scenario));
+}
+
+export function buildComicBookNarrations(
+  portrait: ManualJobPortraitRecord,
+  context?: JobPortraitComicContext,
+): string[] {
+  const scenario = resolveJobComicScenario(portrait, context);
+  return COMIC_BOOK_PAGES.map((page) => page.narrationBuilder(portrait, scenario));
+}
+
+export type ComicBookAssetDir = {
+  dirPath: string;
+  baseUrl: string;
+  fileStem: string;
+};
+
+export function resolveComicBookAssetDir(params: {
+  jobName: string;
+  env: AppEnv;
+}): ComicBookAssetDir {
+  const fileStem = toJobPortraitComicFileStem(params.jobName);
+  const dirPath = path.join(params.env.JOB_PICTURE_BOOK_OUTPUT_DIR, fileStem);
+  return {
+    dirPath,
+    baseUrl: `/assets/job-comics/${fileStem}`,
+    fileStem,
+  };
+}
+
+export async function generateComicBook(params: {
+  portrait: ManualJobPortraitRecord;
+  comicContext?: JobPortraitComicContext;
+  env: AppEnv;
+  force: boolean;
+  cwd: string;
+  ttsEngine: TtsEngine;
+}): Promise<ComicBook> {
+  const { portrait, env, force, ttsEngine } = params;
+  const assetDir = resolveComicBookAssetDir({ jobName: portrait.job_name, env });
+  const prompts = buildComicBookPagePrompts(portrait, params.comicContext);
+  const narrations = buildComicBookNarrations(portrait, params.comicContext);
+  const pages: ComicBookPage[] = [];
+
+  await fs.mkdir(assetDir.dirPath, { recursive: true });
+
+  for (let i = 0; i < prompts.length; i++) {
+    const imageFileName = `page-${i}.png`;
+    const audioFileName = `page-${i}.${ttsEngine.audioFileExtension}`;
+    const imagePath = path.join(assetDir.dirPath, imageFileName);
+    const audioPath = path.join(assetDir.dirPath, audioFileName);
+
+    if (!force && existsSync(imagePath) && existsSync(audioPath)) {
+      const audioStat = await fs.stat(audioPath);
+      const durationMs = Math.round((audioStat.size * 8 * 1000) / 48000);
+      pages.push({
+        page_index: i,
+        image_url: `${assetDir.baseUrl}/${imageFileName}`,
+        narration_text: narrations[i]!,
+        audio_url: `${assetDir.baseUrl}/${audioFileName}`,
+        audio_duration_ms: durationMs,
+      });
+      continue;
+    }
+
+    if (!existsSync(imagePath)) {
+      await runBaoyuImagine({
+        env,
+        prompt: prompts[i]!,
+        imagePath,
+        cwd: params.cwd,
+      });
+    }
+
+    let ttsResult;
+    try {
+      ttsResult = await ttsEngine.synthesize({
+        text: narrations[i]!,
+        outputPath: audioPath,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`TTS_SYNTHESIS_FAILED:page=${i}:${message}`);
+    }
+
+    pages.push({
+      page_index: i,
+      image_url: `${assetDir.baseUrl}/${imageFileName}`,
+      narration_text: narrations[i]!,
+      audio_url: `${assetDir.baseUrl}/${audioFileName}`,
+      audio_duration_ms: ttsResult.durationMs,
+    });
+  }
+
+  const bookData: ComicBook = {
+    job_name: portrait.job_name,
+    title: `${portrait.job_name}每天在做什么？`,
+    pages,
+    total_pages: pages.length,
+  };
+
+  await fs.writeFile(path.join(assetDir.dirPath, "book.json"), JSON.stringify(bookData, null, 2));
+
+  return bookData;
 }

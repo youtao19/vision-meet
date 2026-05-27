@@ -31,7 +31,7 @@ import type { AiThinkingLevel } from "./runtime/ai-agent.types.js";
  * - knowledgeService：知识库服务
  * - matchingService：岗位匹配服务
  * - reportService：报告生成服务
- * - jobComicsService：岗位漫画生成服务
+ * - jobComicsService：岗位绘本生成服务
  *
  * 选填：
  * - piAgentDir：Pi Agent 工作目录

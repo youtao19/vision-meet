@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * 文件作用：定义岗位漫画模块的 HTTP 参数校验规则。
+ * 文件作用：定义岗位绘本模块的 HTTP 参数校验规则。
  */
 export const manualJobPortraitNameParamsSchema = z.object({
   job_name: z.string().trim().min(1),

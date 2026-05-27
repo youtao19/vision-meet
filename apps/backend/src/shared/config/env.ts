@@ -19,8 +19,13 @@ const rawEnvSchema = z.object({
   APP_ENV: z.string().default("dev"),
   PORT: z.coerce.number().int().positive().default(8000),
   REPORT_EXPORT_DIR: z.string().optional(),
-  JOB_COMIC_OUTPUT_DIR: z.string().optional(),
+  JOB_PICTURE_BOOK_OUTPUT_DIR: z.string().optional(),
   BAOYU_IMAGINE_SCRIPT: z.string().optional(),
+  TTS_ENGINE: z.enum(["volcengine", "say"]).default("say"),
+  TTS_VOICE: z.string().trim().min(1).optional(),
+  VOLCENGINE_TTS_APP_ID: z.string().trim().min(1).optional(),
+  VOLCENGINE_TTS_ACCESS_TOKEN: z.string().trim().min(1).optional(),
+  VOLCENGINE_TTS_CLUSTER: z.string().trim().min(1).default("volcano_tts"),
   MATCH_SCORING_VERSION: z.string().trim().min(1).default("v1"),
   PGHOST: z.string().default("127.0.0.1"),
   PGPORT: z.coerce.number().int().positive().default(5432),
@@ -57,8 +62,13 @@ const rawEnvSchema = z.object({
 const envSchema = rawEnvSchema.transform((env) => {
   return {
     ...env,
-    JOB_COMIC_OUTPUT_DIR:
-      env.JOB_COMIC_OUTPUT_DIR || path.join(backendRoot, "storage", "job-comics"),
+    TTS_VOICE:
+      env.TTS_VOICE ??
+      (env.TTS_ENGINE === "volcengine" ? "zh_female_shuangkuaisisi_moon_bigtts" : "Tingting"),
+    JOB_PICTURE_BOOK_OUTPUT_DIR:
+      env.JOB_PICTURE_BOOK_OUTPUT_DIR ||
+      process.env.JOB_COMIC_OUTPUT_DIR ||
+      path.join(backendRoot, "storage", "job-picture-books"),
     AGENT_PI_DIR: env.AGENT_PI_DIR || path.join(os.homedir(), ".career-agent", "pi-agent"),
     AGENT_SESSION_STORE_DIR:
       env.AGENT_SESSION_STORE_DIR ||

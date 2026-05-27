@@ -7,7 +7,7 @@ export type ManualJobPortraitComicUpdateInput = {
 };
 
 /**
- * 文件作用：定义岗位漫画模块需要的画像读写能力。
+ * 文件作用：定义岗位绘本模块需要的画像读写能力。
  * 设计边界：这里只暴露漫画生成所需的最小数据接口，不承接岗位智能流水线逻辑。
  */
 export interface JobComicsRepository {

@@ -5,6 +5,7 @@ import express from "express";
 
 import { createAiModule } from "./modules/ai/ai.module.js";
 import { createJobComicsModule } from "./modules/job-comics/job-comics.module.js";
+import { createTtsEngine } from "./modules/pi-tools/tts/tts-factory.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createPgJobsRepository } from "./modules/jobs/jobs.repository.pg.js";
 import { createJobsIntelligenceModule } from "./modules/jobs-intelligence/jobs-intelligence.module.js";
@@ -55,6 +56,13 @@ export function createApp(): express.Express {
     pool: appDataPool,
     env: appEnv,
     cwd: process.cwd(),
+    ttsEngine: createTtsEngine({
+      engine: appEnv.TTS_ENGINE,
+      voice: appEnv.TTS_VOICE,
+      volcengineAppId: appEnv.VOLCENGINE_TTS_APP_ID,
+      volcengineAccessToken: appEnv.VOLCENGINE_TTS_ACCESS_TOKEN,
+      volcengineCluster: appEnv.VOLCENGINE_TTS_CLUSTER,
+    }),
   });
   const matchingService = createMatchingServiceFromDependencies(
     {
@@ -90,7 +98,8 @@ export function createApp(): express.Express {
 
   app.use(cors());
   app.use(express.json({ limit: "2mb" }));
-  app.use("/assets/job-comics", express.static(appEnv.JOB_COMIC_OUTPUT_DIR));
+  app.use("/assets/job-picture-books", express.static(appEnv.JOB_PICTURE_BOOK_OUTPUT_DIR));
+  app.use("/assets/job-comics", express.static(appEnv.JOB_PICTURE_BOOK_OUTPUT_DIR)); // Backward compatibility
   app.use((req, res, next) => {
     // 在每次请求中透传或补齐 trace_id，便于前后端统一排障。
     const incomingTraceId = req.header("x-trace-id");
@@ -181,6 +190,11 @@ export function createApp(): express.Express {
       console.error(`[http-error] trace_id=${traceId} message=${message}`);
 
       if (error instanceof HttpError) {
+        if (error.detail) {
+          console.error(
+            `[http-error-detail] trace_id=${traceId} detail=${JSON.stringify(error.detail)}`,
+          );
+        }
         return res.status(error.status).json({
           code: error.code,
           message: error.message,

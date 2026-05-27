@@ -40,7 +40,7 @@ function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRe
 }
 
 /**
- * 文件作用：岗位漫画模块的 PostgreSQL 数据适配器。
+ * 文件作用：岗位绘本模块的 PostgreSQL 数据适配器。
  * 设计边界：只读写 v2_manual_job_portraits 中漫画相关 payload 字段。
  */
 export function createPgJobComicsRepository(pool: Pool): JobComicsRepository {

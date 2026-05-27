@@ -184,7 +184,7 @@ export type ManualJobPortraitListResponse = {
   items: ManualJobPortraitRecord[];
 };
 
-export type JobPortraitComicContext = {
+export type JobPortraitPictureBookContext = {
   category?: string;
   summary?: string;
   tech_stack?: string[];
@@ -194,9 +194,29 @@ export type JobPortraitComicContext = {
   not_suitable_for?: string[];
 };
 
-export type GenerateJobPortraitComicResponse = {
+export type GenerateJobPortraitPictureBookResponse = {
   job_name: string;
   comic_image_url: string;
+};
+
+export type PictureBookPage = {
+  page_index: number;
+  image_url: string;
+  narration_text: string;
+  audio_url: string;
+  audio_duration_ms: number;
+};
+
+export type JobPictureBook = {
+  job_name: string;
+  title: string;
+  pages: PictureBookPage[];
+  total_pages: number;
+};
+
+export type GeneratePictureBookResponse = {
+  job_name: string;
+  pages: PictureBookPage[];
 };
 
 export type PostingEvidenceRecord = {
