@@ -44,6 +44,7 @@ apps/backend/storage/
 
 # Project-specific local files
 apps/backend/.env
+infra/env/backend.env
 Thumbs.db
 
 *.svg

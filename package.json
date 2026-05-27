@@ -25,6 +25,7 @@
     "knowledge:export": "npm run knowledge:export -w career-backend --",
     "knowledge:eval": "npm run knowledge:eval -w career-backend",
     "knowledge:baseline": "npm run knowledge:baseline -w career-backend",
+    "jobs:import-seed": "npm run jobs:import-seed -w career-backend",
     "jobs:pipeline:run": "npm run jobs:pipeline:run -w career-backend --",
     "job-portraits:seed": "npm run job-portraits:seed -w career-backend",
     "data:pipeline:prepare": "uv run --with pandas --with openpyxl --with xlrd python scripts/job_data_asset_pipeline.py --input data/岗位数据.xls --output-dir data/processed",

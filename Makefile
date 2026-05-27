@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help install dev dev-backend dev-frontend type-check build infra-up infra-down
+.PHONY: help install dev dev-backend dev-frontend type-check build infra-up infra-down docker-app-up docker-app-down docker-app-logs
 
 help:
 	@echo "Available targets:"
@@ -12,6 +12,9 @@ help:
 	@echo "  make build       # Build contracts/backend/frontend"
 	@echo "  make infra-up    # Start Postgres(pgvector) + Neo4j"
 	@echo "  make infra-down  # Stop infrastructure services"
+	@echo "  make docker-app-up   # Build and start full Docker app stack"
+	@echo "  make docker-app-down # Stop full Docker app stack"
+	@echo "  make docker-app-logs # Tail full Docker app stack logs"
 
 install:
 	npm install
@@ -36,3 +39,12 @@ infra-up:
 
 infra-down:
 	docker compose -f infra/docker-compose.yml down
+
+docker-app-up:
+	docker compose -f infra/docker-compose.app.yml up --build
+
+docker-app-down:
+	docker compose -f infra/docker-compose.app.yml down
+
+docker-app-logs:
+	docker compose -f infra/docker-compose.app.yml logs -f

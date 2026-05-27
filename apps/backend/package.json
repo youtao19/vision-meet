@@ -23,6 +23,7 @@
     "knowledge:export": "tsx src/scripts/knowledge-export.ts",
     "knowledge:eval": "tsx src/scripts/knowledge-evaluate.ts",
     "knowledge:baseline": "tsx src/scripts/knowledge-baseline.ts",
+    "jobs:import-seed": "tsx src/scripts/jobs-import-seed.ts",
     "jobs:pipeline:run": "tsx src/scripts/jobs-pipeline-run.ts",
     "job-portraits:seed": "tsx src/scripts/manual-job-portraits-seed.ts"
   },
