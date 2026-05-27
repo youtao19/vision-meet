@@ -28,6 +28,7 @@ function mapCareerReportRecord(row: Record<string, unknown>): CareerReportRecord
     match_id: Number(row.match_id),
     version: Number(row.version),
     student_profile_id: Number(row.student_profile_id),
+    title: String(row.title || "职业规划报告"),
     total_score: Number(row.total_score),
     sections: normalizeStoredSections(sections),
     generator_mode: row.generator_mode === "ai" ? "ai" : "template",
@@ -54,6 +55,7 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
             match_id BIGINT NOT NULL REFERENCES match_results(id) ON DELETE CASCADE,
             version INTEGER NOT NULL,
             student_profile_id BIGINT NOT NULL REFERENCES student_profiles(id) ON DELETE CASCADE,
+            title TEXT NOT NULL DEFAULT '职业规划报告',
             total_score DOUBLE PRECISION NOT NULL,
             sections JSONB NOT NULL DEFAULT '[]'::jsonb,
             generator_mode TEXT NOT NULL DEFAULT 'template',
@@ -63,6 +65,22 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE(match_id, version)
           )
+        `);
+        await pool.query(`
+          ALTER TABLE career_reports
+          ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '职业规划报告'
+        `);
+        // 数据迁移：将旧的通用标题更新为包含岗位名称的更具辨识度的标题
+        await pool.query(`
+          UPDATE career_reports cr
+          SET title = '职业规划报告 - ' || COALESCE(
+            (SELECT COALESCE(jp.job_name, m.job_portrait_name)
+             FROM match_results m
+             LEFT JOIN v2_manual_job_portraits jp ON m.job_portrait_name = jp.job_name
+             WHERE m.id = cr.match_id),
+            '未知岗位'
+          )
+          WHERE cr.title = '职业规划报告';
         `);
         await pool.query(`
           ALTER TABLE career_reports
@@ -108,19 +126,21 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
           match_id,
           version,
           student_profile_id,
+          title,
           total_score,
           sections,
           generator_mode,
           evidence_refs,
           action_plan
         )
-        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::text[], $8::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8::text[], $9::jsonb)
         RETURNING *
       `,
       [
         input.match_id,
         input.version,
         input.student_profile_id,
+        input.title || "职业规划报告",
         input.total_score,
         JSON.stringify(input.sections),
         input.generator_mode,
@@ -158,6 +178,7 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
         match_id: record.match_id,
         version: record.version,
         student_profile_id: record.student_profile_id,
+        title: record.title,
         total_score: record.total_score,
         created_at: record.created_at,
         updated_at: record.updated_at,
@@ -186,21 +207,42 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
 
   async function updateReport(
     reportId: number,
-    sections: CareerReportSection[],
+    update: { sections?: CareerReportSection[]; title?: string },
   ): Promise<CareerReportRecord | null> {
+    await ensureSchema();
+
+    let query = "UPDATE career_reports SET updated_at = NOW()";
+    const values: unknown[] = [reportId];
+    let paramIndex = 2;
+
+    if (update.sections) {
+      query += `, sections = $${paramIndex}::jsonb`;
+      values.push(JSON.stringify(update.sections));
+      paramIndex++;
+    }
+
+    if (update.title !== undefined) {
+      query += `, title = $${paramIndex}`;
+      values.push(update.title);
+      paramIndex++;
+    }
+
+    query += ` WHERE id = $1 RETURNING *`;
+
+    const result = await pool.query(query, values);
+    return result.rowCount ? mapCareerReportRecord(result.rows[0]) : null;
+  }
+
+  async function deleteReport(reportId: number): Promise<boolean> {
     await ensureSchema();
     const result = await pool.query(
       `
-        UPDATE career_reports
-        SET
-          sections = $2::jsonb,
-          updated_at = NOW()
+        DELETE FROM career_reports
         WHERE id = $1
-        RETURNING *
       `,
-      [reportId, JSON.stringify(sections)],
+      [reportId],
     );
-    return result.rowCount ? mapCareerReportRecord(result.rows[0]) : null;
+    return Boolean(result.rowCount);
   }
 
   return {
@@ -208,5 +250,6 @@ export function createPgReportRepository(pool: Pool): ReportRepository {
     listReports,
     getReportById,
     updateReport,
+    deleteReport,
   };
 }

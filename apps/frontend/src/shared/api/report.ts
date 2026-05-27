@@ -48,6 +48,12 @@ export async function updateReport(
   });
 }
 
+export async function deleteReport(reportId: number): Promise<void> {
+  await requestJson<void>(`/api/v2/reports/${reportId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function createReportExport(
   reportId: number,
   payload: CreateReportExportRequest,

@@ -17,6 +17,7 @@ export interface ReportRepository {
   getReportById(reportId: number): Promise<CareerReportRecord | null>;
   updateReport(
     reportId: number,
-    sections: CareerReportSection[],
+    update: { sections?: CareerReportSection[]; title?: string },
   ): Promise<CareerReportRecord | null>;
+  deleteReport(reportId: number): Promise<boolean>;
 }

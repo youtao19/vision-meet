@@ -325,6 +325,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CareerReportRecord"
+    delete:
+      summary: Delete Career Report V2
+      parameters:
+        - in: path
+          name: report_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Career report deleted
 
   /api/v2/reports/{report_id}/exports:
     post:

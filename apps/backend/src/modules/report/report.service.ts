@@ -24,7 +24,7 @@ import type { ReportExportRepository } from "./report-export.repository.js";
 import type { ReportExporter } from "./report.exporter.js";
 import type { ReportGenerator, ReportTargetJob } from "./report.generator.js";
 import type { ReportRepository } from "./report.repository.js";
-import { REPORT_SECTION_ORDER } from "./report.sections.js";
+import { REPORT_SECTION_ORDER, createLegacyReportSection } from "./report.sections.js";
 
 function assertValidSectionSet(sections: CareerReportSection[]): void {
   if (sections.length !== REPORT_SECTION_ORDER.length) {
@@ -51,7 +51,7 @@ function assertValidSectionSet(sections: CareerReportSection[]): void {
 
 function normalizeSectionOrder(sections: CareerReportSection[]): CareerReportSection[] {
   const sectionMap = new Map(sections.map((item) => [item.key, item]));
-  return REPORT_SECTION_ORDER.map((key) => sectionMap.get(key)!);
+  return REPORT_SECTION_ORDER.map((key) => sectionMap.get(key) ?? createLegacyReportSection(key));
 }
 
 /**
@@ -189,6 +189,14 @@ export interface ReportService {
   updateReport(reportId: number, input: UpdateReportRequest): Promise<CareerReportRecord>;
 
   /**
+   * 作用：删除指定报告版本。
+   * 参数：reportId 为报告主键。
+   * 返回：无。
+   * 注意：关联导出记录由数据库级联删除。
+   */
+  deleteReport(reportId: number): Promise<void>;
+
+  /**
    * 作用：为指定报告版本生成一份新的导出产物并落盘登记。
    * 参数：reportId 为目标报告主键；input.format 支持 pdf 与 markdown。
    * 返回：导出记录，包含下载路径和文件元数据。
@@ -292,6 +300,7 @@ export function createReportService(
         match_id: input.match_id,
         version: nextVersion,
         student_profile_id: match.student_profile_id,
+        title: `职业规划报告 - ${job.title}`,
         total_score: match.total_score,
         sections: normalizeSectionOrder(generated.sections),
         generator_mode: generated.mode,
@@ -338,17 +347,27 @@ export function createReportService(
     input: UpdateReportRequest,
   ): Promise<CareerReportRecord> {
     const existing = await getReport(reportId);
-    assertValidSectionSet(input.sections);
+    if (input.sections) {
+      assertValidSectionSet(input.sections);
+    }
 
-    const updated = await reportRepository.updateReport(
-      existing.id,
-      normalizeSectionOrder(input.sections),
-    );
+    const updated = await reportRepository.updateReport(existing.id, {
+      sections: input.sections ? normalizeSectionOrder(input.sections) : undefined,
+      title: input.title,
+    });
     if (!updated) {
       throw new HttpError(404, "REPORT_NOT_FOUND", "报告不存在");
     }
 
     return updated;
+  }
+
+  async function deleteReport(reportId: number): Promise<void> {
+    await getReport(reportId);
+    const deleted = await reportRepository.deleteReport(reportId);
+    if (!deleted) {
+      throw new HttpError(404, "REPORT_NOT_FOUND", "报告不存在");
+    }
   }
 
   async function createReportExport(
@@ -423,6 +442,7 @@ export function createReportService(
     listReports,
     getReport,
     updateReport,
+    deleteReport,
     createReportExport,
     listReportExports,
     getReportExport,

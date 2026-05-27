@@ -18,6 +18,7 @@ import { polishSectionContent } from "@/shared/api/ai";
 import {
   createReport,
   createReportExport,
+  deleteReport,
   fetchReportDetail,
   fetchReportExports,
   fetchReportList,
@@ -34,6 +35,10 @@ const reports = ref<CareerReportSummary[]>([]);
 const exportsList = ref<CareerReportExportRecord[]>([]);
 const selectedReport = ref<CareerReportRecord | null>(null);
 const editableSections = ref<CareerReportSection[]>([]);
+const titleEditReportId = ref<number | null>(null);
+const titleEditValue = ref("");
+const titleSavingReportId = ref<number | null>(null);
+const deletingReportId = ref<number | null>(null);
 
 const loading = reactive({
   match: false,
@@ -133,17 +138,97 @@ function formatDateTime(raw: string): string {
 }
 
 function formatReportTitle(report: CareerReportSummary): string {
-  return `匹配 #${report.match_id} 职业规划报告`;
+  return report.title;
 }
 
 function reportStatusText(report: CareerReportSummary): string {
   return selectedReport.value?.id === report.id ? "已选中" : "已完成";
 }
 
-function updateSectionContent(section: CareerReportSection, event: Event): void {
-  const target = event.currentTarget;
-  if (!(target instanceof HTMLElement)) return;
-  section.content = target.innerText;
+function beginEditReportTitle(report: CareerReportSummary): void {
+  titleEditReportId.value = report.id;
+  titleEditValue.value = report.title;
+}
+
+function cancelEditReportTitle(): void {
+  titleEditReportId.value = null;
+  titleEditValue.value = "";
+}
+
+async function saveReportTitle(report: CareerReportSummary): Promise<void> {
+  const nextTitle = titleEditValue.value.trim();
+  if (!nextTitle) {
+    uiState.error = "报告标题不能为空";
+    return;
+  }
+
+  titleSavingReportId.value = report.id;
+  uiState.error = "";
+  uiState.success = "";
+
+  try {
+    const updated = await updateReport(report.id, {
+      title: nextTitle,
+    });
+
+    reports.value = reports.value.map((item) =>
+      item.id === report.id
+        ? {
+            ...item,
+            title: updated.title,
+            updated_at: updated.updated_at,
+          }
+        : item,
+    );
+
+    if (selectedReport.value?.id === report.id) {
+      selectedReport.value = {
+        ...selectedReport.value,
+        title: updated.title,
+        updated_at: updated.updated_at,
+      };
+    }
+
+    uiState.success = "报告标题已更新";
+    cancelEditReportTitle();
+  } catch (error) {
+    uiState.error = formatApiError(error);
+  } finally {
+    titleSavingReportId.value = null;
+  }
+}
+
+async function deleteReportFromList(report: CareerReportSummary): Promise<void> {
+  if (!window.confirm(`确定删除「${report.title}」吗？删除后无法在报告列表中恢复。`)) {
+    return;
+  }
+
+  deletingReportId.value = report.id;
+  uiState.error = "";
+  uiState.success = "";
+
+  try {
+    await deleteReport(report.id);
+    const remainingReports = reports.value.filter((item) => item.id !== report.id);
+    reports.value = remainingReports;
+    cancelEditReportTitle();
+
+    if (selectedReport.value?.id === report.id) {
+      exportsList.value = [];
+      if (remainingReports[0]) {
+        await openReport(remainingReports[0].id);
+      } else {
+        selectedReport.value = null;
+        syncEditableSections(null);
+      }
+    }
+
+    uiState.success = "报告已删除";
+  } catch (error) {
+    uiState.error = formatApiError(error);
+  } finally {
+    deletingReportId.value = null;
+  }
 }
 
 function formatApiError(error: unknown): string {
@@ -605,24 +690,64 @@ onMounted(async () => {
           </div>
 
           <div class="report-list">
-            <button
+            <article
               v-for="report in reports"
               :key="report.id"
               class="report-list-item"
               :class="{ active: selectedReport?.id === report.id }"
-              type="button"
               @click="openReport(report.id)"
             >
               <div class="report-list-head">
-                <strong>{{ formatReportTitle(report) }}</strong>
-                <span>{{ reportStatusText(report) }}</span>
+                <div v-if="titleEditReportId === report.id" class="report-title-editor" @click.stop>
+                  <input
+                    v-model="titleEditValue"
+                    type="text"
+                    maxlength="80"
+                    @keydown.enter.prevent="saveReportTitle(report)"
+                    @keydown.esc.prevent="cancelEditReportTitle"
+                  />
+                  <button
+                    type="button"
+                    title="保存标题"
+                    :disabled="titleSavingReportId === report.id"
+                    @click="saveReportTitle(report)"
+                  >
+                    <span class="material-symbols-outlined">check</span>
+                  </button>
+                  <button type="button" title="取消修改" @click="cancelEditReportTitle">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+                <div v-else class="report-title-view">
+                  <strong>{{ formatReportTitle(report) }}</strong>
+                  <div class="report-title-actions">
+                    <button
+                      type="button"
+                      title="修改标题"
+                      @click.stop="beginEditReportTitle(report)"
+                    >
+                      <span class="material-symbols-outlined">edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      title="删除报告"
+                      :disabled="deletingReportId === report.id"
+                      @click.stop="deleteReportFromList(report)"
+                    >
+                      <span class="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                </div>
+                <span v-if="titleEditReportId !== report.id" class="report-list-status">
+                  {{ reportStatusText(report) }}
+                </span>
               </div>
               <p>匹配 #{{ report.match_id }} · 学生画像 #{{ report.student_profile_id }}</p>
               <div class="report-list-meta">
                 <span>生成时间：{{ formatDateTime(report.created_at) }}</span>
                 <span>v{{ report.version }}</span>
               </div>
-            </button>
+            </article>
 
             <div v-if="!loading.list && reports.length === 0" class="empty-card">
               <span class="material-symbols-outlined">article</span>
@@ -654,7 +779,7 @@ onMounted(async () => {
           <header class="document-header">
             <div class="document-title">
               <div class="title-line">
-                <h1>职业规划报告</h1>
+                <h1>{{ selectedReport.title }}</h1>
                 <span class="done-badge">{{ selectedReportStatus }}</span>
               </div>
               <p>
@@ -785,16 +910,14 @@ onMounted(async () => {
                 class="markdown-content"
                 v-html="renderMarkdown(section.content)"
               ></div>
-              <div
+              <textarea
                 v-else
+                v-model="section.content"
                 class="document-editable"
-                :contenteditable="loading.save || isAnyPolishing ? 'false' : 'plaintext-only'"
-                role="textbox"
                 :aria-label="section.title"
+                :disabled="loading.save || isAnyPolishing"
                 :data-placeholder="'请输入该章节的具体分析与反馈内容...'"
-                v-text="section.content"
-                @input="updateSectionContent(section, $event)"
-              ></div>
+              ></textarea>
             </article>
           </section>
         </template>
@@ -885,30 +1008,11 @@ onMounted(async () => {
             <span class="material-symbols-outlined">auto_fix_high</span>
             {{ isAnyPolishing ? "润色中" : "润色全部段落" }}
           </button>
-          <button
-            v-if="editableSections[0]"
-            class="btn btn-secondary full"
-            :disabled="loading.save || isAnyPolishing"
-            @click="handlePolishSection(editableSections[0])"
-          >
-            补充首段推荐理由
-          </button>
           <div class="tone-grid">
             <button class="active" type="button">专业严谨</button>
             <button type="button">积极自信</button>
             <button type="button">简洁明了</button>
           </div>
-        </section>
-
-        <section class="panel reason-panel">
-          <h2>{{ isEditMode ? "优化建议" : "岗位推荐理由" }}</h2>
-          <ul class="check-list">
-            <li v-for="item in selectedReport?.evidence_refs ?? []" :key="item">{{ item }}</li>
-            <li v-if="selectedReport && selectedReport.evidence_refs.length === 0">
-              当前报告暂无依据引用。
-            </li>
-            <li v-if="!selectedReport">选择报告后展示推荐理由与证据引用。</li>
-          </ul>
         </section>
 
         <section v-if="selectedReport" class="panel delivery-panel">
@@ -1213,6 +1317,7 @@ onMounted(async () => {
   background: #fff;
   color: inherit;
   text-align: left;
+  cursor: pointer;
 }
 
 .report-list-item.active {
@@ -1226,14 +1331,82 @@ onMounted(async () => {
   gap: 10px;
 }
 
-.report-list-head strong {
+.report-title-view {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 6px;
+}
+
+.report-title-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.report-title-view strong {
   overflow: hidden;
   font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.report-list-head span,
+.report-title-view button,
+.report-title-editor button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--report-muted);
+  cursor: pointer;
+}
+
+.report-title-view button:hover,
+.report-title-editor button:hover {
+  background: var(--report-blue-soft);
+  color: var(--report-blue);
+}
+
+.report-title-actions button:last-child:hover {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.report-title-view .material-symbols-outlined,
+.report-title-editor .material-symbols-outlined {
+  font-size: 17px;
+}
+
+.report-title-editor {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 4px;
+}
+
+.report-title-editor input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid var(--report-blue);
+  border-radius: 6px;
+  padding: 0 8px;
+  color: var(--report-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  outline: 0;
+}
+
+.report-list-status,
 .done-badge {
   border-radius: 999px;
   background: #ecfdf3;
@@ -1242,7 +1415,7 @@ onMounted(async () => {
   font-weight: 800;
 }
 
-.report-list-head span {
+.report-list-status {
   padding: 2px 8px;
   white-space: nowrap;
 }
@@ -1558,13 +1731,19 @@ onMounted(async () => {
 }
 
 .document-editable {
+  display: block;
+  width: 100%;
   min-height: 110px;
   padding: 4px 0 10px;
+  border: 0;
   border-radius: 6px;
   outline: 0;
   color: #344054;
+  background: transparent;
+  font: inherit;
   font-size: 15px;
   line-height: 1.9;
+  resize: vertical;
   white-space: pre-wrap;
 }
 
@@ -1574,8 +1753,7 @@ onMounted(async () => {
   padding-left: 12px;
 }
 
-.document-editable:empty::before {
-  content: attr(data-placeholder);
+.document-editable::placeholder {
   color: #98a2b3;
 }
 

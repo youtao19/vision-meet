@@ -23,9 +23,14 @@ export const reportIdParamsSchema = z.object({
   report_id: z.coerce.number().int().min(1),
 });
 
-export const updateReportSchema = z.object({
-  sections: z.array(reportSectionSchema).length(REPORT_SECTION_ORDER.length),
-});
+export const updateReportSchema = z
+  .object({
+    sections: z.array(reportSectionSchema).length(REPORT_SECTION_ORDER.length).optional(),
+    title: z.string().trim().min(1).max(80).optional(),
+  })
+  .refine((input) => input.sections || input.title, {
+    message: "sections 或 title 至少需要提供一项",
+  });
 
 export const createReportExportSchema = z.object({
   format: z.enum(["pdf", "markdown"]),

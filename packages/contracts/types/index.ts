@@ -626,6 +626,7 @@ export type CareerReportSummary = {
   match_id: number;
   version: number;
   student_profile_id: number;
+  title: string;
   total_score: number;
   created_at: string;
   updated_at: string;
@@ -646,7 +647,8 @@ export type CreateReportRequest = {
 };
 
 export type UpdateReportRequest = {
-  sections: CareerReportSection[];
+  sections?: CareerReportSection[];
+  title?: string;
 };
 
 export type ReportListParams = {

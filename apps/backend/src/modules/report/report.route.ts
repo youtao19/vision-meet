@@ -92,6 +92,22 @@ export function createReportRouter(service: ReportService): Router {
     }
   });
 
+  router.delete("/:report_id", async (req, res, next) => {
+    const parsed = reportIdParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return next(
+        new HttpError(400, "VALIDATION_ERROR", "报告详情参数不合法", parsed.error.flatten()),
+      );
+    }
+
+    try {
+      await service.deleteReport(parsed.data.report_id);
+      return res.status(204).send();
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   router.post("/:report_id/exports", async (req, res, next) => {
     const paramsParsed = reportIdParamsSchema.safeParse(req.params);
     if (!paramsParsed.success) {
