@@ -69,12 +69,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/CareerPathTargetOptionsResponse"
 
-  /api/v2/career-paths/jobs/{job_id}:
+  /api/v2/career-paths/portraits/{portrait_id}:
     get:
       summary: Get Career Path Graph V2
       parameters:
         - in: path
-          name: job_id
+          name: portrait_id
           required: true
           schema:
             type: integer

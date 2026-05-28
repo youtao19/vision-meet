@@ -15,33 +15,6 @@ export async function ensureCareerCoreSchema(pool: Pool): Promise<void> {
 
   const initializing = (async () => {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS jobs (
-        id BIGSERIAL PRIMARY KEY,
-        source_row_id TEXT,
-        normalized_source_key TEXT,
-        title TEXT NOT NULL,
-        location TEXT,
-        salary_range TEXT,
-        company_name TEXT,
-        industry TEXT,
-        company_size TEXT,
-        company_type TEXT,
-        job_code TEXT,
-        job_description TEXT,
-        company_intro TEXT,
-        raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await pool.query(`
-      ALTER TABLE jobs
-      ADD COLUMN IF NOT EXISTS normalized_source_key TEXT
-    `);
-
-    // 历史 raw_job_posts/job_normalized/career_nodes 等表已从运行链路移除；
-    // 当前岗位主数据统一落在 jobs，路径图谱统一落在 Neo4j。
-
-    await pool.query(`
       CREATE TABLE IF NOT EXISTS student_profiles (
         id BIGSERIAL PRIMARY KEY,
         source_type TEXT NOT NULL,

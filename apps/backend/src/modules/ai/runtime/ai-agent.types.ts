@@ -8,13 +8,11 @@ import type {
   PiToolName,
   AiWarningCode,
   CareerReportRecord,
-  JobRecord,
   KnowledgeSearchResultItem,
   MatchResultDetail,
   StudentProfileRecord,
 } from "@career/contracts/types";
 
-import type { JobsRepository } from "../../jobs/jobs.repository.js";
 import type { JobComicsService } from "../../job-comics/job-comics.service.js";
 import type { KnowledgeService } from "../../knowledge/knowledge.service.js";
 import type { MatchingService } from "../../matching/matching.service.js";
@@ -23,13 +21,21 @@ import type { ReportService } from "../../report/report.service.js";
 
 export type AiThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
+export type AiAgentRuntimeJob = {
+  id: number;
+  title: string;
+  company_name: string | null;
+  location: string | null;
+  job_description: string | null;
+};
+
 /**
  * AI Agent 运行过程中的状态。
  * 作用：保存学生画像、岗位、知识库结果、匹配结果和报告结果。
  */
 export type AiAgentRuntimeState = {
   profile: StudentProfileRecord;
-  job: JobRecord;
+  job: AiAgentRuntimeJob;
   knowledgeHits: KnowledgeSearchResultItem[];
   matchResult: MatchResultDetail | null;
   report: CareerReportRecord | null;
@@ -41,7 +47,6 @@ export type AiAgentRuntimeState = {
  */
 export type AiAgentDependencies = {
   profileRepository: ProfileRepository;
-  jobsRepository: JobsRepository;
   knowledgeService: KnowledgeService;
   matchingService: MatchingService;
   reportService: ReportService;
@@ -61,6 +66,7 @@ export type AiAgentRunOptions = {
   deliverables: Array<"match_analysis" | "career_report">;
   studentProfileId: number;
   jobId: number;
+  jobName: string;
   topK: number;
   forceRecalculate: boolean;
   piAgentDir?: string;

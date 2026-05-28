@@ -83,7 +83,7 @@ export function createPgAiRepository(pool: Pool): AiRepository {
             model TEXT,
             status TEXT NOT NULL,
             student_profile_id BIGINT NOT NULL REFERENCES student_profiles(id) ON DELETE CASCADE,
-            job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+            job_id BIGINT NOT NULL,
             objective TEXT NOT NULL,
             deliverables TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
             force_recalculate BOOLEAN NOT NULL DEFAULT FALSE,

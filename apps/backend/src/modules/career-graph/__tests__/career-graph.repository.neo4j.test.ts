@@ -30,8 +30,8 @@ function createDriverMock() {
                 if (key !== "node") return null;
                 return {
                   properties: {
-                    id: "job-1",
-                    job_id: 1,
+                    id: "portrait-1",
+                    portrait_id: 1,
                     title: "前端工程师",
                     family: "frontend",
                     level: 2,
@@ -50,8 +50,8 @@ function createDriverMock() {
           records: [
             {
               get(key: string) {
-                if (key === "source") return "job-1";
-                if (key === "target") return "job-2";
+                if (key === "source") return "portrait-1";
+                if (key === "target") return "portrait-2";
                 if (key === "rel") {
                   return {
                     properties: {
@@ -93,8 +93,8 @@ test("syncGraph: 重复执行应可稳定返回写入数量", async () => {
     generated_at: new Date().toISOString(),
     nodes: [
       {
-        id: "job-1",
-        job_id: 1,
+        id: "portrait-1",
+        portrait_id: 1,
         title: "前端工程师",
         family: "frontend",
         level: 2,
@@ -113,11 +113,11 @@ test("syncGraph: 重复执行应可稳定返回写入数量", async () => {
   assert.ok(calls.some((call) => call.query.includes("MERGE (n:CareerRoleV2")));
 });
 
-test("getSubgraphByJobId: 应返回带版本元信息的图谱快照", async () => {
+test("getSubgraphByPortraitId: 应返回带版本元信息的图谱快照", async () => {
   const { driver } = createDriverMock();
   const repository = createNeo4jCareerGraphRepositoryWithDriver(driver as never);
 
-  const snapshot = await repository.getSubgraphByJobId(1, 2);
+  const snapshot = await repository.getSubgraphByPortraitId(1, 2);
   assert.equal(snapshot.graph_version, "v2.1");
   assert.equal(typeof snapshot.generated_at, "string");
   assert.equal(snapshot.nodes.length, 1);

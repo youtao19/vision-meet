@@ -15,7 +15,7 @@ function buildManualPortrait(
 ): ManualJobPortraitRecord {
   const now = new Date().toISOString();
   return {
-    job_id: input.job_id ?? null,
+    id: input.id ?? 1,
     job_name: jobName,
     category,
     profile_detail: {

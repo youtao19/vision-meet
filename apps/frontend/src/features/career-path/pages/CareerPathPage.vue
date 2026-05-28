@@ -61,7 +61,7 @@ const loading = reactive({
 });
 
 const form = reactive({
-  jobId: "",
+  portraitId: "",
   studentProfileId: "",
   depth: 1,
 });
@@ -71,7 +71,7 @@ const uiState = reactive({
 });
 
 const canLoadGraph = computed(() => {
-  return toPositiveInt(form.jobId) !== undefined && !loading.graph;
+  return toPositiveInt(form.portraitId) !== undefined && !loading.graph;
 });
 
 let radarInstance: ECharts | null = null;
@@ -136,11 +136,11 @@ function calculateSkillLevel(profile: StudentProfileRecord): number {
 }
 
 const selectedJobPortrait = computed(() => {
-  const jobId = toPositiveInt(form.jobId);
-  if (!jobId) return null;
-  const selectedTarget = graphTargets.value.find((item) => item.job_id === jobId);
+  const portraitId = toPositiveInt(form.portraitId);
+  if (!portraitId) return null;
+  const selectedTarget = graphTargets.value.find((item) => item.portrait_id === portraitId);
   return (
-    manualPortraits.value.find((item) => item.job_id === jobId) ??
+    manualPortraits.value.find((item) => item.id === portraitId) ??
     manualPortraits.value.find((item) => item.job_name === selectedTarget?.job_name) ??
     null
   );
@@ -207,7 +207,7 @@ const radarComparison = computed(() => {
 const targetJobOptions = computed(() => {
   return graphTargets.value.map((item) => ({
     ...item,
-    option_key: `graph-${item.job_id}`,
+    option_key: `graph-${item.portrait_id}`,
   }));
 });
 
@@ -533,8 +533,8 @@ async function bootstrap(): Promise<void> {
 }
 
 async function loadGraph(): Promise<void> {
-  const jobId = toPositiveInt(form.jobId);
-  if (!jobId) {
+  const portraitId = toPositiveInt(form.portraitId);
+  if (!portraitId) {
     uiState.error = "请选择合法的岗位";
     graphResult.value = null;
     return;
@@ -545,7 +545,7 @@ async function loadGraph(): Promise<void> {
 
   try {
     const result = await fetchCareerPathGraph({
-      job_id: jobId,
+      portrait_id: portraitId,
       student_profile_id: toPositiveInt(form.studentProfileId),
       depth: form.depth,
     });
@@ -567,15 +567,15 @@ async function loadGraph(): Promise<void> {
 }
 
 async function searchGraph(): Promise<void> {
-  const jobId = toPositiveInt(form.jobId);
-  if (!jobId) {
+  const portraitId = toPositiveInt(form.portraitId);
+  if (!portraitId) {
     uiState.error = "请选择合法的岗位";
     return;
   }
   await router.replace({
     path: "/career-paths",
     query: {
-      job_id: String(jobId),
+      portrait_id: String(portraitId),
       ...(toPositiveInt(form.studentProfileId)
         ? { student_profile_id: String(form.studentProfileId) }
         : {}),
@@ -585,8 +585,8 @@ async function searchGraph(): Promise<void> {
 }
 
 async function syncFromQuery(): Promise<void> {
-  const jobId =
-    typeof route.query.job_id === "string" ? toPositiveInt(route.query.job_id) : undefined;
+  const portraitId =
+    typeof route.query.portrait_id === "string" ? toPositiveInt(route.query.portrait_id) : undefined;
   const studentProfileId =
     typeof route.query.student_profile_id === "string"
       ? toPositiveInt(route.query.student_profile_id)
@@ -596,11 +596,11 @@ async function syncFromQuery(): Promise<void> {
       ? Math.max(1, Math.min(3, Number(route.query.depth) || 1))
       : 1;
 
-  form.jobId = jobId ? String(jobId) : "";
+  form.portraitId = portraitId ? String(portraitId) : "";
   form.studentProfileId = studentProfileId ? String(studentProfileId) : "";
   form.depth = depth;
 
-  if (jobId) {
+  if (portraitId) {
     await loadGraph();
   } else if (chartTab.value === "radar") {
     renderRadarChart();
@@ -681,14 +681,14 @@ onUnmounted(() => {
       <div class="toolbar">
         <label>
           目标岗位
-          <select v-model="form.jobId" :disabled="loading.bootstrap || loading.graph">
+          <select v-model="form.portraitId" :disabled="loading.bootstrap || loading.graph">
             <option value="">请选择</option>
             <option
               v-for="option in targetJobOptions"
               :key="option.option_key"
-              :value="String(option.job_id)"
+              :value="String(option.portrait_id)"
             >
-              #{{ option.job_id }} {{ option.job_name }}（{{ option.category }}）
+              #{{ option.portrait_id }} {{ option.job_name }}（{{ option.category }}）
             </option>
           </select>
         </label>

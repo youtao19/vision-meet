@@ -49,10 +49,9 @@ test("replaceManualJobPortraits + listManualJobPortraits: 应完整写入并读�
       if (sql.includes("FROM v2_manual_job_portraits p")) {
         return {
           rowCount: stored.length,
-          rows: stored.map((row) => ({
+          rows: stored.map((row, index) => ({
             ...row,
-            fallback_job_id: null,
-            job_id: null,
+            id: index + 1,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })),

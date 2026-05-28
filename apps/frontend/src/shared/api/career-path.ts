@@ -6,7 +6,7 @@ import type {
 import { requestJson } from "./http";
 
 export async function fetchCareerPathGraph(params: {
-  job_id: number;
+  portrait_id: number;
   student_profile_id?: number;
   depth?: number;
   relation_type?: "promotion" | "transition" | "skill_migration" | "all";
@@ -28,7 +28,7 @@ export async function fetchCareerPathGraph(params: {
 
   const suffix = query.toString() ? `?${query.toString()}` : "";
   return requestJson<CareerPathV2GraphResponse>(
-    `/api/v2/career-paths/jobs/${params.job_id}${suffix}`,
+    `/api/v2/career-paths/portraits/${params.portrait_id}${suffix}`,
   );
 }
 

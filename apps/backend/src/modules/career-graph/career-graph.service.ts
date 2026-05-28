@@ -47,15 +47,15 @@ function uniqueSkills(items: string[]): string[] {
  * 在图谱节点列表中查找目标岗位节点，并组装为前端需要的格式。
  * 如果节点不存在返回 null，后续由调用方抛 404。
  */
-function findTargetNode(nodes: CareerGraphSnapshot["nodes"], jobId: number): CareerPathNode | null {
-  const target = nodes.find((node) => node.job_id === jobId);
+function findTargetNode(nodes: CareerGraphSnapshot["nodes"], portraitId: number): CareerPathNode | null {
+  const target = nodes.find((node) => node.portrait_id === portraitId);
   if (!target) {
     return null;
   }
 
   return {
     id: target.id,
-    job_id: target.job_id,
+    portrait_id: target.portrait_id,
     role_key: target.id,
     title: target.title,
     description: target.summary,
@@ -240,7 +240,7 @@ export interface CareerGraphService {
   ): Promise<CareerPathV2GenerateResponse>;
   listCareerPathTargets(): Promise<CareerPathTargetOptionsResponse>;
   getCareerPathGraph(
-    jobId: number,
+    portraitId: number,
     options: CareerPathQueryOptions | number,
   ): Promise<CareerPathV2GraphResponse>;
 }
@@ -315,14 +315,14 @@ export function createCareerGraphService(
     }
 
     // ── 规则模式：使用内置规则引擎生成图谱 ──
-    // 建立岗位名称 → job_id 的映射，用于规则引擎中的 ID 解析
-    const jobIdByTitle = new Map<string, number>();
+    // 建立岗位名称 → 画像表主键的映射，用于规则引擎中的 ID 解析
+    const portraitIdByTitle = new Map<string, number>();
     for (const p of portraits) {
-      if (p.job_id != null) {
+      if (p.id != null) {
         const key = p.job_name.trim().toLowerCase();
-        // 同名岗位只保留第一个 job_id，避免冲突
-        if (!jobIdByTitle.has(key)) {
-          jobIdByTitle.set(key, p.job_id);
+        // 同名岗位只保留第一个画像表主键，避免冲突
+        if (!portraitIdByTitle.has(key)) {
+          portraitIdByTitle.set(key, p.id);
         }
       }
     }
@@ -330,7 +330,7 @@ export function createCareerGraphService(
     // 调用规则引擎构建图谱（节点 + 关系边 + 候选对评分 + 孤立节点补充）
     const buildResult = buildCareerGraphFromManualPortraits({
       portraits,
-      jobIdByTitle,
+      portraitIdByTitle,
       options: {
         maxCandidatesPerNode: Math.max(5, Math.min(80, options.max_candidates_per_node ?? 24)),
         minTransitionPathsPerJob: 2,
@@ -366,7 +366,7 @@ export function createCareerGraphService(
    * 从 Neo4j 查询子图，然后组装节点/边/推荐路线返回。
    */
   async function getCareerPathGraph(
-    jobId: number,
+    portraitId: number,
     optionsOrDepth: CareerPathQueryOptions | number,
   ): Promise<CareerPathV2GraphResponse> {
     // 统一处理查询参数（兼容数字和对象两种传参方式）
@@ -374,13 +374,13 @@ export function createCareerGraphService(
     const depth = query.depth;
 
     // 从 Neo4j 获取以目标岗位为中心的子图
-    const snapshot = await graphRepository.getSubgraphByJobId(jobId, depth);
+    const snapshot = await graphRepository.getSubgraphByPortraitId(portraitId, depth);
     if (snapshot.nodes.length === 0) {
       throw new HttpError(404, "CAREER_PATH_NOT_FOUND", "目标岗位尚未生成图谱数据");
     }
 
     // 在子图中定位目标节点
-    const targetNode = findTargetNode(snapshot.nodes, jobId);
+    const targetNode = findTargetNode(snapshot.nodes, portraitId);
     if (!targetNode) {
       throw new HttpError(404, "CAREER_PATH_NOT_FOUND", "目标岗位不在当前图谱节点中");
     }
@@ -431,7 +431,7 @@ export function createCareerGraphService(
     // 组装节点列表，每个节点标注 category（target/promotion/transition）
     const nodes: CareerPathV2GraphResponse["nodes"] = snapshot.nodes.map((node) => ({
       id: node.id,
-      job_id: node.job_id,
+      portrait_id: node.portrait_id,
       role_key: node.id,
       title: node.title,
       description: node.summary,
@@ -450,15 +450,13 @@ export function createCareerGraphService(
       is_target: node.id === targetNode.id,
     }));
 
-    // 查询岗位基础信息（如标题），补充到返回结果中
-    const targetJob = (await pgRepository.listJobsByIds([jobId]))[0];
     const promotionEdgeCount = edges.filter((item) => item.relation_type === "promotion").length;
     const transitionEdgeCount = edges.filter((item) => item.relation_type === "transition").length;
     const graphQuality = computeGraphQuality({ ...snapshot, edges });
 
     return {
-      job_id: jobId,
-      job_title: targetJob?.title || targetNode.title,
+      portrait_id: portraitId,
+      job_title: targetNode.title,
       depth,
       target_node_id: targetNode.id,
       graph_version: snapshot.graph_version,
@@ -500,7 +498,7 @@ export function createCareerGraphService(
 
     return {
       items: filteredNodes.map((node) => ({
-        job_id: node.job_id,
+        portrait_id: node.portrait_id,
         job_name: node.title,
         category: node.family,
         graph_version: "current",

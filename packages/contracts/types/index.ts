@@ -23,24 +23,6 @@ export type StructuredApiError = {
   trace_id?: string;
 };
 
-export type JobRecord = {
-  id: number;
-  source_row_id: string | null;
-  normalized_source_key: string | null;
-  title: string;
-  location: string | null;
-  salary_range: string | null;
-  company_name: string | null;
-  industry: string | null;
-  company_size: string | null;
-  company_type: string | null;
-  job_code: string | null;
-  job_description: string | null;
-  company_intro: string | null;
-  raw_payload: Record<string, unknown>;
-  created_at: string;
-};
-
 export type JobPortraitSubIndustry = {
   industry: string;
   description: string;
@@ -77,7 +59,7 @@ export type JobPortraitDetail = {
 };
 
 export type ManualJobPortraitRecord = {
-  job_id?: number | null;
+  id: number;
   job_name: string;
   category: string;
   comic_image_url?: string | null;
@@ -129,7 +111,7 @@ export type GeneratePictureBookResponse = {
 
 export type CareerGraphNodeRecord = {
   id: string;
-  job_id: number;
+  portrait_id: number;
   title: string;
   family: string;
   level: number;
@@ -155,24 +137,6 @@ export type CareerGraphSnapshot = {
   generated_at: string;
   nodes: CareerGraphNodeRecord[];
   edges: CareerGraphEdgeRecord[];
-};
-
-export type JobsListParams = {
-  keyword?: string;
-  industry?: string;
-  offset: number;
-  limit: number;
-};
-
-export type JobsListResponse = {
-  total: number;
-  items: JobRecord[];
-};
-
-export type JobImportResponse = {
-  imported: number;
-  skipped: number;
-  message: string;
 };
 
 export type StudentProfileSelfAssessment = {
@@ -494,7 +458,7 @@ export type CareerPathNodeCategory = "target" | "promotion" | "transition";
 
 export type CareerPathNode = {
   id: string;
-  job_id: number | null;
+  portrait_id: number | null;
   role_key: string;
   title: string;
   description: string;
@@ -541,7 +505,7 @@ export type CareerRouteRecommendation = {
 };
 
 export type CareerPathGraphResponse = {
-  job_id: number;
+  portrait_id: number;
   job_title: string;
   student_profile_id: number | null;
   depth: number;
@@ -555,7 +519,7 @@ export type CareerPathGraphResponse = {
 };
 
 export type CareerPathV2GraphResponse = {
-  job_id: number;
+  portrait_id: number;
   job_title: string;
   depth: number;
   target_node_id: string;
@@ -576,7 +540,7 @@ export type CareerPathV2GraphResponse = {
 };
 
 export type CareerPathTargetOption = {
-  job_id: number;
+  portrait_id: number;
   job_name: string;
   category: string;
   graph_version: string;
@@ -760,6 +724,7 @@ export type AiStepTraceItem = {
 export type CreateAiTaskRequest = {
   student_profile_id: number;
   job_id: number;
+  job_name?: string;
   objective?: string;
   deliverables?: AiDeliverable[];
   force_recalculate?: boolean;

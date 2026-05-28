@@ -129,6 +129,7 @@ function buildStudentProfile(input: { id: number; skills: string[] }): StudentPr
 
 function buildPortrait(): ManualJobPortraitRecord {
   return {
+    id: 1,
     job_name: "Java后端开发工程师",
     category: "计算机/互联网",
     profile_detail: {

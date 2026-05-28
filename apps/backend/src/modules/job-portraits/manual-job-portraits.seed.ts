@@ -8,7 +8,10 @@ import path from "node:path";
 
 import type { JobPortraitDetail, ManualJobPortraitRecord } from "@career/contracts/types";
 
-export type ManualJobPortraitSeedInput = Omit<ManualJobPortraitRecord, "created_at" | "updated_at">;
+export type ManualJobPortraitSeedInput = Omit<
+  ManualJobPortraitRecord,
+  "id" | "created_at" | "updated_at"
+>;
 
 const EXPECTED_JOB_PROFILE_COUNT = 10;
 function resolveJobDataDir(): string {
@@ -74,7 +77,6 @@ export function loadManualJobPortraitSeeds(): ManualJobPortraitSeedInput[] {
     const raw = JSON.parse(readFileSync(path.join(jobDataDir, file), "utf8")) as { job?: unknown };
     const profileDetail = assertJobPortraitDetail(raw.job, file);
     return {
-      job_id: null,
       job_name: profileDetail.name,
       category: profileDetail.category,
       profile_detail: profileDetail,

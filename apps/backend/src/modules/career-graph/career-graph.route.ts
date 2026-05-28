@@ -8,7 +8,7 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import {
   careerPathGenerateSchema,
   careerPathQuerySchema,
-  jobIdParamsSchema,
+  portraitIdParamsSchema,
 } from "./career-graph.schemas.js";
 import type { CareerGraphService } from "./career-graph.service.js";
 
@@ -32,13 +32,13 @@ export function createCareerGraphRouter(service: CareerGraphService): Router {
   });
 
   /**
-   * GET /jobs/:job_id
+   * GET /portraits/:portrait_id
    * 查询指定岗位的职业路径图谱，支持深度/关系类型/最低分数筛选。
-   * 先校验路径参数 job_id，再校验查询参数，最后调用 service。
+   * 先校验路径参数 portrait_id，再校验查询参数，最后调用 service。
    */
-  router.get("/jobs/:job_id", async (req, res, next) => {
-    // 校验路径参数：job_id 必须是正整数
-    const paramsParsed = jobIdParamsSchema.safeParse(req.params);
+  router.get("/portraits/:portrait_id", async (req, res, next) => {
+    // 校验路径参数：portrait_id 必须是正整数
+    const paramsParsed = portraitIdParamsSchema.safeParse(req.params);
     if (!paramsParsed.success) {
       return next(
         new HttpError(400, "VALIDATION_ERROR", "岗位参数不合法", paramsParsed.error.flatten()),
@@ -56,7 +56,7 @@ export function createCareerGraphRouter(service: CareerGraphService): Router {
     try {
       // 参数校验通过后，调用 service 查询图谱
       return res.json(
-        await service.getCareerPathGraph(paramsParsed.data.job_id, {
+        await service.getCareerPathGraph(paramsParsed.data.portrait_id, {
           depth: queryParsed.data.depth,
           relation_type: queryParsed.data.relation_type,
           min_score: queryParsed.data.min_score,

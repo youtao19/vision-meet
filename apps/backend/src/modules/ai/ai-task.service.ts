@@ -11,7 +11,6 @@ import type {
   CareerReportRecord,
 } from "@career/contracts/types";
 
-import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { MatchingService } from "../matching/matching.service.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import type { ReportService } from "../report/report.service.js";
@@ -23,7 +22,6 @@ import { runAiTaskAgent } from "./runtime/ai-agent.runtime.js";
 type AiTaskServiceDependencies = {
   aiRepository: AiRepository;
   profileRepository: ProfileRepository;
-  jobsRepository: JobsRepository;
   knowledgeService: KnowledgeService;
   matchingService: MatchingService;
   reportService: ReportService;
@@ -242,10 +240,11 @@ export function createAiTaskService(dependencies: AiTaskServiceDependencies): Ai
     let resolvedModel: string | null = null;
 
     try {
+      const jobName = input.job_name || String(input.job_id);
+
       const piResult = await runAiTaskAgent(
         {
           profileRepository: dependencies.profileRepository,
-          jobsRepository: dependencies.jobsRepository,
           knowledgeService: dependencies.knowledgeService,
           matchingService: dependencies.matchingService,
           reportService: dependencies.reportService,
@@ -257,6 +256,7 @@ export function createAiTaskService(dependencies: AiTaskServiceDependencies): Ai
           deliverables,
           studentProfileId: input.student_profile_id,
           jobId: input.job_id,
+          jobName,
           topK,
           forceRecalculate: Boolean(input.force_recalculate),
           piAgentDir: dependencies.piAgentDir,
@@ -346,13 +346,12 @@ export function createAiTaskService(dependencies: AiTaskServiceDependencies): Ai
         warnings: state.warnings,
       };
 
-      const [profileExists, jobExists] = await Promise.all([
+      const [profileExists] = await Promise.all([
         dependencies.profileRepository.getStudentProfileById(input.student_profile_id),
-        dependencies.jobsRepository.getJobById(input.job_id),
       ]);
 
-      // 失败快照表带有 profile/job 外键。输入本身非法时直接返回原始错误，避免用落库失败掩盖真正原因。
-      if (profileExists && jobExists) {
+      // 失败快照表带有 profile 外键。输入本身非法时直接返回原始错误，避免用落库失败掩盖真正原因。
+      if (profileExists) {
         await dependencies.aiRepository.createTask({
           trace_id: runtime.traceId,
           model: resolvedModel,

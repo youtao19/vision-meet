@@ -18,12 +18,10 @@
     "agent:smoke": "tsx src/scripts/agent-smoke-test.ts",
     "evaluation:manual": "tsx src/scripts/evaluation-manual.ts",
     "knowledge:init": "tsx src/scripts/knowledge-init.ts",
-    "knowledge:index:jobs": "tsx src/scripts/knowledge-index-jobs.ts",
     "knowledge:index:project-docs": "tsx src/scripts/knowledge-index-project-docs.ts",
     "knowledge:export": "tsx src/scripts/knowledge-export.ts",
     "knowledge:eval": "tsx src/scripts/knowledge-evaluate.ts",
     "knowledge:baseline": "tsx src/scripts/knowledge-baseline.ts",
-    "jobs:import-seed": "tsx src/scripts/jobs-import-seed.ts",
     "job-portraits:seed": "tsx src/scripts/manual-job-portraits-seed.ts"
   },
   "dependencies": {

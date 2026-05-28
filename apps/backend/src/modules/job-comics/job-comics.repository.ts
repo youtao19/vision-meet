@@ -28,10 +28,8 @@ function mapManualJobPortrait(row: Record<string, unknown>): ManualJobPortraitRe
     throw new Error(`MANUAL_JOB_PORTRAIT_PROFILE_DETAIL_MISSING:${String(row.job_name)}`);
   }
 
-  const fallbackId = row.fallback_job_id == null ? null : Number(row.fallback_job_id);
-  const resolvedId = row.job_id == null ? fallbackId : Number(row.job_id);
   return {
-    job_id: resolvedId,
+    id: Number(row.id),
     job_name: String(row.job_name),
     category: String(row.category),
     comic_image_url:
@@ -57,12 +55,77 @@ export function createJobComicsRepository(pool: Pool): JobComicsRepository {
         await ensureCareerCoreSchema(pool);
         await pool.query(`
           CREATE TABLE IF NOT EXISTS v2_manual_job_portraits (
-            job_name TEXT PRIMARY KEY,
+            id BIGSERIAL PRIMARY KEY,
+            job_name TEXT NOT NULL UNIQUE,
             category TEXT NOT NULL,
             payload JSONB NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           )
+        `);
+        await pool.query(`
+          CREATE SEQUENCE IF NOT EXISTS v2_manual_job_portraits_id_seq
+        `);
+        await pool.query(`
+          ALTER TABLE v2_manual_job_portraits
+          ADD COLUMN IF NOT EXISTS id BIGINT
+        `);
+        await pool.query(`
+          UPDATE v2_manual_job_portraits
+          SET id = nextval('v2_manual_job_portraits_id_seq')
+          WHERE id IS NULL
+        `);
+        await pool.query(`
+          SELECT setval(
+            'v2_manual_job_portraits_id_seq',
+            GREATEST((SELECT COALESCE(MAX(id), 0) FROM v2_manual_job_portraits), 1),
+            true
+          )
+        `);
+        await pool.query(`
+          ALTER TABLE v2_manual_job_portraits
+          ALTER COLUMN id SET DEFAULT nextval('v2_manual_job_portraits_id_seq')
+        `);
+        await pool.query(`
+          ALTER TABLE v2_manual_job_portraits
+          ALTER COLUMN id SET NOT NULL
+        `);
+        await pool.query(`
+          DO $$
+          DECLARE
+            constraint_name text;
+            primary_columns text[];
+          BEGIN
+            SELECT
+              c.conname,
+              array_agg(a.attname ORDER BY u.ordinality)
+            INTO constraint_name, primary_columns
+            FROM pg_constraint c
+            JOIN unnest(c.conkey) WITH ORDINALITY AS u(attnum, ordinality) ON true
+            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = u.attnum
+            WHERE c.conrelid = 'v2_manual_job_portraits'::regclass
+              AND c.contype = 'p'
+            GROUP BY c.conname
+            LIMIT 1;
+
+            IF constraint_name IS NOT NULL AND primary_columns <> ARRAY['id']::text[] THEN
+              EXECUTE format('ALTER TABLE v2_manual_job_portraits DROP CONSTRAINT %I', constraint_name);
+            END IF;
+
+            IF NOT EXISTS (
+              SELECT 1
+              FROM pg_constraint
+              WHERE conrelid = 'v2_manual_job_portraits'::regclass
+                AND contype = 'p'
+            ) THEN
+              ALTER TABLE v2_manual_job_portraits
+              ADD CONSTRAINT v2_manual_job_portraits_pkey PRIMARY KEY (id);
+            END IF;
+          END $$;
+        `);
+        await pool.query(`
+          CREATE UNIQUE INDEX IF NOT EXISTS v2_manual_job_portraits_job_name_idx
+          ON v2_manual_job_portraits (job_name)
         `);
         await pool.query(`
           CREATE INDEX IF NOT EXISTS v2_manual_job_portraits_category_idx
@@ -79,35 +142,7 @@ export function createJobComicsRepository(pool: Pool): JobComicsRepository {
     await ensureSchema();
     const result = await pool.query(
       `
-        SELECT
-          p.*,
-          (
-            SELECT j.id
-            FROM jobs j
-            WHERE lower(trim(j.title)) = lower(trim(p.job_name))
-            ORDER BY j.id DESC
-            LIMIT 1
-          ) AS fallback_job_id,
-          (
-            SELECT j2.id
-            FROM jobs j2
-            WHERE
-              lower(trim(j2.title)) = lower(trim(p.job_name))
-              OR (
-                regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
-                regexp_replace(lower(trim(p.job_name)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g')
-              )
-              OR (
-                length(j2.title) >= 2 AND (
-                  lower(p.job_name) LIKE '%' || lower(j2.title) || '%'
-                  OR lower(j2.title) LIKE '%' || lower(p.job_name) || '%'
-                )
-              )
-            ORDER BY
-              CASE WHEN lower(trim(j2.title)) = lower(trim(p.job_name)) THEN 0 ELSE 1 END ASC,
-              j2.id DESC
-            LIMIT 1
-          ) AS job_id
+        SELECT p.*
         FROM v2_manual_job_portraits p
         WHERE p.job_name = $1
         LIMIT 1

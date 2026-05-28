@@ -13,7 +13,7 @@ import type {
 
 type ManualGraphNode = {
   id: string;
-  job_id: number;
+  portrait_id: number;
   title: string;
   family: string;
   level: number;
@@ -342,11 +342,9 @@ function tokenize(input: string): string[] {
 }
 
 /**
- * 根据岗位名称生成稳定的（可复现）虚拟 job_id。
- * 用 SHA1 哈希的前 8 位做整数映射，分布在 1_000_000_000 ~ 1_900_000_000 区间。
- * 用于画像中缺少 job_id 时回退生成，保证同名的岗位始终映射到同一个 ID。
+ * 为职业路径中不存在画像记录的虚拟节点生成稳定 ID。
  */
-function stableJobIdFromName(jobName: string): number {
+function stablePortraitIdFromName(jobName: string): number {
   const digest = createHash("sha1").update(jobName).digest("hex").slice(0, 8);
   const parsed = Number.parseInt(digest, 16);
   return 1_000_000_000 + (parsed % 900_000_000);
@@ -422,18 +420,17 @@ function buildNodeSkills(item: ManualJobPortraitRecord): string[] {
 
 /**
  * 将岗位画像转为图谱节点（ManualGraphNode）。
- * job_id 优先级：画像自带 ID > 名称匹配已有 ID > 哈希生成稳定 ID。
+ * portrait_id 优先级：画像表主键 ID > 名称匹配已有 ID > 虚拟节点稳定 ID。
  * summary 由岗位族、描述、核心技能、子行业拼接而成。
  */
 function toGraphNode(
   item: ManualJobPortraitRecord,
-  jobIdByTitle: Map<string, number>,
+  portraitIdByTitle: Map<string, number>,
 ): ManualGraphNode {
-  // 按优先级解析 job_id
-  const resolvedJobId =
-    item.job_id ??
-    jobIdByTitle.get(normalizeText(item.job_name)) ??
-    stableJobIdFromName(item.job_name);
+  const resolvedPortraitId =
+    item.id ??
+    portraitIdByTitle.get(normalizeText(item.job_name)) ??
+    stablePortraitIdFromName(item.job_name);
   const detail = item.profile_detail;
 
   // 构造节点摘要信息
@@ -445,8 +442,8 @@ function toGraphNode(
   ].join("；");
 
   return {
-    id: `job-${resolvedJobId}`,
-    job_id: resolvedJobId,
+    id: `portrait-${resolvedPortraitId}`,
+    portrait_id: resolvedPortraitId,
     title: item.job_name,
     family: normalizeFamily(item.category),
     level: resolvePortraitLevel(item),
@@ -536,12 +533,12 @@ function buildConfirmedPromotionPaths(params: {
 
       let target = nodeByTitle.get(titleKey(step));
       if (!target) {
-        const virtualJobId = stableJobIdFromName(
+        const virtualPortraitId = stablePortraitIdFromName(
           `career-path:${portrait.job_name}:${index}:${step}`,
         );
         target = {
-          id: `job-${virtualJobId}`,
-          job_id: virtualJobId,
+          id: `portrait-${virtualPortraitId}`,
+          portrait_id: virtualPortraitId,
           title: step,
           family: source.family,
           level: clampLevel(index + 1),
@@ -555,7 +552,7 @@ function buildConfirmedPromotionPaths(params: {
       if (previous.id !== target.id) {
         const gapSkills = buildPromotionGapSkills(previous, target);
         edges.push({
-          id: `promotion-${previous.job_id}-${target.job_id}`,
+          id: `promotion-${previous.portrait_id}-${target.portrait_id}`,
           source: previous.id,
           target: target.id,
           relation_type: "promotion",
@@ -683,7 +680,7 @@ function buildConfirmedTransitionEdges(nodes: ManualGraphNode[]): CareerGraphEdg
     const similarity = compareSkills(source.skills, target.skills);
     const gapSkills = uniqueLimited(similarity.gapSkills, 8);
     edges.push({
-      id: `transition-${source.job_id}-${target.job_id}`,
+      id: `transition-${source.portrait_id}-${target.portrait_id}`,
       source: source.id,
       target: target.id,
       relation_type: "transition",
@@ -828,7 +825,7 @@ function supplementTransitionCoverage(params: {
     for (const pair of localCandidates) {
       const score = Math.max(45, Math.round(42 + pair.jaccard * 45 + pair.overlap.length * 3));
       extraEdges.push({
-        id: `transition-${pair.source.job_id}-${pair.target.job_id}`,
+        id: `transition-${pair.source.portrait_id}-${pair.target.portrait_id}`,
         source: pair.source.id,
         target: pair.target.id,
         relation_type: "transition",
@@ -899,7 +896,7 @@ function supplementIsolatedNodes(params: {
       best.sameFamily && best.levelDiff >= 0 ? "promotion" : "transition";
 
     fallbackEdges.push({
-      id: `fallback-${relationType}-${source.job_id}-${best.target.job_id}`,
+      id: `fallback-${relationType}-${source.portrait_id}-${best.target.portrait_id}`,
       source: source.id,
       target: best.target.id,
       relation_type: relationType,
@@ -931,13 +928,13 @@ function supplementIsolatedNodes(params: {
  */
 export function buildCareerGraphFromManualPortraits(params: {
   portraits: ManualJobPortraitRecord[];
-  jobIdByTitle: Map<string, number>;
+  portraitIdByTitle: Map<string, number>;
   options: ManualCareerGraphBuildOptions;
 }): ManualCareerGraphBuildResult {
   const generatedAt = new Date().toISOString();
 
   // 1. 画像 → 图谱节点
-  const baseNodes = params.portraits.map((item) => toGraphNode(item, params.jobIdByTitle));
+  const baseNodes = params.portraits.map((item) => toGraphNode(item, params.portraitIdByTitle));
 
   // 2. 晋升路径
   const promotionGraph = buildConfirmedPromotionPaths({
@@ -955,7 +952,7 @@ export function buildCareerGraphFromManualPortraits(params: {
     const judgements = judgeCandidateByBuiltInAgent(candidate);
     for (const judgement of judgements) {
       edgesFromAgent.push({
-        id: `${judgement.relation_type}-${candidate.source.job_id}-${candidate.target.job_id}`,
+        id: `${judgement.relation_type}-${candidate.source.portrait_id}-${candidate.target.portrait_id}`,
         source: candidate.source.id,
         target: candidate.target.id,
         relation_type: judgement.relation_type,

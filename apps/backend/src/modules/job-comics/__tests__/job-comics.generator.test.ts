@@ -12,6 +12,7 @@ import { buildJobPortraitComicPrompt } from "../job-comics.generator.js";
 
 function buildPortrait(jobName: string, category: string): ManualJobPortraitRecord {
   return {
+    id: 1,
     job_name: jobName,
     category,
     profile_detail: {

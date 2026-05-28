@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
+import * as XLSX from "xlsx";
+
 import type {
   CreateStudentProfileFromResumeRequest,
   KnowledgeEvaluationCaseResult,
@@ -21,7 +23,6 @@ import type {
 import { HttpError } from "../../shared/errors/http-error.js";
 import { buildSha256Digest } from "../../shared/utils/match-fingerprint.js";
 import { resolveRepositoryRoot } from "../../shared/utils/repository-root.js";
-import { parseUploadedJobs } from "../jobs/jobs.importer.js";
 import { getProfileName, getProfileTargetRole } from "../profile/profile.selectors.js";
 import type {
   KnowledgeChunkCreateInput,
@@ -334,16 +335,18 @@ export function createKnowledgeService(
     const relativePath = path.relative(repoRoot, absolutePath);
 
     if (sourceKind === "job_dataset") {
-      const parsed = parseUploadedJobs({
-        originalname: path.basename(absolutePath),
-        buffer: fs.readFileSync(absolutePath),
-      });
+      const workbook = XLSX.read(fs.readFileSync(absolutePath), { type: "buffer" });
+      const sheetName = workbook.SheetNames[0] || "";
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+        workbook.Sheets[sheetName],
+      );
 
-      return parsed.rows.map((row, index) => {
-        const sourceId = `${relativePath}:${row.source_row_id || index + 1}`;
+      return rawRows.map((row, index) => {
+        const title = String(row.title || row.岗位名称 || row.职位名称 || row.职位 || "").trim();
+        const sourceId = `${relativePath}:${index + 1}`;
         return {
           source_id: sourceId,
-          title: row.title,
+          title: title || `岗位数据-${index + 1}`,
           content_text: buildJobDocumentContent(row),
           source_path: relativePath,
           section_path: null,

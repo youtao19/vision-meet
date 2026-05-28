@@ -6,10 +6,10 @@ import { z } from "zod";
 
 /**
  * 岗位 ID 路径参数校验。
- * 从路由参数中提取 job_id，自动转为数字，要求 >= 1。
+ * 从路由参数中提取 portrait_id，自动转为数字，要求 >= 1。
  */
-export const jobIdParamsSchema = z.object({
-  job_id: z.coerce.number().int().min(1),
+export const portraitIdParamsSchema = z.object({
+  portrait_id: z.coerce.number().int().min(1),
 });
 
 /**

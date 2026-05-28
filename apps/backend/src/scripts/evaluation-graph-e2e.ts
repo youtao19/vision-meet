@@ -17,12 +17,12 @@ type CliOptions = {
 };
 
 type SampleJobRow = {
-  job_id: number;
+  portrait_id: number;
   title: string;
 };
 
 type PerJobResult = {
-  job_id: number;
+  portrait_id: number;
   title: string;
   node_count: number;
   edge_count: number;
@@ -108,7 +108,7 @@ function buildMarkdown(params: {
   } else {
     for (const item of params.lowQualityJobs.slice(0, 20)) {
       lines.push(
-        `- job_id=${item.job_id} / 岗位=${item.title} / nodes=${item.node_count} / edges=${item.edge_count} / isolated_ratio=${item.isolated_node_ratio}`,
+        `- portrait_id=${item.portrait_id} / 岗位=${item.title} / nodes=${item.node_count} / edges=${item.edge_count} / isolated_ratio=${item.isolated_node_ratio}`,
       );
     }
   }
@@ -139,16 +139,9 @@ async function main(): Promise<void> {
   try {
     const sampledJobs = await pool.query<SampleJobRow>(
       `
-        SELECT p.job_id, p.title
-        FROM v2_manual_job_portraits m
-        INNER JOIN LATERAL (
-          SELECT j.id AS job_id, j.title
-          FROM jobs j
-          WHERE lower(trim(j.title)) = lower(trim(m.job_name))
-          ORDER BY j.id DESC
-          LIMIT 1
-        ) p ON true
-        ORDER BY p.job_id DESC
+        SELECT id AS portrait_id, job_name AS title
+        FROM v2_manual_job_portraits
+        ORDER BY id DESC
         LIMIT $1
       `,
       [options.sampleSize],
@@ -156,7 +149,7 @@ async function main(): Promise<void> {
 
     const results: PerJobResult[] = [];
     for (const row of sampledJobs.rows) {
-      const snapshot = await graphRepository.getSubgraphByJobId(row.job_id, options.depth);
+      const snapshot = await graphRepository.getSubgraphByPortraitId(row.portrait_id, options.depth);
       const isolatedNodes = snapshot.nodes.filter((node) => {
         const hasAnyEdge = snapshot.edges.some(
           (edge) => edge.source === node.id || edge.target === node.id,
@@ -165,7 +158,7 @@ async function main(): Promise<void> {
       }).length;
 
       results.push({
-        job_id: row.job_id,
+        portrait_id: row.portrait_id,
         title: row.title,
         node_count: snapshot.nodes.length,
         edge_count: snapshot.edges.length,

@@ -2,7 +2,7 @@ import type { ManualJobPortraitRecord } from "@career/contracts/types";
 
 export type ManualJobPortraitUpsertInput = Omit<
   ManualJobPortraitRecord,
-  "created_at" | "updated_at"
+  "id" | "created_at" | "updated_at"
 >;
 
 export interface JobPortraitsRepository {

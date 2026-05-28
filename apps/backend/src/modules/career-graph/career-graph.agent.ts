@@ -43,7 +43,7 @@ const GRAPH_AGENT_TIMEOUT_MS = 120_000;
 
 type AgentGraphNode = {
   id: string;
-  job_id: number;
+  portrait_id: number;
   title: string;
   family: string;
   level: number;
@@ -108,7 +108,7 @@ function buildCompactPortraitInput(portraits: ManualJobPortraitRecord[]): string
       detail.communicationAbility,
     ]);
 
-    return `${i + 1}. ${p.job_name}（${p.category}）L${level} 技能：${skillTokens.join("、")}`;
+    return `${i + 1}. #${p.id} ${p.job_name}（${p.category}）L${level} 技能：${skillTokens.join("、")}`;
   });
 
   return items.join("\n");
@@ -181,14 +181,15 @@ function buildGraphAgentSystemPrompt(): string {
 
 输出格式：{"nodes":[...],"edges":[...]}
 
-nodes 示例：{"id":"job-1","job_id":1,"title":"Java开发","family":"software","level":2,"skills":["Java","Spring","MySQL"],"summary":"负责后端系统开发"}
-edges 示例：{"id":"promotion-1-2","source":"job-1","target":"job-2","relation_type":"promotion","reason":"掌握 Java 后可晋升架构方向","required_skills":["系统设计"],"gap_skills":["分布式"],"transition_cost":"medium","direction_label":"晋升","score":75}
+nodes 示例：{"id":"portrait-1","portrait_id":1,"title":"Java开发","family":"software","level":2,"skills":["Java","Spring","MySQL"],"summary":"负责后端系统开发"}
+edges 示例：{"id":"promotion-1-2","source":"portrait-1","target":"portrait-2","relation_type":"promotion","reason":"掌握 Java 后可晋升架构方向","required_skills":["系统设计"],"gap_skills":["分布式"],"transition_cost":"medium","direction_label":"晋升","score":75}
 
 relation_type 取值：promotion（同族晋升）、transition（跨族换岗）、skill_migration（技能迁移）。
 transition_cost 取值：low/medium/high。direction_label 用中文：晋升/换岗/技能迁移。
 score 范围 1-100。reason 必须中文且含具体技能依据。
 
 约束：
+0. portrait_id 必须使用岗位列表中 # 后面的画像表主键
 1. 每个岗位至少 1 条 promotion 边
 2. 至少 5 个岗位有 transition 边，每个至少 2 条
 3. 禁止 Markdown 包裹`;
@@ -244,8 +245,8 @@ function sanitizeText(input: string | null | undefined): string {
     return "";
   }
   return input
-    .replaceAll(/ /g, "")
-    .replaceAll(/[--]/g, "")
+    .replaceAll(/\u0000/g, "")
+    .replaceAll(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .replaceAll(/\s+/g, " ")
     .trim();
 }
@@ -337,10 +338,10 @@ function validateAndNormalizeAgentOutput(parsed: unknown): AgentGraphOutput {
     if (!item || typeof item !== "object") continue;
 
     const node = item as Partial<AgentGraphNode>;
-    const id = String(node.id || `job-${nodes.length + 1}`);
+    const id = String(node.id || `portrait-${nodes.length + 1}`);
     nodes.push({
       id,
-      job_id: Number.isFinite(node.job_id) ? Number(node.job_id) : nodes.length + 1,
+      portrait_id: Number.isFinite(node.portrait_id) ? Number(node.portrait_id) : nodes.length + 1,
       title: sanitizeText(node.title) || `岗位${nodes.length + 1}`,
       family: sanitizeText(node.family) || "other",
       level: clampLevel(Number(node.level)),

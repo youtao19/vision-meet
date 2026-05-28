@@ -1,7 +1,6 @@
 import type { Router } from "express";
 import type { Pool } from "pg";
 
-import type { JobsRepository } from "../jobs/jobs.repository.js";
 import type { JobComicsService } from "../job-comics/job-comics.service.js";
 import type { KnowledgeService } from "../knowledge/knowledge.service.js";
 import type { MatchingService } from "../matching/matching.service.js";
@@ -23,17 +22,12 @@ export type AiModuleOptions = {
 
 export type AiModuleDependencies = {
   profileRepository: ProfileRepository;
-  jobsRepository: JobsRepository;
   knowledgeService: KnowledgeService;
   matchingService: MatchingService;
   reportService: ReportService;
   jobComicsService?: JobComicsService;
 };
 
-/**
- * 文件作用：装配 AI 中枢模块依赖。
- * 设计说明：该模块是后续统一 AI 能力入口，当前先稳定暴露 `/api/v2/ai`，再逐步把更多能力迁入这一层。
- */
 export function createAiModule(
   dependencies: AiModuleDependencies,
   options: AiModuleOptions,
@@ -42,7 +36,6 @@ export function createAiModule(
   const service = createAiService({
     aiRepository,
     profileRepository: dependencies.profileRepository,
-    jobsRepository: dependencies.jobsRepository,
     knowledgeService: dependencies.knowledgeService,
     matchingService: dependencies.matchingService,
     reportService: dependencies.reportService,

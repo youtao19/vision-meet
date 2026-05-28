@@ -6,8 +6,6 @@ import express from "express";
 import { createAiModule } from "./modules/ai/ai.module.js";
 import { createJobComicsModule } from "./modules/job-comics/job-comics.module.js";
 import { createTtsEngine } from "./modules/pi-tools/tts/tts-factory.js";
-import { createJobsModule } from "./modules/jobs/jobs.module.js";
-import { createJobsRepository } from "./modules/jobs/jobs.repository.js";
 import { createJobPortraitsModule } from "./modules/job-portraits/job-portraits.module.js";
 import { createPgJobPortraitsRepository } from "./modules/job-portraits/job-portraits.repository.pg.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
@@ -37,7 +35,6 @@ export function createApp(): express.Express {
     user: appEnv.PGUSER,
     password: appEnv.PGPASSWORD,
   });
-  const jobsRepository = createJobsRepository(appDataPool);
   const profileRepository = createPgProfileRepository(appDataPool);
   const matchingRepository = createPgMatchingRepository(appDataPool);
   const jobPortraitsRepository = createPgJobPortraitsRepository(appDataPool);
@@ -129,18 +126,11 @@ export function createApp(): express.Express {
   });
 
   app.use(
-    "/api/v2/jobs",
-    createJobsModule({
-      pool: appDataPool,
-    }),
-  );
-  app.use(
     "/api/v2/profile",
     createProfileModule({
       pool: appDataPool,
       env: appEnv,
       cwd: process.cwd(),
-      jobsRepository,
       onResumeProfileCreated: ({ profile, resumeInput }) =>
         knowledgeModule.service.indexResumeProfile({ profile, resumeInput }),
     }),
@@ -173,7 +163,6 @@ export function createApp(): express.Express {
     createAiModule(
       {
         profileRepository,
-        jobsRepository,
         knowledgeService: knowledgeModule.service,
         matchingService,
         reportService,

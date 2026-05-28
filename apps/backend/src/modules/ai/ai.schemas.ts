@@ -7,6 +7,7 @@ import { z } from "zod";
 export const aiTaskCreateSchema = z.object({
   student_profile_id: z.coerce.number().int().min(1),
   job_id: z.coerce.number().int().min(1),
+  job_name: z.string().trim().max(200).optional(),
   objective: z.string().trim().max(200).optional(),
   deliverables: z
     .array(z.enum(["match_analysis", "career_report"]))

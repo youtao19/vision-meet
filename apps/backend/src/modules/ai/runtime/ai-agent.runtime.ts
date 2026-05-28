@@ -54,7 +54,7 @@ export async function runAiTaskAgent(
   options: AiAgentRunOptions,
 ): Promise<AiAgentRunResult> {
   /**
-   * 先读取学生画像。
+   * 读取学生画像。
    * 如果画像不存在，后面的匹配、报告生成都没有基础数据，所以直接抛出 404。
    */
   const profile = await dependencies.profileRepository.getStudentProfileById(
@@ -65,13 +65,9 @@ export async function runAiTaskAgent(
   }
 
   /**
-   * 读取目标岗位。
-   * 岗位不存在时，说明本次职业分析没有目标岗位，也直接终止。
+   * 岗位上下文从任务参数中获取。
+   * jobId 通过 job_name 的稳定哈希生成，不再依赖旧 jobs 表。
    */
-  const job = await dependencies.jobsRepository.getJobById(options.jobId);
-  if (!job) {
-    throw new HttpError(404, "JOB_NOT_FOUND", "目标岗位不存在或已下线");
-  }
 
   /**
    * 准备 Pi Agent 的运行目录。
@@ -149,7 +145,13 @@ export async function runAiTaskAgent(
    */
   const state: AiAgentRuntimeState = {
     profile,
-    job,
+    job: {
+      id: options.jobId,
+      title: options.jobName,
+      company_name: null,
+      location: null,
+      job_description: null,
+    },
     knowledgeHits: [],
     matchResult: null,
     report: null,

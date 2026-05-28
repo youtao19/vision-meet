@@ -24,7 +24,7 @@ export interface CareerGraphRepository {
     snapshot: CareerGraphSnapshot,
   ): Promise<{ nodes_upserted: number; edges_upserted: number }>;
   listGraphTargetNodes(): Promise<CareerGraphNodeRecord[]>;
-  getSubgraphByJobId(jobId: number, depth: number): Promise<CareerGraphSnapshot>;
+  getSubgraphByPortraitId(portraitId: number, depth: number): Promise<CareerGraphSnapshot>;
   close(): Promise<void>;
 }
 
@@ -33,7 +33,7 @@ function mapNode(node: unknown): CareerGraphNodeRecord {
   const properties = (node as { properties: Record<string, unknown> }).properties;
   return {
     id: String(properties.id),
-    job_id: toNeo4jNumber(properties.job_id),
+    portrait_id: toNeo4jNumber(properties.portrait_id),
     title: String(properties.title),
     family: String(properties.family),
     level: Number(properties.level),
@@ -118,7 +118,7 @@ export function createNeo4jCareerGraphRepositoryWithDriver(
           UNWIND $nodes AS node
           MERGE (n:CareerRoleV2 { id: node.id })
           SET
-            n.job_id = node.job_id,
+            n.portrait_id = node.portrait_id,
             n.title = node.title,
             n.family = node.family,
             n.level = node.level,
@@ -162,19 +162,19 @@ export function createNeo4jCareerGraphRepositoryWithDriver(
    * 先通过变长路径匹配找到关联节点，再在这些节点之间查找关系边。
    * depth 参数控制展开层数（1-3），超出范围会被截断。
    */
-  async function getSubgraphByJobId(jobId: number, depth: number): Promise<CareerGraphSnapshot> {
+  async function getSubgraphByPortraitId(portraitId: number, depth: number): Promise<CareerGraphSnapshot> {
     await ensureSchema();
     // 限制 depth 在 [1, 3] 之间，防止查询爆炸
     const normalizedDepth = Math.max(1, Math.min(3, Math.trunc(depth)));
 
     const nodeResult = await driver.executeQuery(
       `
-        MATCH (target:CareerRoleV2 { job_id: $jobId })
+        MATCH (target:CareerRoleV2 { portrait_id: $portraitId })
         MATCH path = (target)-[:CAREER_PATH_V2*0..${normalizedDepth}]-(related:CareerRoleV2)
         UNWIND nodes(path) AS node
         RETURN DISTINCT node
       `,
-      { jobId },
+      { portraitId },
       { routing: neo4j.routing.READ },
     );
 
@@ -230,7 +230,7 @@ export function createNeo4jCareerGraphRepositoryWithDriver(
   return {
     syncGraph,
     listGraphTargetNodes,
-    getSubgraphByJobId,
+    getSubgraphByPortraitId,
     close,
   };
 }
