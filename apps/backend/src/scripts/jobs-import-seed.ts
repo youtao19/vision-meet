@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createPgJobsRepository } from "../modules/jobs/jobs.repository.pg.js";
+import { createJobsRepository } from "../modules/jobs/jobs.repository.js";
 import { createJobsService } from "../modules/jobs/jobs.service.js";
 import { appEnv } from "../shared/config/env.js";
 import { createAppPgPool } from "../shared/db/postgres.js";
@@ -15,7 +15,7 @@ async function main(): Promise<void> {
     user: appEnv.PGUSER,
     password: appEnv.PGPASSWORD,
   });
-  const repository = createPgJobsRepository(pool);
+  const repository = createJobsRepository(pool);
   const service = createJobsService(repository);
 
   try {

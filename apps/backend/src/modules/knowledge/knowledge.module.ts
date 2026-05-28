@@ -1,7 +1,7 @@
 import type { Router } from "express";
 
 import { createKnowledgeRouter } from "./knowledge.route.js";
-import { createPgKnowledgeRepository } from "./knowledge.repository.pg.js";
+import { createKnowledgeRepository } from "./knowledge.repository.js";
 import { createKnowledgeService, type KnowledgeService } from "./knowledge.service.js";
 
 /**
@@ -23,7 +23,7 @@ export type KnowledgeModuleOptions = {
 export function createKnowledgeServiceFromOptions(
   options: KnowledgeModuleOptions,
 ): KnowledgeService {
-  const repository = createPgKnowledgeRepository({
+  const repository = createKnowledgeRepository({
     host: options.host,
     port: options.port,
     database: options.database,

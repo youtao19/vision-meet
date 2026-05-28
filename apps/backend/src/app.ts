@@ -7,7 +7,7 @@ import { createAiModule } from "./modules/ai/ai.module.js";
 import { createJobComicsModule } from "./modules/job-comics/job-comics.module.js";
 import { createTtsEngine } from "./modules/pi-tools/tts/tts-factory.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
-import { createPgJobsRepository } from "./modules/jobs/jobs.repository.pg.js";
+import { createJobsRepository } from "./modules/jobs/jobs.repository.js";
 import { createJobsIntelligenceModule } from "./modules/jobs-intelligence/jobs-intelligence.module.js";
 import { createPgJobsIntelligenceRepository } from "./modules/jobs-intelligence/jobs-intelligence.repository.pg.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
@@ -36,7 +36,7 @@ export function createApp(): express.Express {
     user: appEnv.PGUSER,
     password: appEnv.PGPASSWORD,
   });
-  const jobsRepository = createPgJobsRepository(appDataPool);
+  const jobsRepository = createJobsRepository(appDataPool);
   const profileRepository = createPgProfileRepository(appDataPool);
   const matchingRepository = createPgMatchingRepository(appDataPool);
   const jobsIntelligenceRepository = createPgJobsIntelligenceRepository(appDataPool);

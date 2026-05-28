@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 
 import type { AppEnv } from "../../shared/config/env.js";
 import type { TtsEngine } from "../pi-tools/tts/tts-engine.js";
-import { createPgJobComicsRepository } from "./job-comics.repository.pg.js";
+import { createJobComicsRepository } from "./job-comics.repository.js";
 import { createJobComicsRouter } from "./job-comics.route.js";
 import { createJobComicsService, type JobComicsService } from "./job-comics.service.js";
 
@@ -18,7 +18,7 @@ export function createJobComicsModule(options: {
   cwd: string;
   ttsEngine: TtsEngine;
 }): JobComicsModule {
-  const repository = createPgJobComicsRepository(options.pool);
+  const repository = createJobComicsRepository(options.pool);
   const service = createJobComicsService({
     repository,
     env: options.env,

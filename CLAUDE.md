@@ -28,7 +28,7 @@
 
 - 每个业务域必须放在 `src/modules/<domain>/`。
 - 每个 domain 至少包含：`*.route.ts`、`*.schemas.ts`、`*.service.ts`、`*.repository.ts`。
-- 数据源实现必须通过适配器文件（如 `*.repository.json.ts`、未来 `*.repository.pg.ts`）注入。
+- 默认把仓储接口与当前真实存储实现放在 `*.repository.ts`；只有存在多个真实数据源实现时，才拆 `*.repository.<adapter>.ts`。
 - `route` 层禁止直接访问存储；必须经 `service -> repository`。
 - 确定性业务接口采用 `route -> service -> pi-tools capability -> service -> repository`。
 - 业务前后置、持久化、状态流转写在具体 `service`。
@@ -83,5 +83,7 @@
 - 不要提交密钥或凭证；本地配置放在 `.env`。
 - 必须维护 `apps/backend/.env.example`、`apps/frontend/.env.example`。
 - 配置读取必须集中管理并做校验（建议 zod），禁止业务代码到处直读 `process.env`。
+
+
 
 Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
