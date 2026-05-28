@@ -8,11 +8,6 @@ import {
   jobIdParamsSchema,
   listCanonicalRolesSchema,
   listJobFactsSchema,
-  pipelineListQuerySchema,
-  pipelineRetryProcessSchema,
-  pipelineRetryQueueQuerySchema,
-  pipelineTaskParamsSchema,
-  runPipelineSchema,
 } from "./jobs-intelligence.schemas.js";
 import type { JobsIntelligenceService } from "./jobs-intelligence.service.js";
 
@@ -89,104 +84,6 @@ function toLegacyJobProfile(item: {
  */
 export function createJobsIntelligenceRouter(service: JobsIntelligenceService): Router {
   const router = Router();
-
-  router.post("/jobs/pipeline/run", async (req, res, next) => {
-    const parsed = runPipelineSchema.safeParse(req.body ?? {});
-    if (!parsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "流水线启动参数不合法", parsed.error.flatten()),
-      );
-    }
-
-    try {
-      return res.status(202).json(await service.runPipeline(parsed.data));
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  router.get("/jobs/pipeline/tasks/:task_id", async (req, res, next) => {
-    const parsed = pipelineTaskParamsSchema.safeParse(req.params);
-    if (!parsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", parsed.error.flatten()),
-      );
-    }
-
-    try {
-      return res.json(await service.getPipelineTask(parsed.data.task_id));
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  router.post("/jobs/pipeline/tasks/:task_id/retry", async (req, res, next) => {
-    const parsed = pipelineTaskParamsSchema.safeParse(req.params);
-    if (!parsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", parsed.error.flatten()),
-      );
-    }
-
-    try {
-      return res.status(202).json(await service.retryPipelineTask(parsed.data.task_id));
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  router.get("/jobs/pipeline/tasks/:task_id/failures", async (req, res, next) => {
-    const paramsParsed = pipelineTaskParamsSchema.safeParse(req.params);
-    if (!paramsParsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "任务查询参数不合法", paramsParsed.error.flatten()),
-      );
-    }
-    const queryParsed = pipelineListQuerySchema.safeParse(req.query);
-    if (!queryParsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "分页参数不合法", queryParsed.error.flatten()),
-      );
-    }
-
-    try {
-      return res.json(
-        await service.listPipelineFailures(paramsParsed.data.task_id, queryParsed.data),
-      );
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  router.get("/jobs/pipeline/retry-queue", async (req, res, next) => {
-    const parsed = pipelineRetryQueueQuerySchema.safeParse(req.query);
-    if (!parsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "重试队列查询参数不合法", parsed.error.flatten()),
-      );
-    }
-
-    try {
-      return res.json(await service.listPipelineRetryQueue(parsed.data));
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  router.post("/jobs/pipeline/retry-queue/process", async (req, res, next) => {
-    const parsed = pipelineRetryProcessSchema.safeParse(req.body ?? {});
-    if (!parsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "重试消费参数不合法", parsed.error.flatten()),
-      );
-    }
-
-    try {
-      return res.json(await service.processPipelineRetryQueue(parsed.data));
-    } catch (error) {
-      return next(error);
-    }
-  });
 
   /**
    * 兼容说明：历史前端仍会请求 /api/v2/job-profiles。

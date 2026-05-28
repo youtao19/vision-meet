@@ -26,8 +26,9 @@ import {
   profileSkillNames,
   profileTargetRole,
 } from "@/features/profile/model/profile-selectors";
+import ResumeBuilderPage from "./ResumeBuilderPage.vue";
 
-type InputMode = "resume" | "manual";
+type InputMode = "resume" | "manual" | "resume-builder";
 type SkillCategory = StudentProfileSkill["category"];
 
 const mode = ref<InputMode>("resume");
@@ -433,6 +434,14 @@ onMounted(() => {
             <span class="material-symbols-outlined">edit_note</span>
             表单录入
           </button>
+          <button
+            :class="{ active: mode === 'resume-builder' }"
+            type="button"
+            @click="mode = 'resume-builder'"
+          >
+            <span class="material-symbols-outlined">description</span>
+            简历生成
+          </button>
         </div>
         <button
           class="ghost-btn"
@@ -449,7 +458,9 @@ onMounted(() => {
     <p v-if="uiState.error" class="notice error" role="alert">{{ uiState.error }}</p>
     <p v-if="uiState.success" class="notice success" role="status">{{ uiState.success }}</p>
 
-    <section class="workspace-grid">
+    <ResumeBuilderPage v-if="mode === 'resume-builder'" />
+
+    <section v-else class="workspace-grid">
       <aside class="side-rail">
         <section class="panel create-panel">
           <header class="panel-head">

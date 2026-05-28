@@ -687,7 +687,8 @@ onMounted(() => {
 
 <style scoped>
 .resume-builder-page {
-  min-width: 1120px;
+  width: 100%;
+  min-width: 0;
   display: grid;
   gap: 14px;
 }
@@ -739,7 +740,7 @@ onMounted(() => {
 
 .builder-grid {
   display: grid;
-  grid-template-columns: minmax(680px, 1fr) 400px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
   gap: 14px;
   align-items: start;
 }
@@ -1034,5 +1035,18 @@ textarea {
 .history-list span,
 .history-list small {
   color: var(--glass-muted);
+}
+
+@media (max-width: 1080px) {
+  .page-titlebar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .builder-grid,
+  .field-grid.four,
+  .field-grid.two {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

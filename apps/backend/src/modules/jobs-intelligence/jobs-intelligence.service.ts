@@ -1,17 +1,7 @@
 /**
- * 文件作用：承载岗位智能处理域核心业务逻辑（批处理、画像查询、图谱查询）。
+ * 文件作用：承载岗位智能处理域核心业务逻辑（画像查询、图谱查询）。
  * 设计边界：service 负责业务编排和容错，具体读写由 repository adapter 完成。
  */
-
-import {
-  AuthStorage,
-  createAgentSession,
-  DefaultResourceLoader,
-  ModelRegistry,
-  SessionManager,
-  type AgentSessionEvent,
-} from "@mariozechner/pi-coding-agent";
-import { randomUUID } from "node:crypto";
 
 import type {
   CareerGraphSnapshot,
@@ -24,484 +14,24 @@ import type {
   CareerPathV2GraphResponse,
   CareerRouteRecommendation,
   CareerRouteStep,
-  JobPipelineMode,
-  JobPipelineTaskRecord,
   JobFactsListParams,
   JobFactsListResponse,
   JobFactRecord,
-  JobPipelineFailureListResponse,
-  JobPipelineRetryProcessResult,
-  JobPipelineRetryQueueListResponse,
   ManualJobPortraitRecord,
   PostingProfileFacts,
 } from "@career/contracts/types";
 
 import type { AppEnv } from "../../shared/config/env.js";
 import { HttpError } from "../../shared/errors/http-error.js";
-import { resolvePiRuntimeModelRef } from "../../shared/agent/pi-runtime-config.js";
-import {
-  ensureCompatibleAgentBootstrap,
-  ensureDirectory,
-  resolveDefaultPiAgentDir,
-  summarizeAssistantMessage,
-} from "../ai/runtime/ai-agent.utils.js";
 import {
   CANONICAL_MIN_CONFIDENCE,
-  buildCanonicalRoleProfile,
-  extractPostingProfileFacts,
-  groupPostingFactsByRole,
   isPostingFactEligibleForCanonical,
 } from "./jobs-intelligence.profile.js";
-import { isComputerRelatedCleanedJob } from "./jobs-intelligence.computer-filter.js";
 import { buildCareerGraphFromManualPortraits } from "./jobs-intelligence.graph.manual.js";
 import { generateCareerGraphByAgent } from "./jobs-intelligence.graph.agent.js";
 import { MANUAL_JOB_PORTRAITS_SEED } from "./manual-job-portraits.seed.js";
 import type { JobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
-
-const PIPELINE_PROGRESS_FLUSH_INTERVAL = 50;
-const JOB_PORTRAIT_TARGET_COUNT = 10;
-const JOB_PORTRAIT_AGENT_TIMEOUT_MS = 180000;
-
-type PipelineCleanedJob = {
-  task_id: number;
-  job_id: number;
-  source_row_id: string | null;
-  title: string;
-  normalized_title: string;
-  job_family: string;
-  location: string | null;
-  salary_range: string | null;
-  company_name: string | null;
-  industry: string | null;
-  normalization_confidence: number;
-  keywords: string[];
-  cleaned_text: string;
-  source_payload: Record<string, unknown>;
-};
-
-type PortraitDimension = {
-  level: number;
-  weight: number;
-  description: string;
-};
-
-type AgentPortraitDraft = {
-  job_name: string;
-  category: string;
-  skills: PortraitDimension;
-  certification: PortraitDimension;
-  innovation: PortraitDimension;
-  learning: PortraitDimension;
-  stress: PortraitDimension;
-  communication: PortraitDimension;
-  experience: PortraitDimension;
-};
-
-type AgentPortraitResult = {
-  portraits: AgentPortraitDraft[];
-  model: string | null;
-  traceId: string;
-};
-
-function sanitizePlainText(input: string | null | undefined): string {
-  if (!input) {
-    return "";
-  }
-
-  return input
-    .replaceAll(/\u0000/g, "")
-    .replaceAll(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    .replaceAll(/\s+/g, " ")
-    .trim();
-}
-
-function tokenizeKeywords(input: string): string[] {
-  if (!input) {
-    return [];
-  }
-  return Array.from(
-    new Set(
-      input
-        .toLowerCase()
-        .split(/[^a-z0-9\u4e00-\u9fa5+#]+/g)
-        .map((item) => item.trim())
-        .filter((item) => item.length >= 2),
-    ),
-  ).slice(0, 24);
-}
-
-function buildPipelineCleanedJob(
-  taskId: number,
-  job: {
-    id: number;
-    source_row_id: string | null;
-    title: string;
-    job_description: string | null;
-    company_intro: string | null;
-    normalized_title_hint: string | null;
-    normalized_job_family_hint: string | null;
-    normalization_confidence_hint: number | null;
-    location: string | null;
-    salary_range: string | null;
-    company_name: string | null;
-    industry: string | null;
-    raw_payload: Record<string, unknown>;
-  },
-): PipelineCleanedJob {
-  const normalizedTitle = sanitizePlainText(job.normalized_title_hint || job.title || "未知岗位");
-  const jobFamily = sanitizePlainText(job.normalized_job_family_hint || "other") || "other";
-  const mergedText = sanitizePlainText(
-    [job.title, job.job_description, job.company_intro].filter(Boolean).join("\n"),
-  );
-
-  return {
-    task_id: taskId,
-    job_id: job.id,
-    source_row_id: job.source_row_id,
-    title: sanitizePlainText(job.title),
-    normalized_title: normalizedTitle,
-    job_family: jobFamily,
-    location: sanitizePlainText(job.location),
-    salary_range: sanitizePlainText(job.salary_range),
-    company_name: sanitizePlainText(job.company_name),
-    industry: sanitizePlainText(job.industry),
-    normalization_confidence: Number((job.normalization_confidence_hint ?? 0).toFixed(4)),
-    keywords: tokenizeKeywords(mergedText),
-    cleaned_text: mergedText,
-    source_payload: job.raw_payload ?? {},
-  };
-}
-
-function buildPortraitSeedSummary(cleanedJobs: PipelineCleanedJob[]): string {
-  const familyCounter = new Map<string, number>();
-  const titleCounter = new Map<string, number>();
-  const keywordCounter = new Map<string, number>();
-
-  for (const item of cleanedJobs) {
-    familyCounter.set(item.job_family, (familyCounter.get(item.job_family) ?? 0) + 1);
-    titleCounter.set(item.normalized_title, (titleCounter.get(item.normalized_title) ?? 0) + 1);
-    for (const keyword of item.keywords) {
-      keywordCounter.set(keyword, (keywordCounter.get(keyword) ?? 0) + 1);
-    }
-  }
-
-  const topFamilies = Array.from(familyCounter.entries())
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 20)
-    .map(([name, count]) => ({ name, count }));
-
-  const topTitles = Array.from(titleCounter.entries())
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 50)
-    .map(([name, count]) => ({ name, count }));
-
-  const topKeywords = Array.from(keywordCounter.entries())
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 100)
-    .map(([name, count]) => ({ name, count }));
-
-  return JSON.stringify(
-    {
-      cleaned_total: cleanedJobs.length,
-      top_families: topFamilies,
-      top_titles: topTitles,
-      top_keywords: topKeywords,
-    },
-    null,
-    2,
-  );
-}
-
-function clampPortraitLevel(level: number): number {
-  return Math.max(1, Math.min(5, Math.round(level)));
-}
-
-function clampPortraitWeight(weight: number): number {
-  return Math.max(0, Math.min(1, Number(weight.toFixed(2))));
-}
-
-function toPortraitDimension(input: unknown): PortraitDimension {
-  const source = (
-    input && typeof input === "object" ? (input as Partial<PortraitDimension>) : {}
-  ) as Partial<PortraitDimension>;
-
-  return {
-    level: Number.isFinite(source.level) ? Number(source.level) : 3,
-    weight: Number.isFinite(source.weight) ? Number(source.weight) : 0.14,
-    description: typeof source.description === "string" ? source.description : "待补充",
-  };
-}
-
-function normalizePortraitDraft(item: AgentPortraitDraft): AgentPortraitDraft {
-  const normalizeDimension = (dimension: PortraitDimension): PortraitDimension => {
-    return {
-      level: clampPortraitLevel(dimension.level),
-      weight: clampPortraitWeight(dimension.weight),
-      description: sanitizePlainText(dimension.description),
-    };
-  };
-
-  return {
-    job_name: sanitizePlainText(item.job_name),
-    category: sanitizePlainText(item.category || "other") || "other",
-    skills: normalizeDimension(item.skills),
-    certification: normalizeDimension(item.certification),
-    innovation: normalizeDimension(item.innovation),
-    learning: normalizeDimension(item.learning),
-    stress: normalizeDimension(item.stress),
-    communication: normalizeDimension(item.communication),
-    experience: normalizeDimension(item.experience),
-  };
-}
-
-function extractJsonArrayFromText(rawText: string): string | null {
-  const fenced = rawText.match(/```json\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) {
-    return fenced[1].trim();
-  }
-
-  const start = rawText.indexOf("[");
-  const end = rawText.lastIndexOf("]");
-  if (start < 0 || end <= start) {
-    return null;
-  }
-  return rawText.slice(start, end + 1).trim();
-}
-
-function parsePortraitsFromAgentText(rawText: string): AgentPortraitDraft[] {
-  const jsonArray = extractJsonArrayFromText(rawText);
-  if (!jsonArray) {
-    throw new Error("AGENT_PORTRAIT_JSON_NOT_FOUND");
-  }
-
-  const parsed = JSON.parse(jsonArray) as unknown;
-  if (!Array.isArray(parsed)) {
-    throw new Error("AGENT_PORTRAIT_JSON_INVALID");
-  }
-
-  const portraits: AgentPortraitDraft[] = [];
-  for (const item of parsed) {
-    if (!item || typeof item !== "object") {
-      continue;
-    }
-    const portrait = item as Partial<AgentPortraitDraft>;
-    if (!portrait.job_name || !portrait.skills || !portrait.certification) {
-      continue;
-    }
-
-    portraits.push(
-      normalizePortraitDraft({
-        job_name: String(portrait.job_name),
-        category: String(portrait.category ?? "other"),
-        skills: toPortraitDimension(portrait.skills),
-        certification: toPortraitDimension(portrait.certification),
-        innovation: toPortraitDimension(portrait.innovation),
-        learning: toPortraitDimension(portrait.learning),
-        stress: toPortraitDimension(portrait.stress),
-        communication: toPortraitDimension(portrait.communication),
-        experience: toPortraitDimension(portrait.experience),
-      }),
-    );
-  }
-
-  const dedup = new Map<string, AgentPortraitDraft>();
-  for (const item of portraits) {
-    if (!item.job_name) {
-      continue;
-    }
-    dedup.set(item.job_name, item);
-  }
-
-  return Array.from(dedup.values());
-}
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_resolve, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error(`AGENT_TIMEOUT:${timeoutMs}`));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
-
-/**
- * 作用：基于“全量清洗后岗位统计摘要”调用 Pi Agent，直接产出 10 条岗位画像。
- * 注意：为避免 1W 明细超长输入，这里把全量样本压缩为统计摘要后再交给 Agent 推理。
- */
-async function generateJobPortraitsByAgent(params: {
-  cleanedJobs: PipelineCleanedJob[];
-  env: AppEnv;
-  cwd: string;
-}): Promise<AgentPortraitResult> {
-  const traceId = randomUUID();
-  const piAgentDir = params.env.AGENT_PI_DIR || resolveDefaultPiAgentDir();
-  const sessionStoreDir = params.env.AGENT_SESSION_STORE_DIR;
-  const taskSessionDir = `${sessionStoreDir}/jobs-portraits-runtime/${traceId}`;
-
-  ensureDirectory(piAgentDir);
-  ensureCompatibleAgentBootstrap(piAgentDir);
-  ensureDirectory(taskSessionDir);
-
-  const authStorage = AuthStorage.create(`${piAgentDir}/auth.json`);
-  const modelRegistry = ModelRegistry.create(authStorage, `${piAgentDir}/models.json`);
-  const modelRef = resolvePiRuntimeModelRef(piAgentDir);
-  if (!modelRef) {
-    throw new Error(
-      "AGENT_MODEL_REQUIRED: 请先运行 npm run agent:auth -- login <provider> 或 npm run agent:auth -- use <provider/model>",
-    );
-  }
-
-  const selectedModel = modelRegistry.find(modelRef.provider, modelRef.modelId);
-  if (!selectedModel) {
-    throw new Error(`AGENT_MODEL_NOT_FOUND:${modelRef.raw}`);
-  }
-
-  const resourceLoader = new DefaultResourceLoader({
-    cwd: params.cwd,
-    agentDir: piAgentDir,
-    noExtensions: true,
-    noSkills: true,
-    noPromptTemplates: true,
-    noThemes: true,
-    agentsFilesOverride: () => ({ agentsFiles: [] }),
-    systemPromptOverride: () =>
-      [
-        "你是岗位画像建模专家。",
-        "你必须根据输入的岗位统计数据，输出 10 条岗位画像 JSON 数组，不要输出任何额外文本。",
-        "JSON 数组每个元素必须包含字段：job_name, category, skills, certification, innovation, learning, stress, communication, experience。",
-        "每个维度对象都必须包含 level(1-5), weight(0-1), description(中文)。",
-        "7个维度权重总和必须接近 1，建议精确到 2 位小数。",
-      ].join("\n"),
-  });
-  await resourceLoader.reload();
-
-  const { session } = await createAgentSession({
-    cwd: params.cwd,
-    agentDir: piAgentDir,
-    authStorage,
-    modelRegistry,
-    model: selectedModel,
-    thinkingLevel: params.env.AGENT_THINKING_LEVEL,
-    sessionManager: SessionManager.create(params.cwd, taskSessionDir),
-    resourceLoader,
-    tools: [],
-    customTools: [],
-  });
-
-  const assistantMessages: string[] = [];
-  let streamingAssistantBuffer = "";
-  let lastTurnError = "";
-  const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
-    if (event.type === "message_update") {
-      if (
-        (event.message as { role?: unknown }).role === "assistant" &&
-        event.assistantMessageEvent.type === "text_delta"
-      ) {
-        streamingAssistantBuffer += event.assistantMessageEvent.delta;
-      }
-      return;
-    }
-
-    if (
-      event.type === "message_end" &&
-      (event.message as { role?: unknown }).role === "assistant"
-    ) {
-      const finalText = streamingAssistantBuffer.trim() || summarizeAssistantMessage(event.message);
-      streamingAssistantBuffer = "";
-      if (finalText) {
-        assistantMessages.push(finalText);
-      }
-      return;
-    }
-
-    if (event.type === "turn_end") {
-      const assistantMessage = event.message as {
-        role?: unknown;
-        stopReason?: unknown;
-        errorMessage?: unknown;
-      };
-      if (assistantMessage.role === "assistant" && assistantMessage.stopReason === "error") {
-        lastTurnError = String(assistantMessage.errorMessage || "岗位画像 Agent 执行失败");
-      }
-    }
-  });
-
-  try {
-    const summary = buildPortraitSeedSummary(params.cleanedJobs);
-    const prompt = [
-      `请你基于以下“计算机相关岗位清洗后的统计摘要”生成 ${JOB_PORTRAIT_TARGET_COUNT} 条岗位画像。`,
-      "输出要求：只返回 JSON 数组，禁止 Markdown 包裹，禁止解释。",
-      "画像必须限定在计算机、软件、数据、算法、测试、运维、安全、嵌入式、硬件测试等相关方向。",
-      "category 建议值：software/data/implementation/research/product/operation/design/marketing/other。",
-      "统计摘要如下：",
-      summary,
-    ].join("\n\n");
-
-    await withTimeout(session.prompt(prompt), JOB_PORTRAIT_AGENT_TIMEOUT_MS);
-    if (lastTurnError) {
-      throw new Error(lastTurnError);
-    }
-
-    const rawText = assistantMessages.at(-1)?.trim() || streamingAssistantBuffer.trim();
-    const portraits = parsePortraitsFromAgentText(rawText);
-    if (portraits.length < JOB_PORTRAIT_TARGET_COUNT) {
-      throw new Error(`AGENT_PORTRAIT_COUNT_NOT_ENOUGH:${portraits.length}`);
-    }
-
-    return {
-      portraits: portraits.slice(0, JOB_PORTRAIT_TARGET_COUNT),
-      model: session.model ? `${session.model.provider}/${session.model.id}` : null,
-      traceId,
-    };
-  } finally {
-    unsubscribe();
-    session.dispose();
-  }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-function isRetryableFailure(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("429") ||
-    normalized.includes("too many requests") ||
-    normalized.includes("rate limit") ||
-    normalized.includes("timeout") ||
-    normalized.includes("timed out") ||
-    normalized.includes("econnreset") ||
-    normalized.includes("etimedout") ||
-    normalized.includes("eai_again") ||
-    normalized.includes("502") ||
-    normalized.includes("503") ||
-    normalized.includes("504")
-  );
-}
-
-function computeBackoffDelay(params: { attempt: number; baseMs: number; maxMs: number }): number {
-  const exp = params.baseMs * 2 ** Math.max(0, params.attempt - 1);
-  const jitter = Math.floor(Math.random() * 300);
-  return Math.min(params.maxMs, exp + jitter);
-}
-
-function scaledMinimum(total: number, ratio: number, floor: number): number {
-  return Math.max(floor, Math.ceil(total * ratio));
-}
 
 type CareerPathQueryOptions = {
   depth: number;
@@ -515,16 +45,6 @@ type CareerPathGenerateOptions = {
   /** 是否使用 Agent 推理生成图谱关系，默认 false 走规则引擎 */
   use_agent?: boolean;
 };
-
-function isAuthenticationFailure(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("401 invalid authentication") ||
-    (normalized.includes("401") && normalized.includes("authentication")) ||
-    normalized.includes("invalid api key") ||
-    normalized.includes("unauthorized")
-  );
-}
 
 function uniqueSkills(items: string[]): string[] {
   return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
@@ -548,7 +68,7 @@ type CanonicalGroupingDiagnostics = {
 };
 
 /**
- * 作用：统计 canonical 聚合前的事实漏斗，便于快速定位“为什么画像数量偏少”。
+ * 作用：统计 canonical 聚合前的事实漏斗，便于快速定位"为什么画像数量偏少"。
  * 注意：低置信度与无证据是两类可叠加原因，分别统计并额外给出交集数量。
  */
 function analyzeCanonicalEligibility(
@@ -778,25 +298,10 @@ function normalizeCareerPathTargetName(input: string): string {
     .trim()
     .toLowerCase()
     .replace(/c\/c\+\+/g, "c++")
-    .replace(/[^a-z0-9\u4e00-\u9fa5+#]+/g, "");
+    .replace(/[^a-z0-9一-龥+#]+/g, "");
 }
 
 export interface JobsIntelligenceService {
-  runPipeline(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord>;
-  runPipelineNow(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord>;
-  retryPipelineTask(taskId: number): Promise<JobPipelineTaskRecord>;
-  getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord>;
-  listPipelineFailures(
-    taskId: number,
-    params: { offset: number; limit: number },
-  ): Promise<JobPipelineFailureListResponse>;
-  listPipelineRetryQueue(params: {
-    task_id?: number;
-    status?: "pending" | "processing" | "done" | "failed";
-    offset: number;
-    limit: number;
-  }): Promise<JobPipelineRetryQueueListResponse>;
-  processPipelineRetryQueue(input: { limit: number }): Promise<JobPipelineRetryProcessResult>;
   listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse>;
   getJobFact(jobId: number): Promise<JobFactRecord>;
   listCanonicalRoles(params: CanonicalRolesListParams): Promise<CanonicalRolesListResponse>;
@@ -818,260 +323,6 @@ export function createJobsIntelligenceService(
   graphRepository: JobsIntelligenceGraphRepository,
   env: AppEnv,
 ): JobsIntelligenceService {
-  const runningTaskIds = new Set<number>();
-
-  async function runPipelineTask(
-    taskId: number,
-    mode: JobPipelineMode,
-  ): Promise<JobPipelineTaskRecord> {
-    if (runningTaskIds.has(taskId)) {
-      const existing = await repository.getPipelineTask(taskId);
-      if (!existing) {
-        throw new HttpError(404, "PIPELINE_TASK_NOT_FOUND", "流水线任务不存在");
-      }
-      return existing;
-    }
-    runningTaskIds.add(taskId);
-
-    try {
-      const jobs = await repository.listPipelineJobs(mode);
-      console.info(
-        `[jobs:pipeline] start task_id=${taskId} mode=${mode} total_jobs=${jobs.length}`,
-      );
-      await repository.updatePipelineTask(taskId, {
-        status: "running",
-        started_at: new Date().toISOString(),
-        total_jobs: jobs.length,
-        message: `开始清洗 ${jobs.length} 条岗位数据`,
-      });
-
-      const cleanedJobs = jobs
-        .map((job) => buildPipelineCleanedJob(taskId, job))
-        .filter((job) => isComputerRelatedCleanedJob(job));
-      if (cleanedJobs.length === 0) {
-        throw new Error("COMPUTER_RELATED_JOBS_EMPTY:清洗后没有可用于生成画像的计算机相关岗位");
-      }
-      const normalizedHintHits = cleanedJobs.filter(
-        (item) => item.normalization_confidence > 0 && item.job_family !== "other",
-      ).length;
-
-      if (typeof repository.replacePipelineCleanedJobs === "function") {
-        await repository.replacePipelineCleanedJobs(taskId, cleanedJobs);
-      }
-      await repository.updatePipelineTask(taskId, {
-        processed_jobs: cleanedJobs.length,
-        success_profiles: 0,
-        failed_profiles: 0,
-        message: `清洗完成 ${cleanedJobs.length}/${jobs.length} 条计算机相关岗位，准备调用 Pi Agent 生成 ${JOB_PORTRAIT_TARGET_COUNT} 条岗位画像`,
-      });
-
-      console.info(
-        `[jobs:pipeline] cleaned task_id=${taskId} computer_related=${cleanedJobs.length} total=${jobs.length} normalized_hint=${normalizedHintHits}`,
-      );
-
-      const agentResult = await generateJobPortraitsByAgent({
-        cleanedJobs,
-        env,
-        cwd: process.cwd(),
-      });
-
-      if (typeof repository.replaceAgentJobPortraits === "function") {
-        await repository.replaceAgentJobPortraits(taskId, agentResult.portraits, {
-          source_model: agentResult.model,
-          source_trace_id: agentResult.traceId,
-        });
-      }
-
-      const message = `流水线完成（cleanse->agent-portraits）：computer_related=${cleanedJobs.length}/${jobs.length}，portraits=${agentResult.portraits.length}，model=${agentResult.model || "unknown"}，trace_id=${agentResult.traceId}`;
-      console.info(`[jobs:pipeline] finish task_id=${taskId} ${message}`);
-
-      return repository.updatePipelineTask(taskId, {
-        status: "success",
-        processed_jobs: cleanedJobs.length,
-        success_profiles: agentResult.portraits.length,
-        failed_profiles: 0,
-        graph_nodes: 0,
-        graph_edges: 0,
-        graph_covered_jobs: 0,
-        graph_isolated_ratio: 0,
-        family_count: agentResult.portraits.length,
-        message,
-        error_message: null,
-        finished_at: new Date().toISOString(),
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "流水线执行失败";
-      return repository.updatePipelineTask(taskId, {
-        status: "failed",
-        message: "流水线失败（cleanse->agent-portraits）",
-        error_message: message,
-        finished_at: new Date().toISOString(),
-      });
-    } finally {
-      runningTaskIds.delete(taskId);
-    }
-  }
-
-  async function runPipeline(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord> {
-    const task = await repository.createPipelineTask(input.mode);
-    void runPipelineTask(task.id, input.mode);
-    return task;
-  }
-
-  async function runPipelineNow(input: { mode: JobPipelineMode }): Promise<JobPipelineTaskRecord> {
-    const task = await repository.createPipelineTask(input.mode);
-    return runPipelineTask(task.id, input.mode);
-  }
-
-  /**
-   * 作用：基于历史任务模式发起一次受控重跑。
-   * 参数：taskId 为历史流水线任务 ID。
-   * 返回：新的流水线任务记录（重跑任务）。
-   * 注意：重跑不会复用旧任务 ID，避免覆盖历史审计信息。
-   */
-  async function retryPipelineTask(taskId: number): Promise<JobPipelineTaskRecord> {
-    const existing = await repository.getPipelineTask(taskId);
-    if (!existing) {
-      throw new HttpError(404, "PIPELINE_TASK_NOT_FOUND", "流水线任务不存在");
-    }
-
-    const retryTask = await runPipelineNow({ mode: existing.mode });
-    await repository.updatePipelineTask(retryTask.id, {
-      message: `重跑来源任务：${taskId}`,
-    });
-    const latest = await repository.getPipelineTask(retryTask.id);
-    return latest ?? retryTask;
-  }
-
-  async function getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord> {
-    const task = await repository.getPipelineTask(taskId);
-    if (!task) {
-      throw new HttpError(404, "PIPELINE_TASK_NOT_FOUND", "流水线任务不存在");
-    }
-    return task;
-  }
-
-  async function listPipelineFailures(
-    taskId: number,
-    params: { offset: number; limit: number },
-  ): Promise<JobPipelineFailureListResponse> {
-    if (typeof repository.listPipelineFailures !== "function") {
-      return { total: 0, items: [] };
-    }
-    return repository.listPipelineFailures(taskId, params);
-  }
-
-  async function listPipelineRetryQueue(params: {
-    task_id?: number;
-    status?: "pending" | "processing" | "done" | "failed";
-    offset: number;
-    limit: number;
-  }): Promise<JobPipelineRetryQueueListResponse> {
-    if (typeof repository.listPipelineRetryQueue !== "function") {
-      return {
-        total: 0,
-        items: [],
-        summary: { pending: 0, processing: 0, done: 0, failed: 0, latest_errors: [] },
-      };
-    }
-    return repository.listPipelineRetryQueue(params);
-  }
-
-  /**
-   * 作用：消费重试队列，将可重试任务从 pending 领取到 processing 并执行一次重放。
-   * 参数：limit 为本次最多处理数量。
-   * 返回：本次领取、成功、失败、重新排队数量统计。
-   */
-  async function processPipelineRetryQueue(input: {
-    limit: number;
-  }): Promise<JobPipelineRetryProcessResult> {
-    if (
-      typeof repository.claimPipelineRetryQueue !== "function" ||
-      typeof repository.updatePipelineRetryQueueStatus !== "function"
-    ) {
-      return { claimed: 0, done: 0, failed: 0, rescheduled: 0 };
-    }
-
-    const maxAttempts = Math.max(1, env.JOBS_PIPELINE_RETRY_MAX_ATTEMPTS ?? 3);
-    const retryBaseMs = Math.max(100, env.JOBS_PIPELINE_RETRY_BASE_MS ?? 500);
-    const retryMaxMs = Math.max(retryBaseMs, env.JOBS_PIPELINE_RETRY_MAX_MS ?? 8000);
-
-    const claimedItems = await repository.claimPipelineRetryQueue(input.limit);
-    let done = 0;
-    let failed = 0;
-    let rescheduled = 0;
-
-    for (const item of claimedItems) {
-      const job =
-        typeof repository.getPipelineJobById === "function"
-          ? await repository.getPipelineJobById(item.job_id)
-          : null;
-
-      if (!job) {
-        await repository.updatePipelineRetryQueueStatus({
-          id: item.id,
-          status: "failed",
-          last_error: `JOB_NOT_FOUND:${item.job_id}`,
-        });
-        failed += 1;
-        continue;
-      }
-
-      const normalizationHint = {
-        normalized_title_hint: job.normalized_title_hint,
-        normalized_job_family_hint: job.normalized_job_family_hint,
-        normalization_confidence_hint: job.normalization_confidence_hint,
-      };
-
-      try {
-        const postingFacts = extractPostingProfileFacts(job, normalizationHint);
-        await repository.createJobFacts(postingFacts);
-        await repository.updatePipelineRetryQueueStatus({
-          id: item.id,
-          status: "done",
-          last_error: null,
-        });
-        done += 1;
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        const retryable = isRetryableFailure(reason) && !isAuthenticationFailure(reason);
-        const nextAttempts = item.attempts + 1;
-
-        if (retryable && nextAttempts <= maxAttempts) {
-          const delay = computeBackoffDelay({
-            attempt: nextAttempts,
-            baseMs: retryBaseMs,
-            maxMs: retryMaxMs,
-          });
-          await repository.updatePipelineRetryQueueStatus({
-            id: item.id,
-            status: "pending",
-            attempts: nextAttempts,
-            next_run_at: new Date(Date.now() + delay).toISOString(),
-            last_error: reason.slice(0, 500),
-          });
-          rescheduled += 1;
-          continue;
-        }
-
-        await repository.updatePipelineRetryQueueStatus({
-          id: item.id,
-          status: "failed",
-          attempts: nextAttempts,
-          last_error: reason.slice(0, 500),
-        });
-        failed += 1;
-      }
-    }
-
-    return {
-      claimed: claimedItems.length,
-      done,
-      failed,
-      rescheduled,
-    };
-  }
-
   async function listJobFacts(params: JobFactsListParams): Promise<JobFactsListResponse> {
     return repository.listJobFacts(params);
   }
@@ -1110,7 +361,7 @@ export function createJobsIntelligenceService(
   }
 
   /**
-   * 作用：将“用户指定”的岗位画像种子数据直接写入人工画像表。
+   * 作用：将"用户指定"的岗位画像种子数据直接写入人工画像表。
    * 返回：本次写入条数，便于前端确认入库结果。
    */
   async function seedManualJobPortraits(): Promise<{ seeded: number }> {
@@ -1195,12 +446,14 @@ export function createJobsIntelligenceService(
     }
 
     // ── 规则模式：使用内置规则引擎生成图谱 ──
-    const pipelineJobs = await repository.listPipelineJobs("cleanse_agent_portraits");
+    // 从画像数据构建岗位 ID 映射（画像表已通过 SQL 关联 jobs 表解析 job_id）
     const jobIdByTitle = new Map<string, number>();
-    for (const job of pipelineJobs) {
-      const key = job.title.trim().toLowerCase();
-      if (!jobIdByTitle.has(key)) {
-        jobIdByTitle.set(key, job.id);
+    for (const p of portraits) {
+      if (p.job_id != null) {
+        const key = p.job_name.trim().toLowerCase();
+        if (!jobIdByTitle.has(key)) {
+          jobIdByTitle.set(key, p.job_id);
+        }
       }
     }
 
@@ -1375,13 +628,6 @@ export function createJobsIntelligenceService(
   }
 
   return {
-    runPipeline,
-    runPipelineNow,
-    retryPipelineTask,
-    getPipelineTask,
-    listPipelineFailures,
-    listPipelineRetryQueue,
-    processPipelineRetryQueue,
     listJobFacts,
     getJobFact,
     listCanonicalRoles,

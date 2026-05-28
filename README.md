@@ -85,7 +85,6 @@ npm run dev
 | `npm run knowledge:index:jobs`                                          | 将岗位数据索引进业务知识库命名空间 `career_runtime`。                                |
 | `npm run knowledge:index:project-docs`                                  | 将 `docs/*.md` 索引进内部项目文档命名空间 `internal_project_docs`。                  |
 | `npm run knowledge:eval`                                                | 执行知识检索基线评测。                                                               |
-| `npm run jobs:pipeline:run`                                             | 手动触发岗位智能流水线，处理岗位画像、能力标签等派生数据。                           |
 
 6. 访问地址
 1. 后端健康检查：`http://127.0.0.1:8000/healthz`
@@ -125,9 +124,7 @@ npm run dev
 
 ## V2 新增接口（岗位智能处理闭环）
 
-1. `POST /api/v2/jobs/pipeline/run`：手动触发岗位智能流水线（全量/增量）。
-2. `GET /api/v2/jobs/pipeline/tasks/{task_id}`：查询流水线任务进度与统计。
-3. `GET /api/v2/career-paths/jobs/{job_id}`：查询 V2 自动图谱（晋升 + 换岗）。
+1. `GET /api/v2/career-paths/jobs/{job_id}`：查询 V2 自动图谱（晋升 + 换岗）。
 4. `POST /api/v2/matches`、`GET /api/v2/matches*`：V2 匹配接口（含路径建议和证据引用）。
 5. `POST /api/v2/reports`、`GET /api/v2/reports*`：V2 报告接口（含 `generator_mode` 与结构化行动计划）。
 

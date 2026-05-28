@@ -41,10 +41,6 @@ export type JobRecord = {
   created_at: string;
 };
 
-export type JobPipelineMode = "cleanse_agent_portraits";
-
-export type JobPipelineTaskStatus = "queued" | "running" | "success" | "degraded" | "failed";
-
 export type JobProfileGenerationMode = "agent" | "heuristic";
 
 export type JobProfileV2Record = {
@@ -294,82 +290,6 @@ export type JobFactsListParams = {
 export type JobFactsListResponse = {
   total: number;
   items: JobFactRecord[];
-};
-
-export type JobPipelineRunRequest = {
-  mode?: JobPipelineMode;
-};
-
-export type JobPipelineTaskRecord = {
-  id: number;
-  mode: JobPipelineMode;
-  status: JobPipelineTaskStatus;
-  total_jobs: number;
-  processed_jobs: number;
-  success_profiles: number;
-  failed_profiles: number;
-  graph_nodes: number;
-  graph_edges: number;
-  graph_covered_jobs: number;
-  graph_isolated_ratio: number;
-  family_count: number;
-  message: string | null;
-  error_message: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type JobPipelineFailureRecord = {
-  id: number;
-  task_id: number;
-  job_id: number;
-  stage: string;
-  error_code: string;
-  error_message: string;
-  attempts: number;
-  retryable: boolean;
-  created_at: string;
-};
-
-export type JobPipelineFailureListResponse = {
-  total: number;
-  items: JobPipelineFailureRecord[];
-};
-
-export type JobPipelineRetryQueueRecord = {
-  id: number;
-  task_id: number;
-  job_id: number;
-  stage: string;
-  status: "pending" | "processing" | "done" | "failed";
-  attempts: number;
-  next_run_at: string;
-  last_error: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type JobPipelineRetryQueueSummary = {
-  pending: number;
-  processing: number;
-  done: number;
-  failed: number;
-  latest_errors: string[];
-};
-
-export type JobPipelineRetryQueueListResponse = {
-  total: number;
-  items: JobPipelineRetryQueueRecord[];
-  summary: JobPipelineRetryQueueSummary;
-};
-
-export type JobPipelineRetryProcessResult = {
-  claimed: number;
-  done: number;
-  failed: number;
-  rescheduled: number;
 };
 
 export type JobsListParams = {

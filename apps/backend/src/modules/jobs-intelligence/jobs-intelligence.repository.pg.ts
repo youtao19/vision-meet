@@ -14,11 +14,6 @@ import type {
   CanonicalRolesListResponse,
   JobFactsListParams,
   JobFactsListResponse,
-  JobPipelineFailureListResponse,
-  JobPipelineMode,
-  JobPipelineRetryQueueListResponse,
-  JobPipelineTaskRecord,
-  JobPipelineTaskStatus,
   ManualJobPortraitRecord,
   JobProfileV2Record,
   JobProfilesV2ListParams,
@@ -31,15 +26,9 @@ import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 import type {
   AgentJobPortraitUpsertInput,
   JobFactsCreateInput,
-  PipelineCleanedJobCreateInput,
-  PipelineFailureCreateInput,
-  PipelineRetryQueueClaimRecord,
-  PipelineRetryQueueCreateInput,
   JobProfileV2CreateInput,
   JobsIntelligenceRepository,
   ManualJobPortraitUpsertInput,
-  PipelineJobRecord,
-  PipelineTaskUpdateInput,
 } from "./jobs-intelligence.repository.js";
 
 function mapJob(row: Record<string, unknown>): JobRecord {
@@ -59,40 +48,6 @@ function mapJob(row: Record<string, unknown>): JobRecord {
     company_intro: (row.company_intro as string | null) ?? null,
     raw_payload: (row.raw_payload as Record<string, unknown>) ?? {},
     created_at: new Date(String(row.created_at)).toISOString(),
-  };
-}
-
-function mapPipelineJob(row: Record<string, unknown>): PipelineJobRecord {
-  const base = mapJob(row);
-  return {
-    ...base,
-    normalized_title_hint: (row.normalized_title_hint as string | null) ?? null,
-    normalized_job_family_hint: (row.normalized_job_family_hint as string | null) ?? null,
-    normalization_confidence_hint:
-      row.normalization_confidence_hint == null ? null : Number(row.normalization_confidence_hint),
-  };
-}
-
-function mapPipelineTask(row: Record<string, unknown>): JobPipelineTaskRecord {
-  return {
-    id: Number(row.id),
-    mode: row.mode as JobPipelineMode,
-    status: row.status as JobPipelineTaskStatus,
-    total_jobs: Number(row.total_jobs),
-    processed_jobs: Number(row.processed_jobs),
-    success_profiles: Number(row.success_profiles),
-    failed_profiles: Number(row.failed_profiles),
-    graph_nodes: Number(row.graph_nodes),
-    graph_edges: Number(row.graph_edges),
-    graph_covered_jobs: Number(row.graph_covered_jobs ?? 0),
-    graph_isolated_ratio: Number(row.graph_isolated_ratio ?? 0),
-    family_count: Number(row.family_count),
-    message: (row.message as string | null) ?? null,
-    error_message: (row.error_message as string | null) ?? null,
-    started_at: row.started_at ? new Date(String(row.started_at)).toISOString() : null,
-    finished_at: row.finished_at ? new Date(String(row.finished_at)).toISOString() : null,
-    created_at: new Date(String(row.created_at)).toISOString(),
-    updated_at: new Date(String(row.updated_at)).toISOString(),
   };
 }
 
@@ -274,29 +229,6 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
         await ensureCareerCoreSchema(pool);
 
         await pool.query(`
-          CREATE TABLE IF NOT EXISTS v2_pipeline_tasks (
-            id BIGSERIAL PRIMARY KEY,
-            mode TEXT NOT NULL,
-            status TEXT NOT NULL,
-            total_jobs INTEGER NOT NULL DEFAULT 0,
-            processed_jobs INTEGER NOT NULL DEFAULT 0,
-            success_profiles INTEGER NOT NULL DEFAULT 0,
-            failed_profiles INTEGER NOT NULL DEFAULT 0,
-            graph_nodes INTEGER NOT NULL DEFAULT 0,
-            graph_edges INTEGER NOT NULL DEFAULT 0,
-            graph_covered_jobs INTEGER NOT NULL DEFAULT 0,
-            graph_isolated_ratio DOUBLE PRECISION NOT NULL DEFAULT 0,
-            family_count INTEGER NOT NULL DEFAULT 0,
-            message TEXT,
-            error_message TEXT,
-            started_at TIMESTAMPTZ,
-            finished_at TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-          )
-        `);
-
-        await pool.query(`
           CREATE TABLE IF NOT EXISTS v2_job_profiles (
             id BIGSERIAL PRIMARY KEY,
             job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
@@ -319,15 +251,6 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE (job_id, profile_version)
           )
-        `);
-
-        await pool.query(`
-          ALTER TABLE v2_pipeline_tasks
-          ADD COLUMN IF NOT EXISTS graph_covered_jobs INTEGER NOT NULL DEFAULT 0
-        `);
-        await pool.query(`
-          ALTER TABLE v2_pipeline_tasks
-          ADD COLUMN IF NOT EXISTS graph_isolated_ratio DOUBLE PRECISION NOT NULL DEFAULT 0
         `);
 
         await pool.query(`
@@ -450,303 +373,12 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
           CREATE INDEX IF NOT EXISTS v2_manual_job_portraits_category_idx
           ON v2_manual_job_portraits (category, updated_at DESC)
         `);
-
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS v2_pipeline_cleaned_jobs (
-            id BIGSERIAL PRIMARY KEY,
-            task_id BIGINT NOT NULL REFERENCES v2_pipeline_tasks(id) ON DELETE CASCADE,
-            job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-            source_row_id TEXT,
-            title TEXT NOT NULL,
-            normalized_title TEXT NOT NULL,
-            job_family TEXT NOT NULL,
-            location TEXT,
-            salary_range TEXT,
-            company_name TEXT,
-            industry TEXT,
-            normalization_confidence DOUBLE PRECISION NOT NULL DEFAULT 0,
-            keywords TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
-            cleaned_text TEXT NOT NULL,
-            source_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-          )
-        `);
-
-        await pool.query(`
-          CREATE INDEX IF NOT EXISTS v2_pipeline_cleaned_jobs_task_idx
-          ON v2_pipeline_cleaned_jobs (task_id, job_id)
-        `);
-
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS v2_agent_job_portraits (
-            id BIGSERIAL PRIMARY KEY,
-            task_id BIGINT NOT NULL REFERENCES v2_pipeline_tasks(id) ON DELETE CASCADE,
-            job_name TEXT NOT NULL,
-            category TEXT NOT NULL,
-            payload JSONB NOT NULL,
-            source_model TEXT,
-            source_trace_id TEXT NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            UNIQUE (task_id, job_name)
-          )
-        `);
-
-        await pool.query(`
-          CREATE INDEX IF NOT EXISTS v2_agent_job_portraits_task_idx
-          ON v2_agent_job_portraits (task_id, created_at DESC)
-        `);
-
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS v2_pipeline_failures (
-            id BIGSERIAL PRIMARY KEY,
-            task_id BIGINT NOT NULL REFERENCES v2_pipeline_tasks(id) ON DELETE CASCADE,
-            job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-            stage TEXT NOT NULL,
-            error_code TEXT NOT NULL,
-            error_message TEXT NOT NULL,
-            attempts INTEGER NOT NULL DEFAULT 1,
-            retryable BOOLEAN NOT NULL DEFAULT FALSE,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-          )
-        `);
-
-        await pool.query(`
-          CREATE INDEX IF NOT EXISTS v2_pipeline_failures_task_idx
-          ON v2_pipeline_failures (task_id, created_at DESC)
-        `);
-
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS v2_pipeline_retry_queue (
-            id BIGSERIAL PRIMARY KEY,
-            task_id BIGINT NOT NULL REFERENCES v2_pipeline_tasks(id) ON DELETE CASCADE,
-            job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-            stage TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            attempts INTEGER NOT NULL DEFAULT 1,
-            next_run_at TIMESTAMPTZ NOT NULL,
-            last_error TEXT,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-          )
-        `);
-
-        await pool.query(`
-          CREATE INDEX IF NOT EXISTS v2_pipeline_retry_queue_status_idx
-          ON v2_pipeline_retry_queue (status, next_run_at)
-        `);
-
-        await pool.query(`
-          CREATE UNIQUE INDEX IF NOT EXISTS v2_pipeline_retry_queue_pending_unique_idx
-          ON v2_pipeline_retry_queue (task_id, job_id, stage)
-          WHERE status = 'pending'
-        `);
       })();
     }
 
     return schemaReady;
   }
 
-  async function createPipelineTask(mode: JobPipelineMode): Promise<JobPipelineTaskRecord> {
-    await ensureSchema();
-    const result = await pool.query(
-      `
-        INSERT INTO v2_pipeline_tasks (mode, status)
-        VALUES ($1, 'queued')
-        RETURNING *
-      `,
-      [mode],
-    );
-    return mapPipelineTask(result.rows[0]);
-  }
-
-  async function getPipelineTask(taskId: number): Promise<JobPipelineTaskRecord | null> {
-    await ensureSchema();
-    const result = await pool.query(
-      `
-        SELECT *
-        FROM v2_pipeline_tasks
-        WHERE id = $1
-        LIMIT 1
-      `,
-      [taskId],
-    );
-    return result.rowCount ? mapPipelineTask(result.rows[0]) : null;
-  }
-
-  async function updatePipelineTask(
-    taskId: number,
-    input: PipelineTaskUpdateInput,
-  ): Promise<JobPipelineTaskRecord> {
-    await ensureSchema();
-
-    const result = await pool.query(
-      `
-        UPDATE v2_pipeline_tasks
-        SET
-          status = COALESCE($2, status),
-          total_jobs = COALESCE($3, total_jobs),
-          processed_jobs = COALESCE($4, processed_jobs),
-          success_profiles = COALESCE($5, success_profiles),
-          failed_profiles = COALESCE($6, failed_profiles),
-          graph_nodes = COALESCE($7, graph_nodes),
-          graph_edges = COALESCE($8, graph_edges),
-          graph_covered_jobs = COALESCE($9, graph_covered_jobs),
-          graph_isolated_ratio = COALESCE($10, graph_isolated_ratio),
-          family_count = COALESCE($11, family_count),
-          message = COALESCE($12, message),
-          error_message = COALESCE($13, error_message),
-          started_at = COALESCE($14::timestamptz, started_at),
-          finished_at = COALESCE($15::timestamptz, finished_at),
-          updated_at = NOW()
-        WHERE id = $1
-        RETURNING *
-      `,
-      [
-        taskId,
-        input.status ?? null,
-        input.total_jobs ?? null,
-        input.processed_jobs ?? null,
-        input.success_profiles ?? null,
-        input.failed_profiles ?? null,
-        input.graph_nodes ?? null,
-        input.graph_edges ?? null,
-        input.graph_covered_jobs ?? null,
-        input.graph_isolated_ratio ?? null,
-        input.family_count ?? null,
-        input.message ?? null,
-        input.error_message ?? null,
-        input.started_at ?? null,
-        input.finished_at ?? null,
-      ],
-    );
-
-    if (!result.rowCount) {
-      throw new Error(`PIPELINE_TASK_NOT_FOUND:${taskId}`);
-    }
-    return mapPipelineTask(result.rows[0]);
-  }
-
-  async function listPipelineJobs(mode: JobPipelineMode): Promise<PipelineJobRecord[]> {
-    await ensureSchema();
-
-    const baseSelect = `
-      SELECT
-        j.*,
-        NULL::text AS normalized_title_hint,
-        NULL::text AS normalized_job_family_hint,
-        NULL::double precision AS normalization_confidence_hint
-      FROM jobs j
-    `;
-
-    const result = await pool.query(
-      `
-        ${baseSelect}
-        ORDER BY j.id ASC
-      `,
-    );
-
-    return result.rows.map((row) => mapPipelineJob(row));
-  }
-
-  /**
-   * 作用：按流水线任务批量写入“清洗后岗位数据”。
-   * 注意：同一 task_id 采用覆盖写，保证后续 Agent 输入与任务快照一致。
-   */
-  async function replacePipelineCleanedJobs(
-    taskId: number,
-    input: PipelineCleanedJobCreateInput[],
-  ): Promise<void> {
-    await ensureSchema();
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        `
-          DELETE FROM v2_pipeline_cleaned_jobs
-          WHERE task_id = $1
-        `,
-        [taskId],
-      );
-
-      for (const item of input) {
-        await client.query(
-          `
-            INSERT INTO v2_pipeline_cleaned_jobs (
-              task_id,
-              job_id,
-              source_row_id,
-              title,
-              normalized_title,
-              job_family,
-              location,
-              salary_range,
-              company_name,
-              industry,
-              normalization_confidence,
-              keywords,
-              cleaned_text,
-              source_payload
-            )
-            VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::text[], $13, $14::jsonb
-            )
-          `,
-          [
-            taskId,
-            item.job_id,
-            item.source_row_id,
-            item.title,
-            item.normalized_title,
-            item.job_family,
-            item.location,
-            item.salary_range,
-            item.company_name,
-            item.industry,
-            item.normalization_confidence,
-            item.keywords,
-            item.cleaned_text,
-            JSON.stringify(item.source_payload ?? {}),
-          ],
-        );
-      }
-
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  async function getPipelineJobById(jobId: number): Promise<PipelineJobRecord | null> {
-    await ensureSchema();
-    const result = await pool.query(
-      `
-        SELECT
-          j.*,
-          NULL::text AS normalized_title_hint,
-          NULL::text AS normalized_job_family_hint,
-          NULL::double precision AS normalization_confidence_hint
-        FROM jobs j
-        WHERE j.id = $1
-        LIMIT 1
-      `,
-      [jobId],
-    );
-
-    if (!result.rowCount) {
-      return null;
-    }
-    return mapPipelineJob(result.rows[0]);
-  }
-
-  /**
-   * 作用：写入单条岗位帖事实与字段证据。
-   * 参数：input 为 posting facts 结构化结果。
-   * 注意：该方法只负责持久化，不做事实正确性推断。
-   */
   async function createJobFacts(input: JobFactsCreateInput): Promise<void> {
     await ensureSchema();
     const factResult = await pool.query(
@@ -996,10 +628,6 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     return mapFactRow(row, evidence);
   }
 
-  /**
-   * 作用：删除不在本轮 canonical role_key 集合中的历史画像。
-   * 设计意图：避免“旧分组 + 新分组”并存导致列表出现重复标题的历史残留。
-   */
   async function deleteCanonicalRolesNotInKeys(roleKeys: string[]): Promise<void> {
     await ensureSchema();
 
@@ -1209,7 +837,7 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
         (
           SELECT j2.id
           FROM jobs j2
-          WHERE 
+          WHERE
             lower(trim(j2.title)) = lower(trim(p.job_name))
             OR (
               regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
@@ -1221,7 +849,7 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
                 OR lower(j2.title) LIKE '%' || lower(p.job_name) || '%'
               )
             )
-          ORDER BY 
+          ORDER BY
             CASE WHEN lower(trim(j2.title)) = lower(trim(p.job_name)) THEN 0 ELSE 1 END ASC,
             j2.id DESC
           LIMIT 1
@@ -1250,7 +878,7 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
           (
             SELECT j2.id
             FROM jobs j2
-            WHERE 
+            WHERE
               lower(trim(j2.title)) = lower(trim(p.job_name))
               OR (
                 regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
@@ -1262,7 +890,7 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
                   OR lower(j2.title) LIKE '%' || lower(p.job_name) || '%'
                 )
               )
-            ORDER BY 
+            ORDER BY
               CASE WHEN lower(trim(j2.title)) = lower(trim(p.job_name)) THEN 0 ELSE 1 END ASC,
               j2.id DESC
             LIMIT 1
@@ -1539,255 +1167,7 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     return result.rows.map((row) => mapJob(row));
   }
 
-  async function createPipelineFailure(input: PipelineFailureCreateInput): Promise<void> {
-    await ensureSchema();
-    await pool.query(
-      `
-        INSERT INTO v2_pipeline_failures (
-          task_id,
-          job_id,
-          stage,
-          error_code,
-          error_message,
-          attempts,
-          retryable
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `,
-      [
-        input.task_id,
-        input.job_id,
-        input.stage,
-        input.error_code,
-        input.error_message,
-        input.attempts,
-        input.retryable,
-      ],
-    );
-  }
-
-  async function enqueuePipelineRetry(input: PipelineRetryQueueCreateInput): Promise<void> {
-    await ensureSchema();
-    await pool.query(
-      `
-        INSERT INTO v2_pipeline_retry_queue (
-          task_id,
-          job_id,
-          stage,
-          status,
-          attempts,
-          next_run_at,
-          last_error,
-          updated_at
-        )
-        VALUES ($1, $2, $3, 'pending', $4, $5::timestamptz, $6, NOW())
-        ON CONFLICT DO NOTHING
-      `,
-      [
-        input.task_id,
-        input.job_id,
-        input.stage,
-        input.attempts,
-        input.next_run_at,
-        input.last_error,
-      ],
-    );
-  }
-
-  async function claimPipelineRetryQueue(limit: number): Promise<PipelineRetryQueueClaimRecord[]> {
-    await ensureSchema();
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      const result = await client.query(
-        `
-          WITH claimed AS (
-            SELECT id
-            FROM v2_pipeline_retry_queue
-            WHERE status = 'pending' AND next_run_at <= NOW()
-            ORDER BY next_run_at ASC, id ASC
-            LIMIT $1
-            FOR UPDATE SKIP LOCKED
-          )
-          UPDATE v2_pipeline_retry_queue q
-          SET status = 'processing', updated_at = NOW()
-          FROM claimed
-          WHERE q.id = claimed.id
-          RETURNING q.id, q.task_id, q.job_id, q.stage, q.attempts
-        `,
-        [limit],
-      );
-      await client.query("COMMIT");
-      return result.rows.map((row) => ({
-        id: Number(row.id),
-        task_id: Number(row.task_id),
-        job_id: Number(row.job_id),
-        stage: String(row.stage),
-        attempts: Number(row.attempts),
-      }));
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  async function updatePipelineRetryQueueStatus(params: {
-    id: number;
-    status: "pending" | "processing" | "done" | "failed";
-    attempts?: number;
-    next_run_at?: string;
-    last_error?: string | null;
-  }): Promise<void> {
-    await ensureSchema();
-    await pool.query(
-      `
-        UPDATE v2_pipeline_retry_queue
-        SET
-          status = $2,
-          attempts = COALESCE($3, attempts),
-          next_run_at = COALESCE($4::timestamptz, next_run_at),
-          last_error = COALESCE($5, last_error),
-          updated_at = NOW()
-        WHERE id = $1
-      `,
-      [
-        params.id,
-        params.status,
-        params.attempts ?? null,
-        params.next_run_at ?? null,
-        params.last_error ?? null,
-      ],
-    );
-  }
-
-  async function listPipelineFailures(
-    taskId: number,
-    params: { offset: number; limit: number },
-  ): Promise<JobPipelineFailureListResponse> {
-    await ensureSchema();
-    const [countResult, listResult] = await Promise.all([
-      pool.query(
-        `
-          SELECT COUNT(*)::int AS total
-          FROM v2_pipeline_failures
-          WHERE task_id = $1
-        `,
-        [taskId],
-      ),
-      pool.query(
-        `
-          SELECT *
-          FROM v2_pipeline_failures
-          WHERE task_id = $1
-          ORDER BY created_at DESC
-          OFFSET $2
-          LIMIT $3
-        `,
-        [taskId, params.offset, params.limit],
-      ),
-    ]);
-
-    return {
-      total: Number(countResult.rows[0]?.total ?? 0),
-      items: listResult.rows.map((row) => ({
-        id: Number(row.id),
-        task_id: Number(row.task_id),
-        job_id: Number(row.job_id),
-        stage: String(row.stage),
-        error_code: String(row.error_code),
-        error_message: String(row.error_message),
-        attempts: Number(row.attempts),
-        retryable: Boolean(row.retryable),
-        created_at: new Date(String(row.created_at)).toISOString(),
-      })),
-    };
-  }
-
-  async function listPipelineRetryQueue(params: {
-    task_id?: number;
-    status?: "pending" | "processing" | "done" | "failed";
-    offset: number;
-    limit: number;
-  }): Promise<JobPipelineRetryQueueListResponse> {
-    await ensureSchema();
-    const values: unknown[] = [];
-    const filters: string[] = [];
-
-    if (params.task_id) {
-      values.push(params.task_id);
-      filters.push(`task_id = $${values.length}`);
-    }
-    if (params.status) {
-      values.push(params.status);
-      filters.push(`status = $${values.length}`);
-    }
-
-    const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
-    const [countResult, listResult, summaryResult, errorResult] = await Promise.all([
-      pool.query(`SELECT COUNT(*)::int AS total FROM v2_pipeline_retry_queue ${where}`, values),
-      pool.query(
-        `
-          SELECT *
-          FROM v2_pipeline_retry_queue
-          ${where}
-          ORDER BY created_at DESC
-          OFFSET $${values.length + 1}
-          LIMIT $${values.length + 2}
-        `,
-        [...values, params.offset, params.limit],
-      ),
-      pool.query(`
-        SELECT status, COUNT(*)::int AS count
-        FROM v2_pipeline_retry_queue
-        GROUP BY status
-      `),
-      pool.query(`
-        SELECT last_error
-        FROM v2_pipeline_retry_queue
-        WHERE last_error IS NOT NULL AND last_error <> ''
-        ORDER BY updated_at DESC
-        LIMIT 5
-      `),
-    ]);
-
-    const statusCount = new Map<string, number>();
-    for (const row of summaryResult.rows) {
-      statusCount.set(String(row.status), Number(row.count));
-    }
-
-    return {
-      total: Number(countResult.rows[0]?.total ?? 0),
-      items: listResult.rows.map((row) => ({
-        id: Number(row.id),
-        task_id: Number(row.task_id),
-        job_id: Number(row.job_id),
-        stage: String(row.stage),
-        status: String(row.status) as "pending" | "processing" | "done" | "failed",
-        attempts: Number(row.attempts),
-        next_run_at: new Date(String(row.next_run_at)).toISOString(),
-        last_error: (row.last_error as string | null) ?? null,
-        created_at: new Date(String(row.created_at)).toISOString(),
-        updated_at: new Date(String(row.updated_at)).toISOString(),
-      })),
-      summary: {
-        pending: statusCount.get("pending") ?? 0,
-        processing: statusCount.get("processing") ?? 0,
-        done: statusCount.get("done") ?? 0,
-        failed: statusCount.get("failed") ?? 0,
-        latest_errors: errorResult.rows.map((row) => String(row.last_error)).filter(Boolean),
-      },
-    };
-  }
-
   return {
-    createPipelineTask,
-    getPipelineTask,
-    updatePipelineTask,
-    listPipelineJobs,
-    replacePipelineCleanedJobs,
-    getPipelineJobById,
     createJobFacts,
     listLatestJobFactsForCanonical,
     listJobFacts,
@@ -1806,11 +1186,5 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     listLatestProfiles,
     listLatestProfilesForGraph,
     listJobsByIds,
-    createPipelineFailure,
-    enqueuePipelineRetry,
-    claimPipelineRetryQueue,
-    updatePipelineRetryQueueStatus,
-    listPipelineFailures,
-    listPipelineRetryQueue,
   };
 }

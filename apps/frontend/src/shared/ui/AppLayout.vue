@@ -1,7 +1,7 @@
 <template>
   <div class="app-shell">
     <aside class="sidenav">
-      <RouterLink to="/" class="brand-card" aria-label="返回控制台">
+      <RouterLink to="/profile" class="brand-card" aria-label="返回学生画像">
         <span class="brand-icon material-symbols-outlined">route</span>
         <span class="brand-copy">
           <span class="brand-mark">预见遇见</span>
@@ -65,11 +65,8 @@ import { useRoute } from "vue-router";
 const route = useRoute();
 
 const navItems = [
-  { path: "/", label: "仪表盘", icon: "dashboard" },
-  { path: "/pipeline", label: "数据处理", icon: "hub" },
-  { path: "/profile", label: "学生画像", icon: "person" },
-  { path: "/resume-builder", label: "简历生成", icon: "description" },
   { path: "/job-profiles", label: "岗位画像", icon: "badge" },
+  { path: "/profile", label: "学生画像", icon: "person" },
   { path: "/career-paths", label: "路径图谱", icon: "route" },
   { path: "/matching", label: "匹配分析", icon: "compare_arrows" },
   { path: "/report", label: "职业报告", icon: "analytics" },

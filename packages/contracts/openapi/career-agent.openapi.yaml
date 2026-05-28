@@ -12,28 +12,6 @@ paths:
         "200":
           description: OK
 
-  /api/v2/jobs/pipeline/run:
-    post:
-      summary: Run Jobs Intelligence Pipeline
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                mode:
-                  type: string
-                  enum: [cleanse_agent_portraits]
-                  default: cleanse_agent_portraits
-      responses:
-        "202":
-          description: Pipeline task accepted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobPipelineTaskRecord"
-
   /api/v2/job-portraits/manual:
     get:
       summary: List Manual Job Portraits
@@ -79,84 +57,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v2/jobs/pipeline/tasks/{task_id}:
-    get:
-      summary: Get Jobs Pipeline Task
-      parameters:
-        - in: path
-          name: task_id
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-      responses:
-        "200":
-          description: Pipeline task detail
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobPipelineTaskRecord"
-
-  /api/v2/jobs/pipeline/tasks/{task_id}/failures:
-    get:
-      summary: List Pipeline Task Failures
-      parameters:
-        - in: path
-          name: task_id
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-        - in: query
-          name: offset
-          schema:
-            type: integer
-            default: 0
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 20
-      responses:
-        "200":
-          description: Pipeline task failure list
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobPipelineFailureListResponse"
-
-  /api/v2/jobs/pipeline/retry-queue:
-    get:
-      summary: List Pipeline Retry Queue
-      parameters:
-        - in: query
-          name: task_id
-          schema:
-            type: integer
-            minimum: 1
-        - in: query
-          name: status
-          schema:
-            type: string
-            enum: [pending, processing, done, failed]
-        - in: query
-          name: offset
-          schema:
-            type: integer
-            default: 0
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 20
-      responses:
-        "200":
-          description: Pipeline retry queue list
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/JobPipelineRetryQueueListResponse"
 
   /api/v2/career-paths/targets:
     get:
