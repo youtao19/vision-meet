@@ -1,16 +1,12 @@
 /**
- * 文件作用：验证岗位智能核心服务在 canonical 产物约束下的正确性。
+ * 文件作用：验证人工岗位画像服务的正确性。
  * 职责边界：该测试使用内存桩，不依赖数据库或外部 Agent。
  */
 
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import type {
-  ManualJobPortraitRecord,
-  JobProfileV2Record,
-  JobRecord,
-} from "@career/contracts/types";
+import type { ManualJobPortraitRecord } from "@career/contracts/types";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
 import { createJobsIntelligenceService } from "../jobs-intelligence.service.js";
@@ -66,228 +62,57 @@ function buildManualPortrait(
   };
 }
 
-test("listCanonicalRoles: 应返回标准岗位分页结果", async () => {
-  const expected = {
-    total: 1,
-    items: [
-      {
-        role_key: "frontend_engineering|前端开发工程师|L2",
-        canonical_version: 1,
-        content_hash: "test-hash-1",
-        normalized_title: "前端开发工程师",
-        job_family: "frontend_engineering",
-        level_band: "L2",
-        sample_size: 26,
-        core_required_skills: ["javascript", "typescript"],
-        common_required_skills: ["vue"],
-        bonus_required_skills: [],
-        core_tools: ["git"],
-        soft_skills: ["沟通"],
-        representative_responsibilities: ["负责前端页面开发"],
-        summary_version: "v1" as const,
-        summary: {
-          role_overview: "前端开发工程师负责页面与交互实现。",
-          core_responsibilities: ["负责前端页面开发"],
-          core_requirements: ["javascript", "typescript"],
-          bonus_items: ["vue"],
-          entry_path: ["完成基础项目"],
-          development_directions: ["前端骨干"],
-        },
-        confidence: 0.82,
-        updated_at: new Date().toISOString(),
-      },
-    ],
-  };
+test("listManualJobPortraits: 应返回人工岗位画像列表", async () => {
+  const expected = [
+    buildManualPortrait("前端开发工程师", "frontend", ["JavaScript", "TypeScript"]),
+    buildManualPortrait("后端开发工程师", "backend", ["Java", "SQL"]),
+  ];
 
   const repository: JobsIntelligenceRepository = {
-    async createJobFacts() {},
-    async listLatestJobFactsForCanonical() {
-      return [];
-    },
-    async upsertCanonicalRoleProfile() {},
-    async listCanonicalRoles() {
-      return expected;
-    },
-    async getCanonicalRoleByKey() {
-      return null;
-    },
-    async listJobFacts() {
-      return { total: 0, items: [] };
-    },
-    async getLatestJobFactByJobId() {
-      return null;
-    },
-    async getLatestProfileByJobId() {
-      return null;
-    },
-    async createJobProfile() {
-      throw new Error("not used");
-    },
-    async listLatestProfiles() {
-      return { total: 0, items: [] };
+    listManualJobPortraits() {
+      return Promise.resolve(expected);
     },
   };
 
   const service = createJobsIntelligenceService(repository);
-  const result = await service.listCanonicalRoles({ offset: 0, limit: 20 });
-  assert.equal(result.total, 1);
-  assert.equal(result.items[0]?.role_key, "frontend_engineering|前端开发工程师|L2");
+  const result = await service.listManualJobPortraits();
+  assert.equal(result.length, 2);
+  assert.equal(result[0]?.job_name, "前端开发工程师");
+  assert.equal(result[1]?.job_name, "后端开发工程师");
 });
 
-test("listJobFacts: 应返回抽取层分页结果", async () => {
-  const expected = {
-    total: 1,
-    items: [
-      {
-        job_id: 100,
-        normalized_title: "数据分析师",
-        job_family: "data_analyst",
-        job_level: 2,
-        responsibilities: ["负责数据分析"],
-        required_skills: ["sql"],
-        preferred_skills: [],
-        tools: ["excel"],
-        certificates: [],
-        education_requirement: "本科",
-        experience_requirement: "2年",
-        soft_skills: ["沟通"],
-        industry_context: ["互联网"],
-        evidence: [{ field: "required_skills" as const, text: "熟悉 SQL", source: "job_description" as const }],
-        confidence: 0.8,
-      },
-    ],
-  };
-
-  const repository: JobsIntelligenceRepository = {
-    async createJobFacts() {},
-    async listLatestJobFactsForCanonical() {
-      return [];
-    },
-    async upsertCanonicalRoleProfile() {},
-    async listCanonicalRoles() {
-      return { total: 0, items: [] };
-    },
-    async getCanonicalRoleByKey() {
-      return null;
-    },
-    async listJobFacts() {
-      return expected;
-    },
-    async getLatestJobFactByJobId() {
-      return null;
-    },
-    async getLatestProfileByJobId() {
-      return null;
-    },
-    async createJobProfile() {
-      throw new Error("not used");
-    },
-    async listLatestProfiles() {
-      return { total: 0, items: [] };
-    },
-  };
+test("listManualJobPortraits: 仓储未实现时应返回 501", async () => {
+  const repository: JobsIntelligenceRepository = {};
 
   const service = createJobsIntelligenceService(repository);
-  const result = await service.listJobFacts({ offset: 0, limit: 20 });
-  assert.equal(result.total, 1);
-  assert.equal(result.items[0]?.job_id, 100);
-});
-
-test("getJobFact: 目标岗位事实不存在时应返回404", async () => {
-  const repository: JobsIntelligenceRepository = {
-    async createJobFacts() {},
-    async listLatestJobFactsForCanonical() {
-      return [];
-    },
-    async listJobFacts() {
-      return { total: 0, items: [] };
-    },
-    async getLatestJobFactByJobId() {
-      return null;
-    },
-    async upsertCanonicalRoleProfile() {},
-    async listCanonicalRoles() {
-      return { total: 0, items: [] };
-    },
-    async getCanonicalRoleByKey() {
-      return null;
-    },
-    async getLatestProfileByJobId() {
-      return null;
-    },
-    async createJobProfile() {
-      throw new Error("not used");
-    },
-    async listLatestProfiles() {
-      return { total: 0, items: [] };
-    },
-  };
-
   await assert.rejects(
-    async () => createJobsIntelligenceService(repository).getJobFact(100),
-    (error: unknown) => error instanceof HttpError && error.status === 404,
+    () => service.listManualJobPortraits(),
+    (error: unknown) => error instanceof HttpError && error.status === 501,
   );
 });
 
-test("getCanonicalRole: 应返回标准岗位详情", async () => {
-  const expectedRoleKey = "frontend_engineering|前端开发工程师|L2";
+test("seedManualJobPortraits: 应写入种子数据并返回计数", async () => {
+  let replaced = false;
+
   const repository: JobsIntelligenceRepository = {
-    async createJobFacts() {},
-    async listLatestJobFactsForCanonical() {
-      return [];
-    },
-    async listJobFacts() {
-      return { total: 0, items: [] };
-    },
-    async getLatestJobFactByJobId() {
-      return null;
-    },
-    async upsertCanonicalRoleProfile() {},
-    async listCanonicalRoles() {
-      return { total: 0, items: [] };
-    },
-    async getCanonicalRoleByKey(roleKey: string) {
-      if (roleKey !== expectedRoleKey) {
-        return null;
-      }
-      return {
-        role_key: expectedRoleKey,
-        canonical_version: 1,
-        content_hash: "test-hash-2",
-        normalized_title: "前端开发工程师",
-        job_family: "frontend_engineering",
-        level_band: "L2",
-        sample_size: 12,
-        core_required_skills: ["javascript"],
-        common_required_skills: ["vue"],
-        bonus_required_skills: [],
-        core_tools: ["git"],
-        soft_skills: ["沟通"],
-        representative_responsibilities: ["负责页面开发"],
-        summary_version: "v1" as const,
-        summary: {
-          role_overview: "前端开发工程师负责页面与交互实现。",
-          core_responsibilities: ["负责页面开发"],
-          core_requirements: ["javascript"],
-          bonus_items: ["vue"],
-          entry_path: ["完成基础项目"],
-          development_directions: ["前端骨干"],
-        },
-        confidence: 0.82,
-        updated_at: new Date().toISOString(),
-      };
-    },
-    async getLatestProfileByJobId() {
-      return null;
-    },
-    async createJobProfile() {
-      throw new Error("not used");
-    },
-    async listLatestProfiles() {
-      return { total: 0, items: [] };
+    async replaceManualJobPortraits() {
+      replaced = true;
     },
   };
 
-  const result = await createJobsIntelligenceService(repository).getCanonicalRole(expectedRoleKey);
-  assert.equal(result.role_key, expectedRoleKey);
+  const service = createJobsIntelligenceService(repository);
+  const result = await service.seedManualJobPortraits();
+  assert.equal(typeof result.seeded, "number");
+  assert.ok(result.seeded > 0);
+  assert.ok(replaced);
+});
+
+test("seedManualJobPortraits: 仓储未实现时应返回 501", async () => {
+  const repository: JobsIntelligenceRepository = {};
+
+  const service = createJobsIntelligenceService(repository);
+  await assert.rejects(
+    () => service.seedManualJobPortraits(),
+    (error: unknown) => error instanceof HttpError && error.status === 501,
+  );
 });

@@ -77,58 +77,6 @@ export type JobProfilesV2ListResponse = {
   items: JobProfileV2Record[];
 };
 
-export type CanonicalRoleRecord = {
-  role_key: string;
-  canonical_version: number;
-  content_hash: string;
-  normalized_title: string;
-  job_family: string;
-  level_band: string;
-  sample_size: number;
-  core_required_skills: string[];
-  common_required_skills: string[];
-  bonus_required_skills: string[];
-  core_tools: string[];
-  soft_skills: string[];
-  representative_responsibilities: string[];
-  summary_version: "v1";
-  summary: CanonicalRoleSummary;
-  confidence: number;
-  updated_at: string;
-};
-
-export type CanonicalRoleSummary = {
-  role_overview: string;
-  core_responsibilities: string[];
-  core_requirements: string[];
-  bonus_items: string[];
-  entry_path: string[];
-  development_directions: string[];
-};
-
-export type CanonicalRoleProfileDraft = Omit<CanonicalRoleRecord, "updated_at">;
-
-export type CanonicalRoleVersionRecord = {
-  role_key: string;
-  canonical_version: number;
-  content_hash: string;
-  payload: CanonicalRoleProfileDraft;
-  created_at: string;
-};
-
-export type CanonicalRolesListParams = {
-  keyword?: string;
-  job_family?: string;
-  level_band?: string;
-  offset: number;
-  limit: number;
-};
-
-export type CanonicalRolesListResponse = {
-  total: number;
-  items: CanonicalRoleRecord[];
-};
-
 export type JobPortraitSubIndustry = {
   industry: string;
   description: string;
@@ -215,41 +163,6 @@ export type GeneratePictureBookResponse = {
   pages: PictureBookPage[];
 };
 
-export type PostingEvidenceRecord = {
-  field:
-    | "required_skills"
-    | "preferred_skills"
-    | "tools"
-    | "certificates"
-    | "education_requirement"
-    | "experience_requirement"
-    | "soft_skills";
-  text: string;
-  source: "job_description" | "title" | "company_intro";
-};
-
-export type PostingEvidenceField = PostingEvidenceRecord["field"];
-
-export type JobFactRecord = {
-  job_id: number;
-  normalized_title: string;
-  job_family: string;
-  job_level: number;
-  responsibilities: string[];
-  required_skills: string[];
-  preferred_skills: string[];
-  tools: string[];
-  certificates: string[];
-  education_requirement: string;
-  experience_requirement: string;
-  soft_skills: string[];
-  industry_context: string[];
-  evidence: PostingEvidenceRecord[];
-  confidence: number;
-};
-
-export type PostingProfileFacts = JobFactRecord;
-
 export type CareerGraphNodeRecord = {
   id: string;
   job_id: number;
@@ -278,18 +191,6 @@ export type CareerGraphSnapshot = {
   generated_at: string;
   nodes: CareerGraphNodeRecord[];
   edges: CareerGraphEdgeRecord[];
-};
-
-export type JobFactsListParams = {
-  keyword?: string;
-  job_family?: string;
-  offset: number;
-  limit: number;
-};
-
-export type JobFactsListResponse = {
-  total: number;
-  items: JobFactRecord[];
 };
 
 export type JobsListParams = {
