@@ -3,8 +3,6 @@ import { Router } from "express";
 import { HttpError } from "../../shared/errors/http-error.js";
 import {
   canonicalRoleParamsSchema,
-  careerPathGenerateSchema,
-  careerPathQuerySchema,
   jobIdParamsSchema,
   listCanonicalRolesSchema,
   listJobFactsSchema,
@@ -181,57 +179,6 @@ export function createJobsIntelligenceRouter(service: JobsIntelligenceService): 
 
     try {
       return res.json(await service.getJobFact(parsed.data.job_id));
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  router.get("/career-paths/targets", async (_req, res, next) => {
-    try {
-      return res.json(await service.listCareerPathTargets());
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  router.get("/career-paths/jobs/:job_id", async (req, res, next) => {
-    const paramsParsed = jobIdParamsSchema.safeParse(req.params);
-    if (!paramsParsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "岗位参数不合法", paramsParsed.error.flatten()),
-      );
-    }
-
-    const queryParsed = careerPathQuerySchema.safeParse(req.query);
-    if (!queryParsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "图谱查询参数不合法", queryParsed.error.flatten()),
-      );
-    }
-
-    try {
-      return res.json(
-        await service.getCareerPathGraph(paramsParsed.data.job_id, {
-          depth: queryParsed.data.depth,
-          relation_type: queryParsed.data.relation_type,
-          min_score: queryParsed.data.min_score,
-        }),
-      );
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  router.post("/career-paths/generate", async (req, res, next) => {
-    const parsed = careerPathGenerateSchema.safeParse(req.body ?? {});
-    if (!parsed.success) {
-      return next(
-        new HttpError(400, "VALIDATION_ERROR", "图谱生成参数不合法", parsed.error.flatten()),
-      );
-    }
-
-    try {
-      return res.json(await service.generateCareerPathGraph(parsed.data));
     } catch (error) {
       return next(error);
     }

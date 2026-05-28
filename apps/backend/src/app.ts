@@ -11,6 +11,7 @@ import { createJobsRepository } from "./modules/jobs/jobs.repository.js";
 import { createJobsIntelligenceModule } from "./modules/jobs-intelligence/jobs-intelligence.module.js";
 import { createPgJobsIntelligenceRepository } from "./modules/jobs-intelligence/jobs-intelligence.repository.pg.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
+import { createCareerGraphModule } from "./modules/career-graph/career-graph.module.js";
 import { createMatchingRouter } from "./modules/matching/matching.route.js";
 import { createPgMatchingRepository } from "./modules/matching/matching.repository.pg.js";
 import { createMatchingServiceFromDependencies } from "./modules/matching/matching.module.js";
@@ -148,6 +149,12 @@ export function createApp(): express.Express {
   app.use(
     "/api/v2",
     createJobsIntelligenceModule({
+      pool: appDataPool,
+    }),
+  );
+  app.use(
+    "/api/v2/career-paths",
+    createCareerGraphModule({
       pool: appDataPool,
       neo4j: {
         uri: appEnv.NEO4J_URI,

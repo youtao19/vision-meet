@@ -311,14 +311,20 @@ const CONFIRMED_TRANSITION_PATHS: ConfirmedTransitionPath[] = [
   },
 ];
 
+/** 统一文本格式：去首尾空白、转小写、合并连续空格 */
 function normalizeText(input: string): string {
   return input.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+/** 标准化岗位族名称：小写 + 下划线，默认值 other */
 function normalizeFamily(input: string): string {
   return normalizeText(input || "other").replace(/\s+/g, "_");
 }
 
+/**
+ * 中文分词：按非字母数字/非中文字符分割，去重，过滤单字词。
+ * 用于从岗位描述的多个字段中提取有意义的技能关键词。
+ */
 function tokenize(input: string): string[] {
   if (!input) {
     return [];
@@ -328,24 +334,30 @@ function tokenize(input: string): string[] {
     new Set(
       input
         .toLowerCase()
-        .split(/[^a-z0-9\u4e00-\u9fa5+#]+/g)
+        .split(/[^a-z0-9一-龥+#]+/g)
         .map((item) => item.trim())
         .filter((item) => item.length >= 2),
     ),
   );
 }
 
+/**
+ * 根据岗位名称生成稳定的（可复现）虚拟 job_id。
+ * 用 SHA1 哈希的前 8 位做整数映射，分布在 1_000_000_000 ~ 1_900_000_000 区间。
+ * 用于画像中缺少 job_id 时回退生成，保证同名的岗位始终映射到同一个 ID。
+ */
 function stableJobIdFromName(jobName: string): number {
   const digest = createHash("sha1").update(jobName).digest("hex").slice(0, 8);
   const parsed = Number.parseInt(digest, 16);
-  // 保留在 2e9 以内，避免超出 PostgreSQL integer 或前端处理边界。
   return 1_000_000_000 + (parsed % 900_000_000);
 }
 
+/** 去重并限制列表长度为上限值 */
 function uniqueLimited(items: string[], limit: number): string[] {
   return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean))).slice(0, limit);
 }
 
+/** 将职级数值限制在 [1, 5] 的合法区间内，非法值默认返回 2 */
 function clampLevel(value: number): number {
   if (!Number.isFinite(value)) {
     return 2;
@@ -353,6 +365,7 @@ function clampLevel(value: number): number {
   return Math.max(1, Math.min(5, Math.round(value)));
 }
 
+/** 将中文职级描述转为数值（极高=5, 高=4, 中=3, 低=2，默认 3） */
 function textLevelToNumber(value: string): number {
   if (value.includes("极高")) return 5;
   if (value.includes("高")) return 4;
@@ -361,6 +374,11 @@ function textLevelToNumber(value: string): number {
   return 3;
 }
 
+/**
+ * 从岗位画像中解析综合职级。
+ * 加权算法：学习能力 25% + 创新能力 20% + 抗压能力 20% + 沟通能力 15% + 技能数量 20%。
+ * 其中技能数量按每 4 个技能升一级，上限 5 级。
+ */
 function resolvePortraitLevel(item: ManualJobPortraitRecord): number {
   const detail = item.profile_detail;
   const weighted =
@@ -373,6 +391,11 @@ function resolvePortraitLevel(item: ManualJobPortraitRecord): number {
   return clampLevel(weighted);
 }
 
+/**
+ * 从岗位画像中提取技能关键词。
+ * 聚合字段包括岗位名称、类别、描述、实习建议、技能、软技能、证书、子行业信息。
+ * 最终去重后保留最多 18 个词。
+ */
 function buildNodeSkills(item: ManualJobPortraitRecord): string[] {
   const detail = item.profile_detail;
   const tokens = tokenize(
@@ -397,16 +420,23 @@ function buildNodeSkills(item: ManualJobPortraitRecord): string[] {
   return uniqueLimited(tokens, 18);
 }
 
+/**
+ * 将岗位画像转为图谱节点（ManualGraphNode）。
+ * job_id 优先级：画像自带 ID > 名称匹配已有 ID > 哈希生成稳定 ID。
+ * summary 由岗位族、描述、核心技能、子行业拼接而成。
+ */
 function toGraphNode(
   item: ManualJobPortraitRecord,
   jobIdByTitle: Map<string, number>,
 ): ManualGraphNode {
+  // 按优先级解析 job_id
   const resolvedJobId =
     item.job_id ??
     jobIdByTitle.get(normalizeText(item.job_name)) ??
     stableJobIdFromName(item.job_name);
   const detail = item.profile_detail;
 
+  // 构造节点摘要信息
   const summary = [
     `岗位族：${item.category}`,
     `岗位描述：${detail.description}`,
@@ -425,10 +455,12 @@ function toGraphNode(
   };
 }
 
+/** 标题去空格后转小写格式，用作 Map 键值 */
 function titleKey(title: string): string {
   return normalizeText(title).replace(/\s+/g, "");
 }
 
+/** 按标题去重（保留首次出现顺序），忽略空字符串 */
 function uniqueByTitle(items: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -447,6 +479,7 @@ function uniqueByTitle(items: string[]): string[] {
   return result;
 }
 
+/** 以标题为键建立节点索引 Map，用于快速查找 */
 function buildNodeIndex(nodes: ManualGraphNode[]): Map<string, ManualGraphNode> {
   const map = new Map<string, ManualGraphNode>();
   for (const node of nodes) {
@@ -455,6 +488,10 @@ function buildNodeIndex(nodes: ManualGraphNode[]): Map<string, ManualGraphNode> 
   return map;
 }
 
+/**
+ * 计算晋升路径下的技能差距。
+ * 取目标节点有但源节点没有的技能；如果目标没有额外技能，则返回默认的待提升能力。
+ */
 function buildPromotionGapSkills(source: ManualGraphNode, target: ManualGraphNode): string[] {
   const sourceSkillSet = new Set(source.skills.map((item) => normalizeText(item)));
   const gapSkills = target.skills.filter((item) => !sourceSkillSet.has(normalizeText(item)));
@@ -462,9 +499,15 @@ function buildPromotionGapSkills(source: ManualGraphNode, target: ManualGraphNod
     return uniqueLimited(gapSkills, 8);
   }
 
+  // 兜底：当技能完全覆盖时，使用通用的晋升 gap
   return uniqueLimited(["复杂项目经验", "系统设计能力", "跨团队协作"], 8);
 }
 
+/**
+ * 根据画像中的 careerPath 构建已确认的晋升路径边。
+ * 遍历每个画像的职业路径，从当前岗位出发依次链接后续晋升阶段。
+ * 如果路径中的晋升目标岗位尚未在节点列表中，则自动创建虚拟节点。
+ */
 function buildConfirmedPromotionPaths(params: {
   baseNodes: ManualGraphNode[];
   portraits: ManualJobPortraitRecord[];
@@ -532,6 +575,10 @@ function buildConfirmedPromotionPaths(params: {
   return { nodes, edges };
 }
 
+/**
+ * 比较两组技能列表，计算重叠项、Jaccard 相似度、目标端额外技能（gap）。
+ * 所有技能先标准化再比较，避免大小写/空格差异影响结果。
+ */
 function compareSkills(
   sourceSkills: string[],
   targetSkills: string[],
@@ -540,10 +587,14 @@ function compareSkills(
   jaccard: number;
   gapSkills: string[];
 } {
+  // 转 Set 去重并标准化
   const sourceSet = new Set(sourceSkills.map((item) => normalizeText(item)));
   const targetSet = new Set(targetSkills.map((item) => normalizeText(item)));
+  // 交集：源端有的技能中目标端也有的
   const overlap = Array.from(sourceSet).filter((skill) => targetSet.has(skill));
+  // 并集大小
   const unionCount = new Set([...sourceSet, ...targetSet]).size;
+  // gap：目标端有但源端没有的技能
   const gapSkills = Array.from(targetSet).filter((skill) => !sourceSet.has(skill));
 
   return {
@@ -553,10 +604,19 @@ function compareSkills(
   };
 }
 
+/**
+ * 为所有节点构建候选岗位对（source → target）。
+ * 按同族晋升、跨族换岗、技能迁移三个维度筛选：
+ * - 同族且职级差 1-2 级且 Jaccard >= 0.12 → 晋升候选
+ * - 不同族且职级差 <= 1 且有至少 1 项重叠技能 → 换岗候选
+ * - 重叠技能 >= 2 且职级差 <= 1 → 技能迁移候选
+ * 每个节点取 recallScore 最高的 maxPerNode 个，score 综合了同族加分、Jaccard、重叠量、职级差。
+ */
 function buildCandidatePairs(nodes: ManualGraphNode[], maxPerNode: number): CandidatePair[] {
   const candidates: CandidatePair[] = [];
 
   for (const source of nodes) {
+    // 每个源节点最多取 maxPerNode 个候选
     const local: Array<CandidatePair & { recallScore: number }> = [];
 
     for (const target of nodes) {
@@ -568,6 +628,7 @@ function buildCandidatePairs(nodes: ManualGraphNode[], maxPerNode: number): Cand
       const levelDiff = target.level - source.level;
       const sameFamily = source.family === target.family;
 
+      // 三重筛选：晋升、换岗、技能迁移（满足任一即可）
       const isPromotionCandidate =
         sameFamily && levelDiff >= 1 && levelDiff <= 2 && similarity.jaccard >= 0.12;
       const isTransitionCandidate =
@@ -578,6 +639,7 @@ function buildCandidatePairs(nodes: ManualGraphNode[], maxPerNode: number): Cand
         continue;
       }
 
+      // 综合打分：同族基础分 + Jaccard 贡献 + 重叠技能加分 - 职级差过高扣分
       const recallScore =
         (sameFamily ? 0.24 : 0.14) +
         similarity.jaccard * 0.6 +
@@ -594,6 +656,7 @@ function buildCandidatePairs(nodes: ManualGraphNode[], maxPerNode: number): Cand
       });
     }
 
+    // 按 recallScore 降序取 top N
     local.sort((left, right) => right.recallScore - left.recallScore);
     candidates.push(...local.slice(0, maxPerNode));
   }
@@ -601,6 +664,11 @@ function buildCandidatePairs(nodes: ManualGraphNode[], maxPerNode: number): Cand
   return candidates;
 }
 
+/**
+ * 根据预定义的确认换岗路径列表构建换岗边。
+ * CONFIRMED_TRANSITION_PATHS 中包含了经过业务验证的 41 条跨岗位族转换路径。
+ * 只有当源和目标节点都存在时才会生成边。
+ */
 function buildConfirmedTransitionEdges(nodes: ManualGraphNode[]): CareerGraphEdgeRecord[] {
   const nodeByTitle = buildNodeIndex(nodes);
   const edges: CareerGraphEdgeRecord[] = [];
@@ -632,8 +700,10 @@ function buildConfirmedTransitionEdges(nodes: ManualGraphNode[]): CareerGraphEdg
 }
 
 /**
- * 内置 Agent 判定器（规则版）：根据岗位族、级别与技能重合度判定关系类型。
- * 说明：当前为工程内置判定器，后续可平滑替换为 LLM Agent 评分实现。
+ * 内置评判器：对候选岗位对进行关系类型判定。
+ * - promotion: 同族 + 职级上升 1-2 + Jaccard >= 0.2
+ * - transition: 不同族 + 职级差 <= 1 + 重叠技能 >= 2 + Jaccard >= 0.14
+ * - skill_migration: 重叠技能 >= 3 + Jaccard >= 0.2 + 职级差 <= 1
  */
 function judgeCandidateByBuiltInAgent(candidate: CandidatePair): AgentJudgement[] {
   const judgements: AgentJudgement[] = [];
@@ -672,6 +742,7 @@ function judgeCandidateByBuiltInAgent(candidate: CandidatePair): AgentJudgement[
   return judgements;
 }
 
+/** 根据技能差距数量确定转换成本：low(<=2) / medium(<=5) / high(>5) */
 function resolveTransitionCost(gapCount: number): "low" | "medium" | "high" {
   if (gapCount <= 2) {
     return "low";
@@ -682,6 +753,7 @@ function resolveTransitionCost(gapCount: number): "low" | "medium" | "high" {
   return "high";
 }
 
+/** 关系类型中文标签映射 */
 function relationLabel(type: CareerGraphEdgeRecord["relation_type"]): string {
   if (type === "promotion") {
     return "晋升";
@@ -692,6 +764,10 @@ function relationLabel(type: CareerGraphEdgeRecord["relation_type"]): string {
   return "技能迁移";
 }
 
+/**
+ * 边去重：同一对节点之间同类型的边只保留分数最高的那条。
+ * 因为规则引擎和 Agent 可能生成重复的关系，需要通过此函数合并。
+ */
 function keepBestEdges(edges: CareerGraphEdgeRecord[]): CareerGraphEdgeRecord[] {
   const dedup = new Map<string, CareerGraphEdgeRecord>();
   for (const edge of edges) {
@@ -704,6 +780,7 @@ function keepBestEdges(edges: CareerGraphEdgeRecord[]): CareerGraphEdgeRecord[] 
   return Array.from(dedup.values());
 }
 
+/** 统计每个节点作为源节点的换岗/技能迁移路径数量 */
 function countTransitionPaths(edges: CareerGraphEdgeRecord[]): Map<string, number> {
   const map = new Map<string, number>();
   for (const edge of edges) {
@@ -715,6 +792,11 @@ function countTransitionPaths(edges: CareerGraphEdgeRecord[]): Map<string, numbe
   return map;
 }
 
+/**
+ * 补充换岗路径覆盖：确保 targetTransitionJobCount 个职级最高的岗位
+ * 都至少有 minTransitionPathsPerJob 条换岗出边。
+ * 从候选对中按 Jaccard 排序取最优的补边。
+ */
 function supplementTransitionCoverage(params: {
   nodes: ManualGraphNode[];
   existingEdges: CareerGraphEdgeRecord[];
@@ -723,16 +805,20 @@ function supplementTransitionCoverage(params: {
   targetTransitionJobCount: number;
 }): CareerGraphEdgeRecord[] {
   const extraEdges: CareerGraphEdgeRecord[] = [];
+  // 统计当前每个节点的换岗路径数
   const transitionCount = countTransitionPaths(params.existingEdges);
+  // 按职级降序排列，职级高的岗位优先保证有换岗路径
   const promoted = [...params.nodes].sort((left, right) => right.level - left.level);
   const targetNodes = promoted.slice(0, Math.min(params.targetTransitionJobCount, promoted.length));
 
   for (const node of targetNodes) {
     const current = transitionCount.get(node.id) ?? 0;
+    // 如果已达到最低要求则跳过
     if (current >= params.minTransitionPathsPerJob) {
       continue;
     }
 
+    // 从候选对中找跨族的、当前节点作为源节点的候选
     const needed = params.minTransitionPathsPerJob - current;
     const localCandidates = params.candidatePairs
       .filter((pair) => pair.source.id === node.id && pair.source.family !== pair.target.family)
@@ -759,13 +845,16 @@ function supplementTransitionCoverage(params: {
   return extraEdges;
 }
 
+/** 检查节点是否已经存在于任意边的端点中 */
 function nodeHasEdge(nodeId: string, edges: CareerGraphEdgeRecord[]): boolean {
   return edges.some((edge) => edge.source === nodeId || edge.target === nodeId);
 }
 
 /**
- * 兜底策略：当某些岗位在规则判定后仍是孤立点时，按“同族优先、级别接近优先”补至少一条关系，
- * 防止前端只显示单节点，保证图谱具备基本可读性。
+ * 兜底补边：给没有任何边连接的孤立节点补充一条边。
+ * 遍历所有节点，如果某个节点既不在已有边中也不在补边中，
+ * 就找与其最相似的节点（综合考虑同族加权、Jaccard、职级差）建一条 promotion 或 transition 边。
+ * 保证图谱可视化时每个节点都至少有一条连接，避免孤岛。
  */
 function supplementIsolatedNodes(params: {
   nodes: ManualGraphNode[];
@@ -774,10 +863,12 @@ function supplementIsolatedNodes(params: {
   const fallbackEdges: CareerGraphEdgeRecord[] = [];
 
   for (const source of params.nodes) {
+    // 跳过已经有边的节点（包括之前补的边）
     if (nodeHasEdge(source.id, [...params.edges, ...fallbackEdges])) {
       continue;
     }
 
+    // 对所有其他节点打分，找相似度最高的
     const candidates = params.nodes
       .filter((target) => target.id !== source.id)
       .map((target) => {
@@ -803,6 +894,7 @@ function supplementIsolatedNodes(params: {
       continue;
     }
 
+    // 同族且职级不降 → promotion，否则 transition
     const relationType: CareerGraphEdgeRecord["relation_type"] =
       best.sameFamily && best.levelDiff >= 0 ? "promotion" : "transition";
 
@@ -825,20 +917,39 @@ function supplementIsolatedNodes(params: {
   return fallbackEdges;
 }
 
+/**
+ * 规则引擎入口：基于岗位画像生成完整职业路径图谱。
+ * 流程：
+ * 1. 将画像转为图谱节点（含职级、技能标签）
+ * 2. 根据 careerPath 构建已确认的晋升路径
+ * 3. 对所有节点对打分排序，找出候选关系对
+ * 4. 用内置评判器判定候选对的关系类型（晋升/换岗/技能迁移）
+ * 5. 添加业界确认的换岗路径（CONFIRMED_TRANSITION_PATHS）
+ * 6. 补充换岗覆盖：确保高级岗位有足够换岗出边
+ * 7. 兜底补边：给孤立节点连接最相似节点
+ * 8. 去重 + 统计
+ */
 export function buildCareerGraphFromManualPortraits(params: {
   portraits: ManualJobPortraitRecord[];
   jobIdByTitle: Map<string, number>;
   options: ManualCareerGraphBuildOptions;
 }): ManualCareerGraphBuildResult {
   const generatedAt = new Date().toISOString();
+
+  // 1. 画像 → 图谱节点
   const baseNodes = params.portraits.map((item) => toGraphNode(item, params.jobIdByTitle));
+
+  // 2. 晋升路径
   const promotionGraph = buildConfirmedPromotionPaths({
     baseNodes,
     portraits: params.portraits,
   });
   const nodes = promotionGraph.nodes;
+
+  // 3. 候选对打分
   const candidatePairs = buildCandidatePairs(baseNodes, params.options.maxCandidatesPerNode);
 
+  // 4. 内置评判器判定关系类型
   const edgesFromAgent: CareerGraphEdgeRecord[] = [];
   for (const candidate of candidatePairs) {
     const judgements = judgeCandidateByBuiltInAgent(candidate);
@@ -858,8 +969,10 @@ export function buildCareerGraphFromManualPortraits(params: {
     }
   }
 
+  // 5. 确认换岗路径（人工验证过的 41 条路径）
   const confirmedTransitionEdges = buildConfirmedTransitionEdges(baseNodes);
 
+  // 6. 补充换岗覆盖
   const supplemented = supplementTransitionCoverage({
     nodes: baseNodes,
     existingEdges: edgesFromAgent,
@@ -868,11 +981,13 @@ export function buildCareerGraphFromManualPortraits(params: {
     targetTransitionJobCount: params.options.targetTransitionJobCount,
   });
 
+  // 7. 兜底补边（孤立节点）
   const isolationSupplemented = supplementIsolatedNodes({
     nodes,
     edges: [...edgesFromAgent, ...supplemented],
   });
 
+  // 8. 合并所有边、去重（保留分数最高的）、统计
   const dedupedEdges = keepBestEdges([
     ...promotionGraph.edges,
     ...edgesFromAgent,

@@ -1,17 +1,12 @@
 import type { Router } from "express";
 import type { Pool } from "pg";
 
-import type { AppEnv } from "../../shared/config/env.js";
-import { type Neo4jConnectionOptions } from "../../shared/db/neo4j.js";
-import { createNeo4jJobsIntelligenceGraphRepository } from "./jobs-intelligence.repository.neo4j.js";
 import { createPgJobsIntelligenceRepository } from "./jobs-intelligence.repository.pg.js";
 import { createJobsIntelligenceRouter } from "./jobs-intelligence.route.js";
 import { createJobsIntelligenceService } from "./jobs-intelligence.service.js";
 
 export type JobsIntelligenceModuleOptions = {
   pool: Pool;
-  neo4j: Neo4jConnectionOptions;
-  env: AppEnv;
 };
 
 /**
@@ -19,7 +14,6 @@ export type JobsIntelligenceModuleOptions = {
  */
 export function createJobsIntelligenceModule(options: JobsIntelligenceModuleOptions): Router {
   const repository = createPgJobsIntelligenceRepository(options.pool);
-  const graphRepository = createNeo4jJobsIntelligenceGraphRepository(options.neo4j);
-  const service = createJobsIntelligenceService(repository, graphRepository, options.env);
+  const service = createJobsIntelligenceService(repository);
   return createJobsIntelligenceRouter(service);
 }

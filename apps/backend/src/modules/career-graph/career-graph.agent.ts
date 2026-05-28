@@ -1,7 +1,7 @@
 /**
  * 文件作用：基于 Pi Agent 推理生成职业路径图谱（节点 + 关系边）。
  * 设计边界：该文件只负责 Agent 调用与结果解析，不直接读写数据库。
- * 依赖关系：复用 ai/runtime 的 Agent 装配能力，输出与 jobs-intelligence.graph.manual.ts 相同的 CareerGraphSnapshot 结构。
+ * 依赖关系：复用 ai/runtime 的 Agent 装配能力，输出与 career-graph.generator.ts 相同的 CareerGraphSnapshot 结构。
  *
  * 性能关键点：
  *   - 输入数据必须精简，只保留岗位名、类别、技能关键词，省略原始维度描述。
@@ -37,10 +37,6 @@ import {
 
 const GRAPH_VERSION = "v2.3-agent";
 
-/**
- * Agent 图谱生成超时 120s。
- * 考虑到图谱分析需要一定的时间且基于精简指令，120s 为安全阈值。
- */
 const GRAPH_AGENT_TIMEOUT_MS = 120_000;
 
 // ─── 类型定义 ───────────────────────────────────────────
@@ -90,18 +86,21 @@ export type AgentCareerGraphResult = {
 // ─── 岗位画像精简摘要 ───────────────────────────────────
 
 /**
- * 作用：将人工岗位画像转为极简格式，大幅降低 token 消耗。
- * 关键设计：只保留 job_name / category / 技能关键词 / 综合等级。
+ * 将岗位画像压缩为紧凑文本，用于 Agent 提示词输入。
+ * 每条摘要格式："序号. 岗位名（类别）L职级 技能：关键词列表"
+ * 省略原始描述中的冗余字段以节省 token。
  */
 function buildCompactPortraitInput(portraits: ManualJobPortraitRecord[]): string {
   const items = portraits.map((p, i) => {
     const detail = p.profile_detail;
+    // 从多个描述字段中提取技能关键词
     const skillTokens = extractSkillKeywords([
       detail.description,
       detail.internshipAbility,
       ...detail.skills,
       ...detail.subIndustries.flatMap((subIndustry) => subIndustry.skills),
     ]);
+    // 综合多个文本维度推算出职级
     const level = resolveTextLevel([
       detail.learningAbility,
       detail.innovationAbility,
@@ -115,6 +114,7 @@ function buildCompactPortraitInput(portraits: ManualJobPortraitRecord[]): string
   return items.join("\n");
 }
 
+/** 将中文能力描述取平均后映射到 [1, 5] 职级 */
 function resolveTextLevel(values: string[]): number {
   const scores = values.map((value) => {
     if (value.includes("极高")) return 5;
@@ -126,12 +126,17 @@ function resolveTextLevel(values: string[]): number {
   return Math.max(1, Math.min(5, Math.round(scores.reduce((sum, item) => sum + item, 0) / scores.length)));
 }
 
+/**
+ * 从描述文本中提取技能关键词。
+ * 按中文/英文标点分割，过滤停用词和过短/过长的词，取前 8 个。
+ */
 function extractSkillKeywords(descriptions: string[]): string[] {
   const tokens = new Set<string>();
   for (const desc of descriptions) {
     if (!desc) {
       continue;
     }
+    // 按中英文标点分割
     const parts = desc.split(/[，,、；;。/\s]+/g);
     for (const part of parts) {
       const trimmed = part.trim();
@@ -143,6 +148,7 @@ function extractSkillKeywords(descriptions: string[]): string[] {
   return Array.from(tokens).slice(0, 8);
 }
 
+/** 常见的中文简历/岗位描述中的通用动词/名词，在提取技能时需要跳过 */
 function isStopWord(word: string): boolean {
   const stops = new Set([
     "需要",
@@ -166,6 +172,10 @@ function isStopWord(word: string): boolean {
 
 // ─── Agent 提示词（精简版） ─────────────────────────────
 
+/**
+ * 构建 Agent 系统提示词。
+ * 以角色设定 + JSON 格式示例 + 约束条件组成，要求 Agent 只输出 JSON 不输出解释。
+ */
 function buildGraphAgentSystemPrompt(): string {
   return `你是岗位关系图谱建模专家。根据岗位数据输出 JSON，只返回 JSON 不要解释。
 
@@ -184,6 +194,10 @@ score 范围 1-100。reason 必须中文且含具体技能依据。
 3. 禁止 Markdown 包裹`;
 }
 
+/**
+ * 构建用户提示词：岗位列表 + 输出指令。
+ * compactInput 由 buildCompactPortraitInput 生成，精简到关键信息。
+ */
 function buildGraphAgentUserPrompt(compactInput: string): string {
   return `根据以下 ${compactInput.split("\n").length} 个岗位数据生成图谱 JSON。
 只返回 {"nodes":[...],"edges":[...]}，不要解释。
@@ -194,6 +208,11 @@ ${compactInput}`;
 
 // ─── JSON 解析 ──────────────────────────────────────────
 
+/**
+ * 从 Agent 返回的文本中提取 JSON 对象。
+ * 优先解析 ```json 代码块，其次 ``` 代码块，最后尝试直接找 {} 包裹部分。
+ * Agent 经常在 JSON 前后加解释性文字，所以需要模糊提取。
+ */
 function extractJsonObjectFromText(rawText: string): string | null {
   const fenced = rawText.match(/```json\s*([\s\S]*?)```/i);
   if (fenced?.[1]) {
@@ -219,17 +238,19 @@ function extractJsonObjectFromText(rawText: string): string | null {
 
 // ─── 结果校验与修复 ──────────────────────────────────────
 
+/** 清理文本中的控制字符和多余空白，防止写入 Neo4j 时报错 */
 function sanitizeText(input: string | null | undefined): string {
   if (!input) {
     return "";
   }
   return input
-    .replaceAll(/\u0000/g, "")
-    .replaceAll(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replaceAll(/ /g, "")
+    .replaceAll(/[--]/g, "")
     .replaceAll(/\s+/g, " ")
     .trim();
 }
 
+/** 将分数限制在 [1, 100] 有效区间，非法值默认返回 50 */
 function clampScore(value: number): number {
   if (!Number.isFinite(value)) {
     return 50;
@@ -237,6 +258,7 @@ function clampScore(value: number): number {
   return Math.max(1, Math.min(100, Math.round(value)));
 }
 
+/** 将职级限制在 [1, 5] 有效区间，非法值默认返回 2 */
 function clampLevel(value: number): number {
   if (!Number.isFinite(value)) {
     return 2;
@@ -244,6 +266,10 @@ function clampLevel(value: number): number {
   return Math.max(1, Math.min(5, Math.round(value)));
 }
 
+/**
+ * 标准化关系类型字符串为枚举值。
+ * 兼容英文和中文输入（"晋升" → promotion，"换岗"/"转岗" → transition）。
+ */
 function normalizeRelationType(raw: string): CareerGraphEdgeRecord["relation_type"] {
   const normalized = raw.trim().toLowerCase();
   if (normalized === "promotion") {
@@ -264,6 +290,7 @@ function normalizeRelationType(raw: string): CareerGraphEdgeRecord["relation_typ
   return "skill_migration";
 }
 
+/** 标准化转换成本，兼容中英文输入 */
 function normalizeTransitionCost(raw: string): CareerGraphEdgeRecord["transition_cost"] {
   const normalized = raw.trim().toLowerCase();
   if (normalized === "low" || normalized === "低") {
@@ -275,6 +302,7 @@ function normalizeTransitionCost(raw: string): CareerGraphEdgeRecord["transition
   return "medium";
 }
 
+/** 根据关系类型返回中文标签 */
 function normalizeDirectionLabel(relationType: CareerGraphEdgeRecord["relation_type"]): string {
   if (relationType === "promotion") {
     return "晋升";
@@ -285,6 +313,11 @@ function normalizeDirectionLabel(relationType: CareerGraphEdgeRecord["relation_t
   return "技能迁移";
 }
 
+/**
+ * 校验并标准化 Agent 返回的图谱数据。
+ * 检查 nodes/edges 数组是否存在且非空，对每个字段做类型转换和容错。
+ * 过滤掉引用不存在的节点的边、自环边、分数/职级非法值。
+ */
 function validateAndNormalizeAgentOutput(parsed: unknown): AgentGraphOutput {
   if (!parsed || typeof parsed !== "object") {
     throw new Error("AGENT_GRAPH_JSON_INVALID: 输出不是对象");
@@ -355,6 +388,7 @@ function validateAndNormalizeAgentOutput(parsed: unknown): AgentGraphOutput {
 
 // ─── 统计辅助 ────────────────────────────────────────────
 
+/** 计算 Agent 生成结果的统计数据：各类边数量、有换岗路径的节点数 */
 function computeGraphStats(edges: AgentGraphEdge[]): AgentCareerGraphResult["stats"] {
   const promotionEdges = edges.filter((edge) => edge.relation_type === "promotion").length;
   const transitionEdges = edges.filter((edge) => edge.relation_type === "transition").length;
@@ -382,6 +416,10 @@ function computeGraphStats(edges: AgentGraphEdge[]): AgentCareerGraphResult["sta
 
 // ─── 超时包装 ────────────────────────────────────────────
 
+/**
+ * Promise 超时包装。
+ * 在指定时间内未 resolve 则 reject，且确保定时器被清理防止内存泄漏。
+ */
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -404,12 +442,15 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 // ─── 核心入口 ────────────────────────────────────────────
 
 /**
- * 作用：调用 Pi Agent 基于岗位画像数据智能生成职业路径图谱。
- * 参数：portraits 为 v2_manual_job_portraits 中的岗位画像列表，env 提供 Agent 配置。
- * 返回：包含图谱快照、统计信息和 Agent 追踪 ID 的结果对象。
- * 注意：
- *   - Agent 超时或输出不合法时会直接抛异常，调用方应做 fallback 处理。
- *   - 所有 Agent 输出都经过防御性校验与修复，不依赖 Agent 输出的格式正确性。
+ * Agent 图谱生成入口。
+ * 流程：
+ * 1. 初始化 Pi Agent 会话（模型选择、资源配置、提示词注入）
+ * 2. 构建精简画像摘要，发送给 Agent
+ * 3. 流式接收 Agent 响应，组装完整输出
+ * 4. 从响应中提取 JSON，校验并标准化
+ * 5. 返回标准化后的图谱快照
+ *
+ * 注意：Agent 模式有 120s 超时，超时后由调用方降级到规则引擎。
  */
 export async function generateCareerGraphByAgent(params: {
   portraits: ManualJobPortraitRecord[];
@@ -437,7 +478,6 @@ export async function generateCareerGraphByAgent(params: {
     throw new Error(`AGENT_MODEL_NOT_FOUND:${modelRef.raw}`);
   }
 
-  // 装配无工具的 Agent 会话（纯文本推理，不需要业务工具）
   const resourceLoader = new DefaultResourceLoader({
     cwd: params.cwd,
     agentDir: piAgentDir,
@@ -477,7 +517,6 @@ export async function generateCareerGraphByAgent(params: {
         streamingAssistantBuffer += event.assistantMessageEvent.delta;
         streamingCharsReceived += event.assistantMessageEvent.delta.length;
 
-        // 每 500 字符输出一次流式进度日志，避免长时间无输出被误判
         if (streamingCharsReceived % 500 < event.assistantMessageEvent.delta.length) {
           console.info(
             `[career-graph-agent] streaming progress: ${streamingCharsReceived} chars received`,
@@ -525,7 +564,6 @@ export async function generateCareerGraphByAgent(params: {
       throw new Error(lastTurnError);
     }
 
-    // 优先取最后一条完整消息，兜底用流式缓冲区
     const rawText = assistantMessages.at(-1)?.trim() || streamingAssistantBuffer.trim();
     if (!rawText) {
       throw new Error("AGENT_GRAPH_NO_OUTPUT: Agent 未返回任何内容");

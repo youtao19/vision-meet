@@ -18,38 +18,16 @@ import type {
   JobProfileV2Record,
   JobProfilesV2ListParams,
   JobProfilesV2ListResponse,
-  JobRecord,
   PostingProfileFacts,
 } from "@career/contracts/types";
 
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 import type {
-  AgentJobPortraitUpsertInput,
   JobFactsCreateInput,
   JobProfileV2CreateInput,
   JobsIntelligenceRepository,
   ManualJobPortraitUpsertInput,
 } from "./jobs-intelligence.repository.js";
-
-function mapJob(row: Record<string, unknown>): JobRecord {
-  return {
-    id: Number(row.id),
-    source_row_id: (row.source_row_id as string | null) ?? null,
-    normalized_source_key: (row.normalized_source_key as string | null) ?? null,
-    title: String(row.title),
-    location: (row.location as string | null) ?? null,
-    salary_range: (row.salary_range as string | null) ?? null,
-    company_name: (row.company_name as string | null) ?? null,
-    industry: (row.industry as string | null) ?? null,
-    company_size: (row.company_size as string | null) ?? null,
-    company_type: (row.company_type as string | null) ?? null,
-    job_code: (row.job_code as string | null) ?? null,
-    job_description: (row.job_description as string | null) ?? null,
-    company_intro: (row.company_intro as string | null) ?? null,
-    raw_payload: (row.raw_payload as Record<string, unknown>) ?? {},
-    created_at: new Date(String(row.created_at)).toISOString(),
-  };
-}
 
 function mapJobProfileV2(row: Record<string, unknown>): JobProfileV2Record {
   return {
@@ -904,95 +882,6 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     return result.rowCount ? mapManualJobPortrait(result.rows[0]) : null;
   }
 
-  async function listManualJobPortraitsFromTable(): Promise<ManualJobPortraitRecord[]> {
-    await ensureSchema();
-    const result = await pool.query(`
-      SELECT
-        p.*,
-        (
-          SELECT j.id
-          FROM jobs j
-          WHERE lower(trim(j.title)) = lower(trim(p.job_name))
-          ORDER BY j.id DESC
-          LIMIT 1
-        ) AS fallback_job_id,
-        (
-          SELECT j2.id
-          FROM jobs j2
-          WHERE lower(trim(j2.title)) = lower(trim(p.job_name))
-            AND regexp_replace(lower(trim(j2.title)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g') =
-              regexp_replace(lower(trim(p.job_name)), '[^a-z0-9\\u4e00-\\u9fa5+#]+', '', 'g')
-          ORDER BY j2.id DESC
-          LIMIT 1
-        ) AS job_id
-      FROM v2_manual_job_portraits p
-      ORDER BY p.created_at ASC, p.job_name ASC
-    `);
-    return result.rows.map((row) => mapManualJobPortrait(row));
-  }
-
-  async function replaceAgentJobPortraits(
-    taskId: number,
-    input: AgentJobPortraitUpsertInput[],
-    metadata: { source_model: string | null; source_trace_id: string },
-  ): Promise<void> {
-    await ensureSchema();
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        `
-          DELETE FROM v2_agent_job_portraits
-          WHERE task_id = $1
-        `,
-        [taskId],
-      );
-
-      for (const item of input) {
-        const payload = {
-          skills: item.skills,
-          certification: item.certification,
-          innovation: item.innovation,
-          learning: item.learning,
-          stress: item.stress,
-          communication: item.communication,
-          experience: item.experience,
-        };
-
-        await client.query(
-          `
-            INSERT INTO v2_agent_job_portraits (
-              task_id,
-              job_name,
-              category,
-              payload,
-              source_model,
-              source_trace_id,
-              created_at,
-              updated_at
-            )
-            VALUES ($1, $2, $3, $4::jsonb, $5, $6, NOW(), NOW())
-          `,
-          [
-            taskId,
-            item.job_name,
-            item.category,
-            JSON.stringify(payload),
-            metadata.source_model,
-            metadata.source_trace_id,
-          ],
-        );
-      }
-
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
   async function replaceManualJobPortraits(input: ManualJobPortraitUpsertInput[]): Promise<void> {
     await ensureSchema();
     const client = await pool.connect();
@@ -1136,37 +1025,6 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     };
   }
 
-  async function listLatestProfilesForGraph(): Promise<JobProfileV2Record[]> {
-    await ensureSchema();
-    const result = await pool.query(`
-      WITH latest AS (
-        SELECT DISTINCT ON (job_id) *
-        FROM v2_job_profiles
-        ORDER BY job_id, profile_version DESC
-      )
-      SELECT *
-      FROM latest
-      ORDER BY job_id ASC
-    `);
-    return result.rows.map((row) => mapJobProfileV2(row));
-  }
-
-  async function listJobsByIds(jobIds: number[]): Promise<JobRecord[]> {
-    await ensureSchema();
-    if (jobIds.length === 0) {
-      return [];
-    }
-    const result = await pool.query(
-      `
-        SELECT *
-        FROM jobs
-        WHERE id = ANY($1::bigint[])
-      `,
-      [jobIds],
-    );
-    return result.rows.map((row) => mapJob(row));
-  }
-
   return {
     createJobFacts,
     listLatestJobFactsForCanonical,
@@ -1178,13 +1036,9 @@ export function createPgJobsIntelligenceRepository(pool: Pool): JobsIntelligence
     getCanonicalRoleByKey,
     listManualJobPortraits,
     getManualJobPortraitByName,
-    listManualJobPortraitsFromTable,
-    replaceAgentJobPortraits,
     replaceManualJobPortraits,
     getLatestProfileByJobId,
     createJobProfile,
     listLatestProfiles,
-    listLatestProfilesForGraph,
-    listJobsByIds,
   };
 }

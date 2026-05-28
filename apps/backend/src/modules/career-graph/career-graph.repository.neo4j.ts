@@ -1,5 +1,5 @@
 /**
- * 文件作用：提供岗位智能图谱的 Neo4j 持久化能力。
+ * 文件作用：提供职业路径图谱的 Neo4j 持久化能力。
  * 关键约束：每次同步以覆盖写为主，保证图谱状态与最新画像快照一致。
  */
 
@@ -19,15 +19,16 @@ import {
 
 const DEFAULT_GRAPH_VERSION = "v2.1";
 
-export interface JobsIntelligenceGraphRepository {
+export interface CareerGraphRepository {
   syncGraph(
     snapshot: CareerGraphSnapshot,
   ): Promise<{ nodes_upserted: number; edges_upserted: number }>;
-  listGraphTargetNodes?(): Promise<CareerGraphNodeRecord[]>;
+  listGraphTargetNodes(): Promise<CareerGraphNodeRecord[]>;
   getSubgraphByJobId(jobId: number, depth: number): Promise<CareerGraphSnapshot>;
   close(): Promise<void>;
 }
 
+/** 将 Neo4j 节点记录映射为 CareerGraphNodeRecord（扁平化 properties） */
 function mapNode(node: unknown): CareerGraphNodeRecord {
   const properties = (node as { properties: Record<string, unknown> }).properties;
   return {
@@ -41,6 +42,10 @@ function mapNode(node: unknown): CareerGraphNodeRecord {
   };
 }
 
+/**
+ * 将 Neo4j 关系记录映射为 CareerGraphEdgeRecord。
+ * 从 record 中提取 rel 对象（含 properties）、source 和 target 节点 ID。
+ */
 function mapEdge(record: { get(key: string): unknown }): CareerGraphEdgeRecord {
   const relation = record.get("rel") as { properties: Record<string, unknown> };
   const props = relation.properties;
@@ -58,15 +63,16 @@ function mapEdge(record: { get(key: string): unknown }): CareerGraphEdgeRecord {
   };
 }
 
-export function createNeo4jJobsIntelligenceGraphRepository(
+export function createNeo4jCareerGraphRepository(
   options: Neo4jConnectionOptions,
-): JobsIntelligenceGraphRepository {
-  return createNeo4jJobsIntelligenceGraphRepositoryWithDriver(createNeo4jDriver(options));
+): CareerGraphRepository {
+  return createNeo4jCareerGraphRepositoryWithDriver(createNeo4jDriver(options));
 }
 
-export function createNeo4jJobsIntelligenceGraphRepositoryWithDriver(
+export function createNeo4jCareerGraphRepositoryWithDriver(
   driver: Driver,
-): JobsIntelligenceGraphRepository {
+): CareerGraphRepository {
+  // 惰性初始化：首次调用时创建节点唯一性约束
   let schemaReady: Promise<void> | null = null;
 
   async function ensureSchema(): Promise<void> {
@@ -86,11 +92,17 @@ export function createNeo4jJobsIntelligenceGraphRepositoryWithDriver(
     return schemaReady;
   }
 
+  /**
+   * 全量同步图谱快照到 Neo4j。
+   * 先清除旧数据（DETACH DELETE 所有 CareeerRoleV2 节点），再批量写入新节点和新关系。
+   * 使用 UNWIND + MERGE 保证幂等写入。
+   */
   async function syncGraph(
     snapshot: CareerGraphSnapshot,
   ): Promise<{ nodes_upserted: number; edges_upserted: number }> {
     await ensureSchema();
 
+    // 清除旧数据：删除所有 CareerRoleV2 节点及其关联关系
     await driver.executeQuery(
       `
         MATCH (node:CareerRoleV2)
@@ -145,8 +157,14 @@ export function createNeo4jJobsIntelligenceGraphRepositoryWithDriver(
     };
   }
 
+  /**
+   * 从 Neo4j 查询以目标岗位为中心的子图。
+   * 先通过变长路径匹配找到关联节点，再在这些节点之间查找关系边。
+   * depth 参数控制展开层数（1-3），超出范围会被截断。
+   */
   async function getSubgraphByJobId(jobId: number, depth: number): Promise<CareerGraphSnapshot> {
     await ensureSchema();
+    // 限制 depth 在 [1, 3] 之间，防止查询爆炸
     const normalizedDepth = Math.max(1, Math.min(3, Math.trunc(depth)));
 
     const nodeResult = await driver.executeQuery(
@@ -189,11 +207,7 @@ export function createNeo4jJobsIntelligenceGraphRepositoryWithDriver(
     };
   }
 
-  /**
-   * 作用：列出图数据库中已经构建完成的岗位节点，用作前端“目标岗位”下拉来源。
-   * 返回值：只包含 Neo4j 当前图谱快照中的 CareerRoleV2 节点，避免前端把未构图的 jobs 误当成可查询目标。
-   * 注意：这里不回退到 PostgreSQL jobs，全量岗位属于招聘数据，不等同于路径图谱覆盖范围。
-   */
+  /** 列出图谱中所有 CareerRoleV2 节点，按岗位族/职级/名称排序 */
   async function listGraphTargetNodes(): Promise<CareerGraphNodeRecord[]> {
     await ensureSchema();
     const result = await driver.executeQuery(

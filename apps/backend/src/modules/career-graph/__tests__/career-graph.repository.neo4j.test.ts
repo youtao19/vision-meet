@@ -8,7 +8,7 @@ import test from "node:test";
 
 import type { CareerGraphSnapshot } from "@career/contracts/types";
 
-import { createNeo4jJobsIntelligenceGraphRepositoryWithDriver } from "../jobs-intelligence.repository.neo4j.js";
+import { createNeo4jCareerGraphRepositoryWithDriver } from "../career-graph.repository.neo4j.js";
 
 type QueryCall = {
   query: string;
@@ -86,7 +86,7 @@ function createDriverMock() {
 
 test("syncGraph: 重复执行应可稳定返回写入数量", async () => {
   const { driver, calls } = createDriverMock();
-  const repository = createNeo4jJobsIntelligenceGraphRepositoryWithDriver(driver as never);
+  const repository = createNeo4jCareerGraphRepositoryWithDriver(driver as never);
 
   const snapshot: CareerGraphSnapshot = {
     graph_version: "v2.1",
@@ -115,7 +115,7 @@ test("syncGraph: 重复执行应可稳定返回写入数量", async () => {
 
 test("getSubgraphByJobId: 应返回带版本元信息的图谱快照", async () => {
   const { driver } = createDriverMock();
-  const repository = createNeo4jJobsIntelligenceGraphRepositoryWithDriver(driver as never);
+  const repository = createNeo4jCareerGraphRepositoryWithDriver(driver as never);
 
   const snapshot = await repository.getSubgraphByJobId(1, 2);
   assert.equal(snapshot.graph_version, "v2.1");

@@ -26,24 +26,6 @@ export type ManualJobPortraitUpsertInput = Omit<
   "created_at" | "updated_at"
 >;
 
-type AgentJobPortraitDimensionInput = {
-  level: number;
-  weight: number;
-  description: string;
-};
-
-export type AgentJobPortraitUpsertInput = {
-  job_name: string;
-  category: string;
-  skills: AgentJobPortraitDimensionInput;
-  certification: AgentJobPortraitDimensionInput;
-  innovation: AgentJobPortraitDimensionInput;
-  learning: AgentJobPortraitDimensionInput;
-  stress: AgentJobPortraitDimensionInput;
-  communication: AgentJobPortraitDimensionInput;
-  experience: AgentJobPortraitDimensionInput;
-};
-
 export interface JobsIntelligenceRepository {
   createJobFacts(input: JobFactsCreateInput): Promise<void>;
   listLatestJobFactsForCanonical(): Promise<PostingProfileFacts[]>;
@@ -55,16 +37,8 @@ export interface JobsIntelligenceRepository {
   getCanonicalRoleByKey(roleKey: string): Promise<CanonicalRoleRecord | null>;
   listManualJobPortraits?(): Promise<ManualJobPortraitRecord[]>;
   getManualJobPortraitByName?(jobName: string): Promise<ManualJobPortraitRecord | null>;
-  listManualJobPortraitsFromTable?(): Promise<ManualJobPortraitRecord[]>;
-  replaceAgentJobPortraits?(
-    taskId: number,
-    input: AgentJobPortraitUpsertInput[],
-    metadata: { source_model: string | null; source_trace_id: string },
-  ): Promise<void>;
   replaceManualJobPortraits?(input: ManualJobPortraitUpsertInput[]): Promise<void>;
   getLatestProfileByJobId(jobId: number): Promise<JobProfileV2Record | null>;
   createJobProfile(input: JobProfileV2CreateInput): Promise<JobProfileV2Record>;
   listLatestProfiles(params: JobProfilesV2ListParams): Promise<JobProfilesV2ListResponse>;
-  listLatestProfilesForGraph(): Promise<JobProfileV2Record[]>;
-  listJobsByIds(jobIds: number[]): Promise<JobRecord[]>;
 }

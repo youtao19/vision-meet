@@ -26,15 +26,3 @@ export const canonicalRoleParamsSchema = z.object({
   role_key: z.string().trim().min(1),
 });
 
-export const careerPathQuerySchema = z.object({
-  depth: z.coerce.number().int().min(1).max(3).default(2),
-  relation_type: z.enum(["promotion", "transition", "skill_migration", "all"]).default("all"),
-  min_score: z.coerce.number().int().min(0).max(100).default(0),
-});
-
-export const careerPathGenerateSchema = z.object({
-  force_rebuild: z.coerce.boolean().optional().default(false),
-  max_candidates_per_node: z.coerce.number().int().min(5).max(80).default(24),
-  /** 是否使用 Agent 推理生成图谱关系，默认 false 走规则引擎 */
-  use_agent: z.coerce.boolean().optional().default(false),
-});

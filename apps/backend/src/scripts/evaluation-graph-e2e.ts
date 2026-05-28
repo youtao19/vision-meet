@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createNeo4jJobsIntelligenceGraphRepository } from "../modules/jobs-intelligence/jobs-intelligence.repository.neo4j.js";
+import { createNeo4jCareerGraphRepository } from "../modules/career-graph/career-graph.repository.neo4j.js";
 import { appEnv } from "../shared/config/env.js";
 import { createAppPgPool } from "../shared/db/postgres.js";
 import { resolveRepositoryRoot } from "../shared/utils/repository-root.js";
@@ -130,7 +130,7 @@ async function main(): Promise<void> {
     user: appEnv.PGUSER,
     password: appEnv.PGPASSWORD,
   });
-  const graphRepository = createNeo4jJobsIntelligenceGraphRepository({
+  const graphRepository = createNeo4jCareerGraphRepository({
     uri: appEnv.NEO4J_URI,
     username: appEnv.NEO4J_USERNAME,
     password: appEnv.NEO4J_PASSWORD,
