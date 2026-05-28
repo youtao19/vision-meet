@@ -3,8 +3,8 @@
  * 使用方式：npm run job-portraits:seed -w career-backend
  */
 
-import { MANUAL_JOB_PORTRAITS_SEED } from "../modules/jobs-intelligence/manual-job-portraits.seed.js";
-import { createPgJobsIntelligenceRepository } from "../modules/jobs-intelligence/jobs-intelligence.repository.pg.js";
+import { MANUAL_JOB_PORTRAITS_SEED } from "../modules/job-portraits/manual-job-portraits.seed.js";
+import { createPgJobPortraitsRepository } from "../modules/job-portraits/job-portraits.repository.pg.js";
 import { appEnv } from "../shared/config/env.js";
 import { createAppPgPool } from "../shared/db/postgres.js";
 
@@ -16,7 +16,7 @@ async function main(): Promise<void> {
     user: appEnv.PGUSER,
     password: appEnv.PGPASSWORD,
   });
-  const repository = createPgJobsIntelligenceRepository(pool);
+  const repository = createPgJobPortraitsRepository(pool);
 
   try {
     if (typeof repository.replaceManualJobPortraits !== "function") {

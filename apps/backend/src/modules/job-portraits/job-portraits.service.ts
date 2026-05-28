@@ -1,23 +1,17 @@
-/**
- * 文件作用：承载岗位智能处理域核心业务逻辑（画像查询）。
- * 设计边界：service 负责业务编排和容错，具体读写由 repository adapter 完成。
- * 当前只保留人工岗位画像方法。
- */
-
 import type { ManualJobPortraitRecord } from "@career/contracts/types";
 
 import { HttpError } from "../../shared/errors/http-error.js";
 import { MANUAL_JOB_PORTRAITS_SEED } from "./manual-job-portraits.seed.js";
-import type { JobsIntelligenceRepository } from "./jobs-intelligence.repository.js";
+import type { JobPortraitsRepository } from "./job-portraits.repository.js";
 
-export interface JobsIntelligenceService {
+export interface JobPortraitsService {
   listManualJobPortraits(): Promise<ManualJobPortraitRecord[]>;
   seedManualJobPortraits(): Promise<{ seeded: number }>;
 }
 
-export function createJobsIntelligenceService(
-  repository: JobsIntelligenceRepository,
-): JobsIntelligenceService {
+export function createJobPortraitsService(
+  repository: JobPortraitsRepository,
+): JobPortraitsService {
   async function listManualJobPortraits(): Promise<ManualJobPortraitRecord[]> {
     if (typeof repository.listManualJobPortraits !== "function") {
       throw new HttpError(

@@ -43,7 +43,7 @@ apps/backend/src/modules/ai/runtime/*
     ↓
 apps/backend/src/modules/ai/tools/*
     ↓
-既有业务模块 service（profile / matching / report / knowledge / jobs / jobs-intelligence）
+既有业务模块 service（profile / matching / report / knowledge / jobs / job-portraits）
     ↓
 repository / adapter / PostgreSQL / pgvector / Neo4j
 ```

@@ -8,8 +8,8 @@ import { createJobComicsModule } from "./modules/job-comics/job-comics.module.js
 import { createTtsEngine } from "./modules/pi-tools/tts/tts-factory.js";
 import { createJobsModule } from "./modules/jobs/jobs.module.js";
 import { createJobsRepository } from "./modules/jobs/jobs.repository.js";
-import { createJobsIntelligenceModule } from "./modules/jobs-intelligence/jobs-intelligence.module.js";
-import { createPgJobsIntelligenceRepository } from "./modules/jobs-intelligence/jobs-intelligence.repository.pg.js";
+import { createJobPortraitsModule } from "./modules/job-portraits/job-portraits.module.js";
+import { createPgJobPortraitsRepository } from "./modules/job-portraits/job-portraits.repository.pg.js";
 import { createKnowledgeModule } from "./modules/knowledge/knowledge.module.js";
 import { createCareerGraphModule } from "./modules/career-graph/career-graph.module.js";
 import { createMatchingRouter } from "./modules/matching/matching.route.js";
@@ -40,7 +40,7 @@ export function createApp(): express.Express {
   const jobsRepository = createJobsRepository(appDataPool);
   const profileRepository = createPgProfileRepository(appDataPool);
   const matchingRepository = createPgMatchingRepository(appDataPool);
-  const jobsIntelligenceRepository = createPgJobsIntelligenceRepository(appDataPool);
+  const jobPortraitsRepository = createPgJobPortraitsRepository(appDataPool);
   const reportRepository = createPgReportRepository(appDataPool);
   const reportExportRepository = createPgReportExportRepository(appDataPool);
   const knowledgeModule = createKnowledgeModule({
@@ -71,7 +71,7 @@ export function createApp(): express.Express {
       profileRepository,
       jobPortraitRepository: {
         getManualJobPortraitByName: async (jobName) => {
-          const portrait = await jobsIntelligenceRepository.getManualJobPortraitByName?.(jobName);
+          const portrait = await jobPortraitsRepository.getManualJobPortraitByName?.(jobName);
           return portrait ?? null;
         },
       },
@@ -148,7 +148,7 @@ export function createApp(): express.Express {
   app.use("/api/v2/knowledge", knowledgeModule.router);
   app.use(
     "/api/v2",
-    createJobsIntelligenceModule({
+    createJobPortraitsModule({
       pool: appDataPool,
     }),
   );

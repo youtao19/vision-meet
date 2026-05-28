@@ -6,7 +6,6 @@
 import type { Pool } from "pg";
 
 import type {
-  JobProfileV2Record,
   JobRecord,
   JobsListParams,
   JobsListResponse,
@@ -21,7 +20,6 @@ export interface JobsRepository {
   listJobs(params: JobsListParams): Promise<JobsListResponse>;
   getJobById(jobId: number): Promise<JobRecord | null>;
   findBestJobByTargetRole(targetRole: string): Promise<JobRecord | null>;
-  getLatestProfileV2ByJobId(jobId: number): Promise<JobProfileV2Record | null>;
 }
 
 function mapJobRecord(row: Record<string, unknown>): JobRecord {
@@ -40,35 +38,6 @@ function mapJobRecord(row: Record<string, unknown>): JobRecord {
     job_description: (row.job_description as string | null) ?? null,
     company_intro: (row.company_intro as string | null) ?? null,
     raw_payload: (row.raw_payload as Record<string, unknown>) ?? {},
-    created_at: new Date(String(row.created_at)).toISOString(),
-  };
-}
-
-function mapJobProfileV2Record(row: Record<string, unknown>): JobProfileV2Record {
-  const generationMode = String(row.generation_mode || "heuristic");
-  return {
-    id: Number(row.id),
-    job_id: Number(row.job_id),
-    profile_version: Number(row.profile_version),
-    normalized_title: String(row.normalized_title || ""),
-    job_family: String(row.job_family || ""),
-    job_level: Number(row.job_level),
-    professional_skills: Array.isArray(row.professional_skills)
-      ? (row.professional_skills as string[])
-      : [],
-    certificate_requirements: Array.isArray(row.certificate_requirements)
-      ? (row.certificate_requirements as string[])
-      : [],
-    innovation_score: Number(row.innovation_score),
-    learning_score: Number(row.learning_score),
-    stress_tolerance_score: Number(row.stress_tolerance_score),
-    communication_score: Number(row.communication_score),
-    internship_score: Number(row.internship_score),
-    summary: String(row.summary || ""),
-    confidence: Number(row.confidence),
-    generation_model: (row.generation_model as string | null) ?? null,
-    generation_mode: generationMode === "agent" ? "agent" : "heuristic",
-    extracted_features: (row.extracted_features as Record<string, unknown>) ?? {},
     created_at: new Date(String(row.created_at)).toISOString(),
   };
 }
@@ -258,34 +227,10 @@ export function createJobsRepository(pool: Pool): JobsRepository {
     return result.rowCount ? mapJobRecord(result.rows[0]) : null;
   }
 
-  async function getLatestProfileV2ByJobId(jobId: number): Promise<JobProfileV2Record | null> {
-    await ensureSchema();
-    try {
-      const result = await pool.query(
-        `
-          SELECT *
-          FROM v2_job_profiles
-          WHERE job_id = $1
-          ORDER BY profile_version DESC
-          LIMIT 1
-        `,
-        [jobId],
-      );
-      return result.rowCount ? mapJobProfileV2Record(result.rows[0]) : null;
-    } catch (error) {
-      const code = (error as { code?: string } | null)?.code;
-      if (code === "42P01") {
-        return null;
-      }
-      throw error;
-    }
-  }
-
   return {
     addJobs,
     listJobs,
     getJobById,
     findBestJobByTargetRole,
-    getLatestProfileV2ByJobId,
   };
 }

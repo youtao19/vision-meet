@@ -1,13 +1,8 @@
 import { Router } from "express";
 
-import type { JobsIntelligenceService } from "./jobs-intelligence.service.js";
+import type { JobPortraitsService } from "./job-portraits.service.js";
 
-/**
- * 文件作用：暴露岗位智能处理域的 V2 API。
- * 设计边界：路由层只做参数校验与协议转换，不承载业务逻辑。
- * 当前只保留人工岗位画像路由。
- */
-export function createJobsIntelligenceRouter(service: JobsIntelligenceService): Router {
+export function createJobPortraitsRouter(service: JobPortraitsService): Router {
   const router = Router();
 
   router.get("/job-portraits/manual", async (_req, res, next) => {

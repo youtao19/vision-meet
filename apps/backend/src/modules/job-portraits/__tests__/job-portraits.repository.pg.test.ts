@@ -1,12 +1,7 @@
-/**
- * 文件作用：验证人工岗位画像仓储行为（v2_manual_job_portraits）。
- * 职责边界：该测试通过 mock pool 校验 SQL 调用，不依赖真实数据库。
- */
-
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createPgJobsIntelligenceRepository } from "../jobs-intelligence.repository.pg.js";
+import { createPgJobPortraitsRepository } from "../job-portraits.repository.pg.js";
 
 test("replaceManualJobPortraits + listManualJobPortraits: 应完整写入并读出", async () => {
   const stored: Array<Record<string, unknown>> = [];
@@ -78,7 +73,7 @@ test("replaceManualJobPortraits + listManualJobPortraits: 应完整写入并读�
     },
   };
 
-  const repository = createPgJobsIntelligenceRepository(pool as never);
+  const repository = createPgJobPortraitsRepository(pool as never);
 
   await repository.replaceManualJobPortraits?.([
     {

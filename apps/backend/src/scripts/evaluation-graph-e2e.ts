@@ -139,16 +139,15 @@ async function main(): Promise<void> {
   try {
     const sampledJobs = await pool.query<SampleJobRow>(
       `
-        SELECT p.job_id, j.title
-        FROM (
-          SELECT DISTINCT ON (job_id)
-            job_id,
-            profile_version
-          FROM v2_job_profiles
-          ORDER BY job_id, profile_version DESC
-        ) p
-        INNER JOIN jobs j
-          ON j.id = p.job_id
+        SELECT p.job_id, p.title
+        FROM v2_manual_job_portraits m
+        INNER JOIN LATERAL (
+          SELECT j.id AS job_id, j.title
+          FROM jobs j
+          WHERE lower(trim(j.title)) = lower(trim(m.job_name))
+          ORDER BY j.id DESC
+          LIMIT 1
+        ) p ON true
         ORDER BY p.job_id DESC
         LIMIT $1
       `,

@@ -1,6 +1,5 @@
 import type {
   DimensionKey,
-  JobProfileV2Record,
   ManualJobPortraitRecord,
   MatchRequirement,
   MatchRequirementEvidenceType,
@@ -51,41 +50,6 @@ function createRequirement(params: {
   };
 }
 
-export function buildV2SoftSkills(profile: JobProfileV2Record): string[] {
-  const candidates: Array<{ label: string; score: number }> = [
-    { label: "沟通", score: profile.communication_score },
-    { label: "学习能力", score: profile.learning_score },
-    { label: "抗压", score: profile.stress_tolerance_score },
-    { label: "创新", score: profile.innovation_score },
-    { label: "实践", score: profile.internship_score },
-  ];
-
-  const selected = candidates
-    .filter((item) => item.score >= 55)
-    .sort((left, right) => right.score - left.score)
-    .map((item) => item.label);
-
-  return selected.length > 0 ? selected : ["沟通", "学习能力", "抗压"];
-}
-
-export function mapV2ProfileToMatchingSnapshot(
-  profile: JobProfileV2Record,
-): MatchingJobProfileSnapshot {
-  return {
-    profile_version: profile.profile_version,
-    hard_skills: profile.professional_skills,
-    certificates: profile.certificate_requirements,
-    soft_skills: buildV2SoftSkills(profile),
-    skill_weights: {
-      基础要求: 0.2,
-      职业技能: 0.45,
-      职业素养: 0.2,
-      发展潜力: 0.15,
-    },
-    confidence: profile.confidence,
-  };
-}
-
 export function mapManualPortraitToMatchingSnapshot(
   portrait: ManualJobPortraitRecord,
 ): MatchingJobProfileSnapshot {
@@ -102,68 +66,6 @@ export function mapManualPortraitToMatchingSnapshot(
       发展潜力: 0.15,
     },
     confidence: 0.9,
-  };
-}
-
-export function buildFallbackJobProfileSnapshot(jobTitle: string): MatchingJobProfileSnapshot {
-  const title = jobTitle.toLowerCase();
-  if (title.includes("c/c++") || title.includes("c++")) {
-    return {
-      profile_version: 0,
-      hard_skills: ["C/C++", "Linux", "多线程", "网络编程", "数据结构与算法"],
-      certificates: ["无强制证书要求"],
-      soft_skills: ["沟通", "学习能力", "抗压"],
-      skill_weights: { 基础要求: 0.2, 职业技能: 0.5, 职业素养: 0.15, 发展潜力: 0.15 },
-      confidence: 0.75,
-    };
-  }
-  if (title.includes("java")) {
-    return {
-      profile_version: 0,
-      hard_skills: ["Java", "Spring", "MySQL", "微服务", "Git"],
-      certificates: ["无强制证书要求"],
-      soft_skills: ["沟通", "学习能力", "抗压"],
-      skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
-      confidence: 0.75,
-    };
-  }
-  if (title.includes("前端")) {
-    return {
-      profile_version: 0,
-      hard_skills: ["JavaScript", "TypeScript", "Vue", "HTML/CSS", "前端工程化"],
-      certificates: ["无强制证书要求"],
-      soft_skills: ["沟通", "学习能力", "创新"],
-      skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
-      confidence: 0.72,
-    };
-  }
-  if (title.includes("测试")) {
-    return {
-      profile_version: 0,
-      hard_skills: ["测试用例设计", "接口测试", "缺陷定位", "SQL"],
-      certificates: ["无强制证书要求"],
-      soft_skills: ["沟通", "学习能力", "抗压"],
-      skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
-      confidence: 0.7,
-    };
-  }
-  if (title.includes("实施") || title.includes("支持")) {
-    return {
-      profile_version: 0,
-      hard_skills: ["系统部署", "问题排查", "客户沟通", "文档能力"],
-      certificates: ["无强制证书要求"],
-      soft_skills: ["沟通", "抗压", "学习能力"],
-      skill_weights: { 基础要求: 0.2, 职业技能: 0.4, 职业素养: 0.25, 发展潜力: 0.15 },
-      confidence: 0.68,
-    };
-  }
-  return {
-    profile_version: 0,
-    hard_skills: ["岗位核心技能", "业务理解", "协作能力"],
-    certificates: ["无强制证书要求"],
-    soft_skills: ["沟通", "学习能力", "抗压"],
-    skill_weights: { 基础要求: 0.2, 职业技能: 0.45, 职业素养: 0.2, 发展潜力: 0.15 },
-    confidence: 0.65,
   };
 }
 

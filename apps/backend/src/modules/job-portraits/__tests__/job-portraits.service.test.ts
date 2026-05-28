@@ -1,16 +1,11 @@
-/**
- * 文件作用：验证人工岗位画像服务的正确性。
- * 职责边界：该测试使用内存桩，不依赖数据库或外部 Agent。
- */
-
 import test from "node:test";
 import assert from "node:assert/strict";
 
 import type { ManualJobPortraitRecord } from "@career/contracts/types";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
-import { createJobsIntelligenceService } from "../jobs-intelligence.service.js";
-import type { JobsIntelligenceRepository } from "../jobs-intelligence.repository.js";
+import { createJobPortraitsService } from "../job-portraits.service.js";
+import type { JobPortraitsRepository } from "../job-portraits.repository.js";
 
 function buildManualPortrait(
   jobName: string,
@@ -68,13 +63,13 @@ test("listManualJobPortraits: 应返回人工岗位画像列表", async () => {
     buildManualPortrait("后端开发工程师", "backend", ["Java", "SQL"]),
   ];
 
-  const repository: JobsIntelligenceRepository = {
+  const repository: JobPortraitsRepository = {
     listManualJobPortraits() {
       return Promise.resolve(expected);
     },
   };
 
-  const service = createJobsIntelligenceService(repository);
+  const service = createJobPortraitsService(repository);
   const result = await service.listManualJobPortraits();
   assert.equal(result.length, 2);
   assert.equal(result[0]?.job_name, "前端开发工程师");
@@ -82,9 +77,9 @@ test("listManualJobPortraits: 应返回人工岗位画像列表", async () => {
 });
 
 test("listManualJobPortraits: 仓储未实现时应返回 501", async () => {
-  const repository: JobsIntelligenceRepository = {};
+  const repository: JobPortraitsRepository = {};
 
-  const service = createJobsIntelligenceService(repository);
+  const service = createJobPortraitsService(repository);
   await assert.rejects(
     () => service.listManualJobPortraits(),
     (error: unknown) => error instanceof HttpError && error.status === 501,
@@ -94,13 +89,13 @@ test("listManualJobPortraits: 仓储未实现时应返回 501", async () => {
 test("seedManualJobPortraits: 应写入种子数据并返回计数", async () => {
   let replaced = false;
 
-  const repository: JobsIntelligenceRepository = {
+  const repository: JobPortraitsRepository = {
     async replaceManualJobPortraits() {
       replaced = true;
     },
   };
 
-  const service = createJobsIntelligenceService(repository);
+  const service = createJobPortraitsService(repository);
   const result = await service.seedManualJobPortraits();
   assert.equal(typeof result.seeded, "number");
   assert.ok(result.seeded > 0);
@@ -108,9 +103,9 @@ test("seedManualJobPortraits: 应写入种子数据并返回计数", async () =>
 });
 
 test("seedManualJobPortraits: 仓储未实现时应返回 501", async () => {
-  const repository: JobsIntelligenceRepository = {};
+  const repository: JobPortraitsRepository = {};
 
-  const service = createJobsIntelligenceService(repository);
+  const service = createJobPortraitsService(repository);
   await assert.rejects(
     () => service.seedManualJobPortraits(),
     (error: unknown) => error instanceof HttpError && error.status === 501,

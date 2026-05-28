@@ -41,42 +41,6 @@ export type JobRecord = {
   created_at: string;
 };
 
-export type JobProfileGenerationMode = "agent" | "heuristic";
-
-export type JobProfileV2Record = {
-  id: number;
-  job_id: number;
-  profile_version: number;
-  normalized_title: string;
-  job_family: string;
-  job_level: number;
-  professional_skills: string[];
-  certificate_requirements: string[];
-  innovation_score: number;
-  learning_score: number;
-  stress_tolerance_score: number;
-  communication_score: number;
-  internship_score: number;
-  summary: string;
-  confidence: number;
-  generation_model: string | null;
-  generation_mode: JobProfileGenerationMode;
-  extracted_features: Record<string, unknown>;
-  created_at: string;
-};
-
-export type JobProfilesV2ListParams = {
-  keyword?: string;
-  job_family?: string;
-  offset: number;
-  limit: number;
-};
-
-export type JobProfilesV2ListResponse = {
-  total: number;
-  items: JobProfileV2Record[];
-};
-
 export type JobPortraitSubIndustry = {
   industry: string;
   description: string;

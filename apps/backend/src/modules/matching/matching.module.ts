@@ -1,7 +1,7 @@
 import type { Router } from "express";
 import type { Pool } from "pg";
 
-import { createPgJobsIntelligenceRepository } from "../jobs-intelligence/jobs-intelligence.repository.pg.js";
+import { createPgJobPortraitsRepository } from "../job-portraits/job-portraits.repository.pg.js";
 import { createPgProfileRepository } from "../profile/profile.repository.pg.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import { createPgMatchingRepository } from "./matching.repository.pg.js";
@@ -45,7 +45,7 @@ export function createMatchingServiceFromDependencies(
 export function createMatchingModule(options: MatchingModuleOptions): Router {
   const profileRepository = createPgProfileRepository(options.pool);
   const matchingRepository = createPgMatchingRepository(options.pool);
-  const jobPortraitRepository = createPgJobsIntelligenceRepository(options.pool);
+  const jobPortraitRepository = createPgJobPortraitsRepository(options.pool);
 
   const service = createMatchingServiceFromDependencies(
     {
