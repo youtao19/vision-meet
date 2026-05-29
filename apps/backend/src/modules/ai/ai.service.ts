@@ -1,6 +1,4 @@
 import type {
-  AiTaskResponse,
-  CreateAiTaskRequest,
   CreateResumeHtmlRequest,
   CreateAiPolishRequest,
   AiPolishResponse,
@@ -15,7 +13,6 @@ import type { MatchingService } from "../matching/matching.service.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import type { ReportService } from "../report/report.service.js";
 import type { AiRepository } from "./ai.repository.js";
-import { createAiTaskService } from "./ai-task.service.js";
 import { createPolishService } from "../pi-tools/polish/polish.service.js";
 import { createResumeHtmlService } from "../pi-tools/resume/resume-html.service.js";
 import type { AiThinkingLevel } from "./runtime/ai-agent.types.js";
@@ -40,7 +37,6 @@ export type AiTaskRuntimeContext = {
 };
 
 export interface AiService {
-  createTask(input: CreateAiTaskRequest, runtime: AiTaskRuntimeContext): Promise<AiTaskResponse>;
   generateResumeHtml(
     input: CreateResumeHtmlRequest,
     runtime: AiTaskRuntimeContext,
@@ -51,21 +47,17 @@ export interface AiService {
   ): Promise<AiPolishResponse>;
   listResumeHtmlRecords(offset: number, limit: number): Promise<ResumeHtmlListResponse>;
   getResumeHtmlRecordById(resumeId: number): Promise<ResumeHtmlRecord>;
-  getTask(taskId: number): Promise<AiTaskResponse>;
 }
 
 export function createAiService(dependencies: AiServiceDependencies): AiService {
-  const taskService = createAiTaskService(dependencies);
   const resumeHtmlService = createResumeHtmlService(dependencies);
   const polishService = createPolishService(dependencies);
 
   return {
-    createTask: (input, runtime) => taskService.createTask(input, runtime),
     generateResumeHtml: (input, runtime) => resumeHtmlService.generateResumeHtml(input, runtime),
     listResumeHtmlRecords: (offset, limit) =>
       resumeHtmlService.listResumeHtmlRecords(offset, limit),
     polishText: (input, runtime) => polishService.polishText(input, runtime),
     getResumeHtmlRecordById: (resumeId) => resumeHtmlService.getResumeHtmlRecordById(resumeId),
-    getTask: (taskId) => taskService.getTask(taskId),
   };
 }

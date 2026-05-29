@@ -288,41 +288,6 @@ paths:
         "200":
           description: PDF binary stream
 
-  /api/v2/ai/tasks:
-    post:
-      summary: Create AI Task
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AiTaskRequest"
-      responses:
-        "201":
-          description: AI task completed or partially completed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AiTaskResponse"
-        "400":
-          description: Invalid AI request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Student profile or job not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: AI orchestration or model call failed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /api/v2/ai/resume-html:
     post:
       summary: Generate Resume HTML
@@ -405,61 +370,3 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/v2/ai/chat:
-    post:
-      summary: Create AI Task From Chat-Compatible Path
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AiTaskRequest"
-      responses:
-        "201":
-          description: AI task completed or partially completed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AiTaskResponse"
-        "400":
-          description: Invalid AI request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Student profile or job not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: AI orchestration or model call failed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v2/ai/tasks/{task_id}:
-    get:
-      summary: Get AI Task
-      parameters:
-        - in: path
-          name: task_id
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-      responses:
-        "200":
-          description: AI task detail
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AiTaskResponse"
-        "404":
-          description: AI task not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"

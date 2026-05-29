@@ -688,10 +688,6 @@ export type AiWarningCode =
   | "REPORT_GENERATION_FAILED"
   | "FINAL_SUMMARY_FALLBACK";
 
-export type AiTaskStatus = "success" | "partial_success" | "failed";
-
-export type AiDeliverable = "match_analysis" | "career_report";
-
 export type PiToolName =
   | "task_planning"
   | "context_lookup"
@@ -703,13 +699,6 @@ export type PiToolName =
 
 export type AiStepTraceStatus = "success" | "warning" | "error" | "skipped";
 
-export type AiPlanStep = {
-  id: string;
-  tool: PiToolName;
-  title: string;
-  purpose: string;
-};
-
 export type AiStepTraceItem = {
   step_id: string;
   tool: PiToolName;
@@ -719,40 +708,6 @@ export type AiStepTraceItem = {
   input_summary: string;
   output_summary: string;
   error_code?: string;
-};
-
-export type CreateAiTaskRequest = {
-  student_profile_id: number;
-  job_id: number;
-  job_name?: string;
-  objective?: string;
-  deliverables?: AiDeliverable[];
-  force_recalculate?: boolean;
-  top_k?: number;
-};
-
-export type AiTaskResult = {
-  summary: string;
-  knowledge_hits: KnowledgeSearchResultItem[];
-  match_result: MatchResultDetail | null;
-  report: CareerReportRecord | null;
-  warnings: AiWarningCode[];
-};
-
-export type AiTaskResponse = {
-  task_id: number;
-  trace_id: string;
-  status: AiTaskStatus;
-  student_profile_id: number;
-  job_id: number;
-  objective: string;
-  deliverables: AiDeliverable[];
-  model: string | null;
-  planned_steps: AiPlanStep[];
-  step_trace: AiStepTraceItem[];
-  result: AiTaskResult;
-  created_at: string;
-  finished_at: string;
 };
 
 export type ResumeBasicInfoInput = {
@@ -834,11 +789,6 @@ export type ResumeHtmlListResponse = {
   total: number;
   items: ResumeHtmlListItem[];
 };
-
-export type CreateAiResumeHtmlRequest = CreateResumeHtmlRequest;
-export type AiResumeHtmlResponse = ResumeHtmlResponse;
-export type AiChatRequest = CreateAiTaskRequest;
-export type AiChatResponse = AiTaskResponse;
 
 export type CreateAiPolishRequest = {
   content: string;

@@ -1,6 +1,4 @@
 import type {
-  AiTaskResponse,
-  CreateAiTaskRequest,
   CreateResumeHtmlRequest,
   CreateAiPolishRequest,
   AiPolishResponse,
@@ -10,16 +8,6 @@ import type {
 } from "@career/contracts/types";
 
 import { requestJson } from "./http";
-
-export async function createAiTask(payload: CreateAiTaskRequest): Promise<AiTaskResponse> {
-  return requestJson<AiTaskResponse>("/api/v2/ai/tasks", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-}
 
 export async function createResumeHtml(
   payload: CreateResumeHtmlRequest,

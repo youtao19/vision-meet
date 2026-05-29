@@ -1,28 +1,6 @@
 import { z } from "zod";
 
 /**
- * 文件作用：定义 AI 中枢统一入口的协议层校验规则。
- * 设计边界：schema 只负责入口参数约束，任务规划与工具调用交给 service/runtime。
- */
-export const aiTaskCreateSchema = z.object({
-  student_profile_id: z.coerce.number().int().min(1),
-  job_id: z.coerce.number().int().min(1),
-  job_name: z.string().trim().max(200).optional(),
-  objective: z.string().trim().max(200).optional(),
-  deliverables: z
-    .array(z.enum(["match_analysis", "career_report"]))
-    .min(1)
-    .max(2)
-    .optional(),
-  force_recalculate: z.coerce.boolean().default(false),
-  top_k: z.coerce.number().int().min(1).max(10).default(5),
-});
-
-export const aiTaskIdParamsSchema = z.object({
-  task_id: z.coerce.number().int().min(1),
-});
-
-/**
  * 创建 AI 简历 HTML 的入参校验。
  *
  * basic：

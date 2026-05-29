@@ -6,8 +6,6 @@ import {
   aiResumeHtmlIdParamsSchema,
   aiResumeHtmlListQuerySchema,
   aiResumeHtmlCreateSchema,
-  aiTaskCreateSchema,
-  aiTaskIdParamsSchema,
   aiPolishCreateSchema,
 } from "./ai.schemas.js";
 import type { AiService } from "./ai.service.js";
@@ -19,26 +17,6 @@ import type { AiService } from "./ai.service.js";
 export function createAiRouter(service: AiService): Router {
   const router = Router();
 
-  async function handleCreateTask(req: Request, res: Response, next: NextFunction) {
-    const parsed = aiTaskCreateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return next(
-        new HttpError(400, "AI_TASK_INPUT_INVALID", "AI 任务参数不合法", parsed.error.flatten()),
-      );
-    }
-
-    try {
-      const traceId = (res.locals.trace_id as string | undefined) || "";
-      const result = await service.createTask(parsed.data, {
-        traceId,
-      });
-      return res.status(201).json(result);
-    } catch (error) {
-      return next(error);
-    }
-  }
-
-  router.post("/tasks", handleCreateTask);
   router.post("/polish", async (req, res, next) => {
     const parsed = aiPolishCreateSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -113,25 +91,6 @@ export function createAiRouter(service: AiService): Router {
 
     try {
       const result = await service.getResumeHtmlRecordById(parsed.data.resume_id);
-      return res.json(result);
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  // 为前端和外部调用方保留“聊天式发起任务”的兼容语义，但底层仍统一走任务型入口。
-  router.post("/chat", handleCreateTask);
-
-  router.get("/tasks/:task_id", async (req, res, next) => {
-    const parsed = aiTaskIdParamsSchema.safeParse(req.params);
-    if (!parsed.success) {
-      return next(
-        new HttpError(400, "AI_TASK_ID_INVALID", "AI 任务标识不合法", parsed.error.flatten()),
-      );
-    }
-
-    try {
-      const result = await service.getTask(parsed.data.task_id);
       return res.json(result);
     } catch (error) {
       return next(error);
