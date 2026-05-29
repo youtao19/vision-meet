@@ -1,23 +1,20 @@
-import type { AiPolishResponse, CreateAiPolishRequest } from "@career/contracts/types";
+import type { CreatePolishRequest, PolishResponse } from "@career/contracts/types";
 
-import { runPolishAgent } from "./polish.runtime.js";
+import { runPolishAgent } from "../pi-tools/polish/polish.runtime.js";
 
-type PolishServiceDependencies = {
+export type PolishServiceDependencies = {
   piAgentDir?: string;
   sessionStoreDir?: string;
   model?: string;
   cwd?: string;
 };
 
-type PolishRuntimeContext = {
+export type PolishRuntimeContext = {
   traceId: string;
 };
 
 export interface PolishService {
-  polishText(
-    input: CreateAiPolishRequest,
-    runtime: PolishRuntimeContext,
-  ): Promise<AiPolishResponse>;
+  polishText(input: CreatePolishRequest, runtime: PolishRuntimeContext): Promise<PolishResponse>;
 }
 
 export function createPolishService(dependencies: PolishServiceDependencies): PolishService {

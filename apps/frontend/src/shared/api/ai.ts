@@ -1,7 +1,5 @@
 import type {
   CreateResumeHtmlRequest,
-  CreateAiPolishRequest,
-  AiPolishResponse,
   ResumeHtmlListResponse,
   ResumeHtmlRecord,
   ResumeHtmlResponse,
@@ -35,16 +33,4 @@ export async function listResumeHtmlRecords(
 
 export async function getResumeHtmlRecord(resumeId: number): Promise<ResumeHtmlRecord> {
   return requestJson<ResumeHtmlRecord>(`/api/v2/ai/resume-html/${resumeId}`);
-}
-
-export async function polishSectionContent(
-  payload: CreateAiPolishRequest,
-): Promise<AiPolishResponse> {
-  return requestJson<AiPolishResponse>("/api/v2/ai/polish", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
 }

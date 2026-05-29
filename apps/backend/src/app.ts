@@ -4,6 +4,7 @@ import cors from "cors";
 import express from "express";
 
 import { createAiModule } from "./modules/ai/ai.module.js";
+import { createPolishModule } from "./modules/polish/polish.module.js";
 import { createJobComicsModule } from "./modules/job-comics/job-comics.module.js";
 import { createTtsEngine } from "./modules/pi-tools/tts/tts-factory.js";
 import { createJobPortraitsModule } from "./modules/job-portraits/job-portraits.module.js";
@@ -178,6 +179,11 @@ export function createApp(): express.Express {
       },
     ),
   );
+  app.use("/api/v2/polish", createPolishModule({
+    piAgentDir: appEnv.AGENT_PI_DIR,
+    sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
+    cwd: process.cwd(),
+  }));
   app.use(
     (error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       const traceId = (res.locals.trace_id as string | undefined) || randomUUID();

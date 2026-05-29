@@ -1,7 +1,5 @@
 import type {
   CreateResumeHtmlRequest,
-  CreateAiPolishRequest,
-  AiPolishResponse,
   ResumeHtmlListResponse,
   ResumeHtmlRecord,
   ResumeHtmlResponse,
@@ -13,7 +11,6 @@ import type { MatchingService } from "../matching/matching.service.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import type { ReportService } from "../report/report.service.js";
 import type { AiRepository } from "./ai.repository.js";
-import { createPolishService } from "../pi-tools/polish/polish.service.js";
 import { createResumeHtmlService } from "../pi-tools/resume/resume-html.service.js";
 import type { AiThinkingLevel } from "./runtime/ai-agent.types.js";
 
@@ -41,23 +38,17 @@ export interface AiService {
     input: CreateResumeHtmlRequest,
     runtime: AiTaskRuntimeContext,
   ): Promise<ResumeHtmlResponse>;
-  polishText(
-    input: CreateAiPolishRequest,
-    runtime: AiTaskRuntimeContext,
-  ): Promise<AiPolishResponse>;
   listResumeHtmlRecords(offset: number, limit: number): Promise<ResumeHtmlListResponse>;
   getResumeHtmlRecordById(resumeId: number): Promise<ResumeHtmlRecord>;
 }
 
 export function createAiService(dependencies: AiServiceDependencies): AiService {
   const resumeHtmlService = createResumeHtmlService(dependencies);
-  const polishService = createPolishService(dependencies);
 
   return {
     generateResumeHtml: (input, runtime) => resumeHtmlService.generateResumeHtml(input, runtime),
     listResumeHtmlRecords: (offset, limit) =>
       resumeHtmlService.listResumeHtmlRecords(offset, limit),
-    polishText: (input, runtime) => polishService.polishText(input, runtime),
     getResumeHtmlRecordById: (resumeId) => resumeHtmlService.getResumeHtmlRecordById(resumeId),
   };
 }

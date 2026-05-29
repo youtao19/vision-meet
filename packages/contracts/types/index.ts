@@ -790,12 +790,12 @@ export type ResumeHtmlListResponse = {
   items: ResumeHtmlListItem[];
 };
 
-export type CreateAiPolishRequest = {
+export type CreatePolishRequest = {
   content: string;
   section_key?: string;
   section_title?: string;
 };
-export type AiPolishResponse = {
+export type PolishResponse = {
   polished_content: string;
 };
 

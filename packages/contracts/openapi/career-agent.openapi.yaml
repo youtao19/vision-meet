@@ -288,6 +288,35 @@ paths:
         "200":
           description: PDF binary stream
 
+  /api/v2/polish:
+    post:
+      summary: Polish Section Content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePolishRequest"
+      responses:
+        "200":
+          description: Polished content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolishResponse"
+        "400":
+          description: Invalid polish request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Polish failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v2/ai/resume-html:
     post:
       summary: Generate Resume HTML

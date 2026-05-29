@@ -14,7 +14,7 @@ import type {
 } from "@career/contracts/types";
 
 import { fetchMatchDetail } from "@/shared/api/matching";
-import { polishSectionContent } from "@/shared/api/ai";
+import { polishSectionContent } from "@/shared/api/polish";
 import {
   createReport,
   createReportExport,

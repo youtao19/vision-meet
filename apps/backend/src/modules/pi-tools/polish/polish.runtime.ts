@@ -11,7 +11,7 @@ import {
   ModelRegistry,
   SessionManager,
 } from "@mariozechner/pi-coding-agent";
-import type { CreateAiPolishRequest, AiPolishResponse } from "@career/contracts/types";
+import type { CreatePolishRequest, PolishResponse } from "@career/contracts/types";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
 import { resolvePiRuntimeModelRef } from "../../../shared/agent/pi-runtime-config.js";
@@ -22,7 +22,7 @@ import {
 } from "../../../shared/agent/agent-bootstrap.js";
 
 export type RunPolishAgentOptions = {
-  input: CreateAiPolishRequest;
+  input: CreatePolishRequest;
   traceId: string;
   model?: string;
   piAgentDir?: string;
@@ -148,7 +148,7 @@ export function sanitizePolishedText(
   return cleaned || fallbackContent.trim();
 }
 
-export async function runPolishAgent(options: RunPolishAgentOptions): Promise<AiPolishResponse> {
+export async function runPolishAgent(options: RunPolishAgentOptions): Promise<PolishResponse> {
   const piAgentDir = options.piAgentDir || resolveDefaultPiAgentDir();
   const sessionStoreDir =
     options.sessionStoreDir || path.join(piAgentDir, "sessions", "polish-runtime");
