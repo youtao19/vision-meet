@@ -6,9 +6,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { sanitizePolishedText } from "../runtime/ai-polish.runtime.js";
+import { sanitizePolishedText } from "../polish.runtime.js";
 
-test("sanitizePolishedText: 应移除“以下是润色后的文本”前缀", () => {
+test("sanitizePolishedText: 应移除'以下是润色后的文本'前缀", () => {
   const result = sanitizePolishedText(
     ["以下是润色后的文本：", "", "---", "报告摘要", "学生当前具备基础匹配条件。"].join("\n"),
     "原文",

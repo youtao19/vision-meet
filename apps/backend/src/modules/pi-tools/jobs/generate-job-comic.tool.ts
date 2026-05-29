@@ -8,7 +8,7 @@ import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import type { JobPortraitPictureBookContext } from "@career/contracts/types";
 
 import type { JobComicsService } from "../../job-comics/job-comics.service.js";
-import { readBooleanParam, readStringParam } from "../../ai/runtime/ai-agent.utils.js";
+import { readBooleanParam, readStringParam } from "../../../shared/agent/pi-utils.js";
 
 export type GenerateJobPictureBookToolContext = {
   jobComicsService: JobComicsService;
@@ -30,7 +30,9 @@ function readStringArrayParam(params: unknown, key: string): string[] | undefine
  * 参数：context 注入岗位绘本 service；Pi 侧传岗位名称和可选展示上下文。
  * 返回：岗位名称和绘本资源 URL，供最终回答或前端渲染使用。
  */
-export function createGenerateJobPictureBookTool(context: GenerateJobPictureBookToolContext): ToolDefinition {
+export function createGenerateJobPictureBookTool(
+  context: GenerateJobPictureBookToolContext,
+): ToolDefinition {
   return {
     name: "generate_job_picture_book",
     label: "生成岗位绘本",

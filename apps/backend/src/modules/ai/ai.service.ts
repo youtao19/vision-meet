@@ -16,8 +16,8 @@ import type { ProfileRepository } from "../profile/profile.repository.js";
 import type { ReportService } from "../report/report.service.js";
 import type { AiRepository } from "./ai.repository.js";
 import { createAiTaskService } from "./ai-task.service.js";
-import { createPolishService } from "./polish.service.js";
-import { createResumeHtmlService } from "./resume-html.service.js";
+import { createPolishService } from "../pi-tools/polish/polish.service.js";
+import { createResumeHtmlService } from "../pi-tools/resume/resume-html.service.js";
 import type { AiThinkingLevel } from "./runtime/ai-agent.types.js";
 
 type AiServiceDependencies = {

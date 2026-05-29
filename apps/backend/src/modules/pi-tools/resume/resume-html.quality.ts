@@ -13,7 +13,10 @@ function parseYearMonth(value: string): { year: number; month: number } | null {
   };
 }
 
-function monthDistance(start: { year: number; month: number }, end: { year: number; month: number }) {
+function monthDistance(
+  start: { year: number; month: number },
+  end: { year: number; month: number },
+) {
   return (end.year - start.year) * 12 + (end.month - start.month);
 }
 
@@ -79,7 +82,8 @@ export function buildResumeQualityWarnings(input: CreateResumeHtmlRequest): Resu
   if (hasTargetRoleMismatch(input)) {
     warnings.push({
       code: "TARGET_ROLE_MISMATCH",
-      message: "目标岗位偏 Java，但项目经历中缺少 Java/Spring 等后端证据，建议补充相关项目或调整目标岗位。",
+      message:
+        "目标岗位偏 Java，但项目经历中缺少 Java/Spring 等后端证据，建议补充相关项目或调整目标岗位。",
     });
   }
 

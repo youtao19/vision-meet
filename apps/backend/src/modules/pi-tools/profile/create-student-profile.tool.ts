@@ -8,7 +8,7 @@ import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import type { CreateStudentProfileRequest } from "@career/contracts/types";
 
 import type { ProfileService } from "../../profile/profile.service.js";
-import { readStringParam } from "../../ai/runtime/ai-agent.utils.js";
+import { readStringParam } from "../../../shared/agent/pi-utils.js";
 import {
   getProfileCompletenessScore,
   getProfileCompetitivenessScore,

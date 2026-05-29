@@ -4,12 +4,12 @@ import type { CreateStudentProfileFromResumeRequest } from "@career/contracts/ty
 
 import type { AppEnv } from "../../../shared/config/env.js";
 import { HttpError } from "../../../shared/errors/http-error.js";
-import type { AiThinkingLevel } from "../../ai/runtime/ai-agent.types.js";
+import type { PiThinkingLevel } from "../../../shared/agent/pi-types.js";
 import type {
   PiSessionImageInput,
   PiSessionRunResult,
-} from "../../ai/runtime/pi-session.runner.js";
-import { runPiSession } from "../../ai/runtime/pi-session.runner.js";
+} from "../../../shared/agent/pi-session.runner.js";
+import { runPiSession } from "../../../shared/agent/pi-session.runner.js";
 import type { AgentExtractedProfile, ResumeRaw } from "./parse-resume-profile.parser.js";
 import {
   parseResumeRawAgentOutput,
@@ -64,7 +64,7 @@ async function runValidatedPiSession<T>(params: {
     piAgentDir: params.env.AGENT_PI_DIR,
     sessionStoreDir: params.env.AGENT_SESSION_STORE_DIR,
     sessionScope: params.sessionScope,
-    thinkingLevel: (params.env.AGENT_THINKING_LEVEL || "medium") as AiThinkingLevel,
+    thinkingLevel: (params.env.AGENT_THINKING_LEVEL || "medium") as PiThinkingLevel,
     timeoutMs: params.timeoutMs,
     systemPrompt: params.systemPrompt,
     images: params.images,

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import type { AiThinkingLevel } from "../../ai/runtime/ai-agent.types.js";
-import { runPiSession } from "../../ai/runtime/pi-session.runner.js";
+import type { PiThinkingLevel } from "../../../shared/agent/pi-types.js";
+import { runPiSession } from "../../../shared/agent/pi-session.runner.js";
 import type {
   ReportGenerator,
   ReportGeneratorInput,
@@ -18,7 +18,7 @@ type CareerReportGeneratorOptions = {
   piAgentDir?: string;
   sessionStoreDir?: string;
   model?: string;
-  thinkingLevel: AiThinkingLevel;
+  thinkingLevel: PiThinkingLevel;
   timeoutMs?: number;
 };
 

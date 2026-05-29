@@ -16,6 +16,18 @@ export {
   resolveStandardPiAgentDir,
 } from "../../../shared/agent/agent-bootstrap.js";
 
+/**
+ * 已迁移到 shared/agent/pi-utils.ts 的工具函数，此处保留再导出以兼容 ai/ 内部引用。
+ */
+import {
+  summarizeAssistantMessage,
+  readStringParam,
+  readBooleanParam,
+  readIntegerParam,
+} from "../../../shared/agent/pi-utils.js";
+
+export { summarizeAssistantMessage, readStringParam, readBooleanParam, readIntegerParam };
+
 import { HttpError } from "../../../shared/errors/http-error.js";
 import { getProfileSkillNames, getProfileTargetRole } from "../../profile/profile.selectors.js";
 import type { AiAgentRuntimeState, ToolExecutionSnapshot } from "./ai-agent.types.js";
@@ -73,37 +85,6 @@ export function buildDefaultKnowledgeQuery(state: AiAgentRuntimeState): string {
   ]
     .filter(Boolean)
     .join("；");
-}
-
-export function summarizeAssistantMessage(message: unknown): string {
-  if (!message || typeof message !== "object") {
-    return "";
-  }
-
-  const content = (message as { content?: unknown }).content;
-  if (typeof content === "string") {
-    return content.trim();
-  }
-
-  if (!Array.isArray(content)) {
-    return "";
-  }
-
-  return content
-    .flatMap((item) => {
-      if (typeof item === "string") {
-        return [item];
-      }
-
-      if (!item || typeof item !== "object") {
-        return [];
-      }
-
-      const text = (item as { text?: unknown }).text;
-      return typeof text === "string" ? [text] : [];
-    })
-    .join("\n")
-    .trim();
 }
 
 export function extractToolResultText(result: unknown): string {
@@ -217,33 +198,6 @@ export function appendWarning(warnings: AiWarningCode[], warning: AiWarningCode)
   if (!warnings.includes(warning)) {
     warnings.push(warning);
   }
-}
-
-export function readStringParam(params: unknown, key: string): string | undefined {
-  if (!params || typeof params !== "object") {
-    return undefined;
-  }
-
-  const value = (params as Record<string, unknown>)[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-export function readBooleanParam(params: unknown, key: string): boolean | undefined {
-  if (!params || typeof params !== "object") {
-    return undefined;
-  }
-
-  const value = (params as Record<string, unknown>)[key];
-  return typeof value === "boolean" ? value : undefined;
-}
-
-export function readIntegerParam(params: unknown, key: string): number | undefined {
-  if (!params || typeof params !== "object") {
-    return undefined;
-  }
-
-  const value = (params as Record<string, unknown>)[key];
-  return typeof value === "number" && Number.isInteger(value) ? value : undefined;
 }
 
 export function createSessionSubscription(params: {

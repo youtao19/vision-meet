@@ -6,12 +6,8 @@
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 
-import {
-  appendWarning,
-  buildDefaultKnowledgeQuery,
-  readIntegerParam,
-  readStringParam,
-} from "../../ai/runtime/ai-agent.utils.js";
+import { readIntegerParam, readStringParam } from "../../../shared/agent/pi-utils.js";
+import { appendWarning, buildDefaultKnowledgeQuery } from "../../ai/runtime/ai-agent.utils.js";
 import type { PiToolFactoryContext } from "../pi-tool-context.js";
 
 export function createSearchKnowledgeTool(context: PiToolFactoryContext): ToolDefinition {

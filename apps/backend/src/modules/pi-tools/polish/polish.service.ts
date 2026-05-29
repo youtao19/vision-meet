@@ -1,6 +1,6 @@
 import type { AiPolishResponse, CreateAiPolishRequest } from "@career/contracts/types";
 
-import { runPolishAgent } from "./runtime/ai-polish.runtime.js";
+import { runPolishAgent } from "./polish.runtime.js";
 
 type PolishServiceDependencies = {
   piAgentDir?: string;

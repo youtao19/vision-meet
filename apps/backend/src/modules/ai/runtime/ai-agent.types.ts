@@ -19,7 +19,12 @@ import type { MatchingService } from "../../matching/matching.service.js";
 import type { ProfileRepository } from "../../profile/profile.repository.js";
 import type { ReportService } from "../../report/report.service.js";
 
-export type AiThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+/**
+ * Pi Agent 思考强度等级。
+ * 实际定义在 shared/agent/pi-types.ts，此处保留再导出以兼容 ai/ 内部引用。
+ */
+import type { PiThinkingLevel } from "../../../shared/agent/pi-types.js";
+export type AiThinkingLevel = PiThinkingLevel;
 
 export type AiAgentRuntimeJob = {
   id: number;

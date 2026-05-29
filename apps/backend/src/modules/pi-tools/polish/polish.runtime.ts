@@ -11,14 +11,15 @@ import {
   ModelRegistry,
   SessionManager,
 } from "@mariozechner/pi-coding-agent";
+import type { CreateAiPolishRequest, AiPolishResponse } from "@career/contracts/types";
+
 import { HttpError } from "../../../shared/errors/http-error.js";
 import { resolvePiRuntimeModelRef } from "../../../shared/agent/pi-runtime-config.js";
 import {
   ensureCompatibleAgentBootstrap,
   ensureDirectory,
   resolveDefaultPiAgentDir,
-} from "./ai-agent.utils.js";
-import type { CreateAiPolishRequest, AiPolishResponse } from "@career/contracts/types";
+} from "../../../shared/agent/agent-bootstrap.js";
 
 export type RunPolishAgentOptions = {
   input: CreateAiPolishRequest;
@@ -43,7 +44,7 @@ const POLISH_SYSTEM_PROMPT = `# 角色
 5. 语言风格：简洁、专业、客观，避免口语化。
 6. 可使用 Markdown（如加粗、分段），但仅用于提升正文可读性。
 7. 禁止出现如下内容：
-   - “润色后如下”“以下是结果”“说明”“解释”等提示语
+   - "润色后如下""以下是结果""说明""解释"等提示语
    - 任何与正文无关的内容
    - 追问、建议或额外补充
 
@@ -78,7 +79,7 @@ function isPolishPreambleLine(input: string): boolean {
     /^以下(?:是|为)?(?:我(?:为你|帮你)?(?:润色|优化)(?:后)?的?)?(?:润色|优化)(?:后)?(?:的)?(?:文本|内容|结果)(?:如下|如下所示)?[：:]?$/u.test(
       line,
     ) ||
-    /^(?:润色|优化)(?:后)?(?:的)?(?:文本|内容|结果)(?:如下|如下所示)?[：:]?$/u.test(line) ||
+    /^(?:润色|优化)(?:后)?(?:的)?(?:文本|内容|结果)(?:如下|如下所示)?[：:]$/u.test(line) ||
     /^我(?:来|将|会|已经|已)(?:为你|帮你)?(?:对这段|将这段|把这段|这段|该段|以下)?[^。\n]*?(?:润色|优化)[^。\n]*[：:]$/u.test(
       line,
     ) ||

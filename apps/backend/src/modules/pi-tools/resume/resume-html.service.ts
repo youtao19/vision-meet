@@ -5,11 +5,11 @@ import type {
   ResumeHtmlResponse,
 } from "@career/contracts/types";
 
-import { HttpError } from "../../shared/errors/http-error.js";
-import { generateResumeHtmlWithPi } from "../pi-tools/resume/resume-html.generator.js";
-import type { AiRepository } from "./ai.repository.js";
+import { HttpError } from "../../../shared/errors/http-error.js";
+import type { PiThinkingLevel } from "../../../shared/agent/pi-types.js";
+import type { AiRepository } from "../../ai/ai.repository.js";
+import { generateResumeHtmlWithPi } from "./resume-html.generator.js";
 import { buildResumeQualityWarnings } from "./resume-html.quality.js";
-import type { AiThinkingLevel } from "./runtime/ai-agent.types.js";
 
 /**
  * 简历 HTML 服务依赖。
@@ -21,7 +21,7 @@ type ResumeHtmlServiceDependencies = {
   piAgentDir?: string;
   sessionStoreDir?: string;
   model?: string;
-  thinkingLevel?: AiThinkingLevel;
+  thinkingLevel?: PiThinkingLevel;
   resumeTimeoutMs?: number;
   cwd?: string;
 };

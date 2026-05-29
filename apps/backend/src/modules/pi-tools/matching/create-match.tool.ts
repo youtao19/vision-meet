@@ -6,7 +6,7 @@
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 
-import { readBooleanParam } from "../../ai/runtime/ai-agent.utils.js";
+import { readBooleanParam } from "../../../shared/agent/pi-utils.js";
 import type { PiToolFactoryContext } from "../pi-tool-context.js";
 
 export function createMatchTool(context: PiToolFactoryContext): ToolDefinition {

@@ -1,8 +1,8 @@
 import type { CreateResumeHtmlRequest, ResumeHtmlResponse } from "@career/contracts/types";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
-import type { AiThinkingLevel } from "../../ai/runtime/ai-agent.types.js";
-import { runPiSession } from "../../ai/runtime/pi-session.runner.js";
+import type { PiThinkingLevel } from "../../../shared/agent/pi-types.js";
+import { runPiSession } from "../../../shared/agent/pi-session.runner.js";
 import { ensurePrintableControls, extractHtmlFromAgentText } from "./resume-html.parser.js";
 import {
   buildResumeHtmlUserPrompt,
@@ -21,7 +21,7 @@ type GenerateResumeHtmlWithPiOptions = {
   piAgentDir?: string;
   sessionStoreDir?: string;
   model?: string;
-  thinkingLevel: AiThinkingLevel;
+  thinkingLevel: PiThinkingLevel;
   timeoutMs?: number;
 };
 
