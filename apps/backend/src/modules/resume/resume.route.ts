@@ -3,26 +3,22 @@ import { Router } from "express";
 
 import { HttpError } from "../../shared/errors/http-error.js";
 import {
-  aiResumeHtmlIdParamsSchema,
-  aiResumeHtmlListQuerySchema,
-  aiResumeHtmlCreateSchema,
-} from "./ai.schemas.js";
-import type { AiService } from "./ai.service.js";
+  resumeHtmlCreateSchema,
+  resumeHtmlListQuerySchema,
+  resumeHtmlIdParamsSchema,
+} from "./resume.schemas.js";
+import type { ResumeService } from "./resume.service.js";
 
-/**
- * 文件作用：暴露 AI 中枢统一 HTTP 入口。
- * 设计边界：route 只负责协议适配、参数校验与兼容路径映射，任务执行和工具编排全部下沉到 service。
- */
-export function createAiRouter(service: AiService): Router {
+export function createResumeRouter(service: ResumeService): Router {
   const router = Router();
 
-  router.post("/resume-html", async (req, res, next) => {
-    const parsed = aiResumeHtmlCreateSchema.safeParse(req.body);
+  router.post("/html", async (req, res, next) => {
+    const parsed = resumeHtmlCreateSchema.safeParse(req.body);
     if (!parsed.success) {
       return next(
         new HttpError(
           400,
-          "AI_RESUME_HTML_INPUT_INVALID",
+          "RESUME_HTML_INPUT_INVALID",
           "简历生成参数不合法",
           parsed.error.flatten(),
         ),
@@ -31,22 +27,20 @@ export function createAiRouter(service: AiService): Router {
 
     try {
       const traceId = (res.locals.trace_id as string | undefined) || "";
-      const result = await service.generateResumeHtml(parsed.data, {
-        traceId,
-      });
+      const result = await service.generateResumeHtml(parsed.data, { traceId });
       return res.status(201).json(result);
     } catch (error) {
       return next(error);
     }
   });
 
-  router.get("/resume-html", async (req, res, next) => {
-    const parsed = aiResumeHtmlListQuerySchema.safeParse(req.query);
+  router.get("/html", async (req, res, next) => {
+    const parsed = resumeHtmlListQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       return next(
         new HttpError(
           400,
-          "AI_RESUME_HTML_LIST_QUERY_INVALID",
+          "RESUME_HTML_LIST_QUERY_INVALID",
           "简历列表查询参数不合法",
           parsed.error.flatten(),
         ),
@@ -61,11 +55,11 @@ export function createAiRouter(service: AiService): Router {
     }
   });
 
-  router.get("/resume-html/:resume_id", async (req, res, next) => {
-    const parsed = aiResumeHtmlIdParamsSchema.safeParse(req.params);
+  router.get("/html/:resume_id", async (req, res, next) => {
+    const parsed = resumeHtmlIdParamsSchema.safeParse(req.params);
     if (!parsed.success) {
       return next(
-        new HttpError(400, "AI_RESUME_HTML_ID_INVALID", "简历标识不合法", parsed.error.flatten()),
+        new HttpError(400, "RESUME_HTML_ID_INVALID", "简历标识不合法", parsed.error.flatten()),
       );
     }
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * 创建 AI 简历 HTML 的入参校验。
+ * 创建简历 HTML 的入参校验。
  *
  * basic：
  * - 必填：姓名、手机号、邮箱、目标岗位
@@ -24,7 +24,7 @@ import { z } from "zod";
  * - 必填：技能
  * - 选填：证书、获奖经历、作品链接
  */
-export const aiResumeHtmlCreateSchema = z.object({
+export const resumeHtmlCreateSchema = z.object({
   basic: z.object({
     name: z.string().trim().min(1).max(80),
     phone: z.string().trim().min(1).max(40),
@@ -68,11 +68,11 @@ export const aiResumeHtmlCreateSchema = z.object({
   portfolio_links: z.string().trim().max(1000).optional(),
 });
 
-export const aiResumeHtmlListQuerySchema = z.object({
+export const resumeHtmlListQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export const aiResumeHtmlIdParamsSchema = z.object({
+export const resumeHtmlIdParamsSchema = z.object({
   resume_id: z.coerce.number().int().min(1),
 });

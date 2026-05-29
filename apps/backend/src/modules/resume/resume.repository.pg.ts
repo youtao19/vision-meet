@@ -1,7 +1,3 @@
-/**
- * 文件作用：提供 AI 简历 HTML 记录的 PostgreSQL 仓储实现。
- */
-
 import type { Pool } from "pg";
 
 import type {
@@ -13,10 +9,10 @@ import type {
 
 import { ensureCareerCoreSchema } from "../../shared/db/career-schema.js";
 import type {
-  AiRepository,
+  ResumeRepository,
   ResumeHtmlListQuery,
   ResumeHtmlRecordCreateInput,
-} from "./ai.repository.js";
+} from "./resume.repository.js";
 
 function mapResumeHtmlRecord(row: Record<string, unknown>): ResumeHtmlRecord {
   return {
@@ -44,7 +40,7 @@ function mapResumeHtmlListItem(row: Record<string, unknown>): ResumeHtmlListItem
   };
 }
 
-export function createPgAiRepository(pool: Pool): AiRepository {
+export function createPgResumeRepository(pool: Pool): ResumeRepository {
   let schemaReady: Promise<void> | null = null;
 
   async function ensureSchema(): Promise<void> {

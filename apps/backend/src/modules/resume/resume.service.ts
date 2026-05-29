@@ -5,19 +5,19 @@ import type {
   ResumeHtmlResponse,
 } from "@career/contracts/types";
 
-import { HttpError } from "../../../shared/errors/http-error.js";
-import type { PiThinkingLevel } from "../../../shared/agent/pi-types.js";
-import type { AiRepository } from "../../ai/ai.repository.js";
-import { generateResumeHtmlWithPi } from "./resume-html.generator.js";
-import { buildResumeQualityWarnings } from "./resume-html.quality.js";
+import { HttpError } from "../../shared/errors/http-error.js";
+import type { PiThinkingLevel } from "../../shared/agent/pi-types.js";
+import type { ResumeRepository } from "./resume.repository.js";
+import { generateResumeHtmlWithPi } from "../pi-tools/resume/resume-html.generator.js";
+import { buildResumeQualityWarnings } from "../pi-tools/resume/resume-html.quality.js";
 
 /**
- * 简历 HTML 服务依赖。
- * 必填：aiRepository
+ * 简历服务依赖。
+ * 必填：resumeRepository
  * 选填：Pi Agent 目录、会话目录、模型、思考强度、生成超时时间、运行目录
  */
-type ResumeHtmlServiceDependencies = {
-  aiRepository: AiRepository;
+type ResumeServiceDependencies = {
+  resumeRepository: ResumeRepository;
   piAgentDir?: string;
   sessionStoreDir?: string;
   model?: string;
@@ -27,24 +27,22 @@ type ResumeHtmlServiceDependencies = {
 };
 
 /**
- * 简历 HTML 生成运行时上下文。
- * 作用：保存一次请求生成过程中的运行信息。
+ * 简历生成运行时上下文。
  */
-type ResumeHtmlRuntimeContext = {
+type ResumeRuntimeContext = {
   traceId: string;
 };
 
 /**
- * 简历 HTML 服务。
- * 作用：负责简历生成、简历记录查询等功能。
+ * 简历服务接口。
  */
-export interface ResumeHtmlService {
+export interface ResumeService {
   /**
-   * 生成简历 HTML。
+   * 生成简历 HTML 并保存记录。
    */
   generateResumeHtml(
     input: CreateResumeHtmlRequest,
-    runtime: ResumeHtmlRuntimeContext,
+    runtime: ResumeRuntimeContext,
   ): Promise<ResumeHtmlResponse>;
 
   /**
@@ -59,18 +57,14 @@ export interface ResumeHtmlService {
 }
 
 /**
- * 创建简历 HTML 服务。
- * 作用：封装简历生成、简历记录保存、简历记录查询功能。
+ * 创建简历服务。
  */
-export function createResumeHtmlService(
-  dependencies: ResumeHtmlServiceDependencies,
-): ResumeHtmlService {
-  /**
-   * 生成简历 HTML，并把生成结果保存到数据库。
-   */
+export function createResumeService(
+  dependencies: ResumeServiceDependencies,
+): ResumeService {
   async function generateResumeHtml(
     input: CreateResumeHtmlRequest,
-    runtime: ResumeHtmlRuntimeContext,
+    runtime: ResumeRuntimeContext,
   ): Promise<ResumeHtmlResponse> {
     const generated = await generateResumeHtmlWithPi({
       input,
@@ -83,7 +77,7 @@ export function createResumeHtmlService(
       timeoutMs: dependencies.resumeTimeoutMs,
     });
 
-    const record = await dependencies.aiRepository.createResumeHtmlRecord({
+    const record = await dependencies.resumeRepository.createResumeHtmlRecord({
       trace_id: runtime.traceId,
       model: generated.model,
       basic_name: input.basic.name,
@@ -102,14 +96,10 @@ export function createResumeHtmlService(
     };
   }
 
-  /**
-   * 根据简历 ID 查询简历记录。
-   * 找不到记录时抛出 404 错误。
-   */
   async function getResumeHtmlRecordById(resumeId: number): Promise<ResumeHtmlRecord> {
-    const record = await dependencies.aiRepository.getResumeHtmlRecordById(resumeId);
+    const record = await dependencies.resumeRepository.getResumeHtmlRecordById(resumeId);
     if (!record) {
-      throw new HttpError(404, "AI_RESUME_HTML_NOT_FOUND", "简历记录不存在");
+      throw new HttpError(404, "RESUME_HTML_NOT_FOUND", "简历记录不存在");
     }
     return record;
   }
@@ -117,7 +107,7 @@ export function createResumeHtmlService(
   return {
     generateResumeHtml,
     listResumeHtmlRecords: (offset, limit) =>
-      dependencies.aiRepository.listResumeHtmlRecords({ offset, limit }),
+      dependencies.resumeRepository.listResumeHtmlRecords({ offset, limit }),
     getResumeHtmlRecordById,
   };
 }

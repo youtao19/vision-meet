@@ -10,7 +10,7 @@ import { requestJson } from "./http";
 export async function createResumeHtml(
   payload: CreateResumeHtmlRequest,
 ): Promise<ResumeHtmlResponse> {
-  return requestJson<ResumeHtmlResponse>("/api/v2/ai/resume-html", {
+  return requestJson<ResumeHtmlResponse>("/api/v2/resumes/html", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -28,9 +28,9 @@ export async function listResumeHtmlRecords(
     limit: String(limit),
   });
 
-  return requestJson<ResumeHtmlListResponse>(`/api/v2/ai/resume-html?${params.toString()}`);
+  return requestJson<ResumeHtmlListResponse>(`/api/v2/resumes/html?${params.toString()}`);
 }
 
 export async function getResumeHtmlRecord(resumeId: number): Promise<ResumeHtmlRecord> {
-  return requestJson<ResumeHtmlRecord>(`/api/v2/ai/resume-html/${resumeId}`);
+  return requestJson<ResumeHtmlRecord>(`/api/v2/resumes/html/${resumeId}`);
 }

@@ -317,7 +317,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/v2/ai/resume-html:
+  /api/v2/resumes/html:
     post:
       summary: Generate Resume HTML
       requestBody:
@@ -375,7 +375,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/v2/ai/resume-html/{resume_id}:
+  /api/v2/resumes/html/{resume_id}:
     get:
       summary: Get Generated Resume HTML Record
       parameters:

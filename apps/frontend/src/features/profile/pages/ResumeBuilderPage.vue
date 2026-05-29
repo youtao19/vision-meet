@@ -11,7 +11,7 @@ import type {
   ResumeQualityWarning,
 } from "@career/contracts/types";
 
-import { createResumeHtml, getResumeHtmlRecord, listResumeHtmlRecords } from "@/shared/api/ai";
+import { createResumeHtml, getResumeHtmlRecord, listResumeHtmlRecords } from "@/shared/api/resume";
 import { ApiRequestError } from "@/shared/api/http";
 
 const resumeHistory = ref<ResumeHtmlListItem[]>([]);

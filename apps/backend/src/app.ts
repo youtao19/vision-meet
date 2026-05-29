@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import cors from "cors";
 import express from "express";
 
-import { createAiModule } from "./modules/ai/ai.module.js";
+import { createResumeModule } from "./modules/resume/resume.module.js";
 import { createPolishModule } from "./modules/polish/polish.module.js";
 import { createJobComicsModule } from "./modules/job-comics/job-comics.module.js";
 import { createTtsEngine } from "./modules/pi-tools/tts/tts-factory.js";
@@ -160,24 +160,15 @@ export function createApp(): express.Express {
   app.use("/api/v2/reports", createReportRouter(reportService));
   app.use("/api/v2/report-exports", createReportExportDownloadRouter(reportService));
   app.use(
-    "/api/v2/ai",
-    createAiModule(
-      {
-        profileRepository,
-        knowledgeService: knowledgeModule.service,
-        matchingService,
-        reportService,
-        jobComicsService: jobComicsModule.service,
-      },
-      {
-        pool: appDataPool,
-        piAgentDir: appEnv.AGENT_PI_DIR,
-        sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
-        thinkingLevel: appEnv.AGENT_THINKING_LEVEL,
-        resumeTimeoutMs: appEnv.AGENT_RESUME_TIMEOUT_MS,
-        cwd: process.cwd(),
-      },
-    ),
+    "/api/v2/resumes",
+    createResumeModule({
+      pool: appDataPool,
+      piAgentDir: appEnv.AGENT_PI_DIR,
+      sessionStoreDir: appEnv.AGENT_SESSION_STORE_DIR,
+      thinkingLevel: appEnv.AGENT_THINKING_LEVEL,
+      resumeTimeoutMs: appEnv.AGENT_RESUME_TIMEOUT_MS,
+      cwd: process.cwd(),
+    }),
   );
   app.use("/api/v2/polish", createPolishModule({
     piAgentDir: appEnv.AGENT_PI_DIR,

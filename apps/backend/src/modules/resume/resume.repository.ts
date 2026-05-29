@@ -19,7 +19,7 @@ export type ResumeHtmlListQuery = {
   limit: number;
 };
 
-export interface AiRepository {
+export interface ResumeRepository {
   createResumeHtmlRecord(input: ResumeHtmlRecordCreateInput): Promise<ResumeHtmlRecord>;
   listResumeHtmlRecords(query: ResumeHtmlListQuery): Promise<ResumeHtmlListResponse>;
   getResumeHtmlRecordById(resumeId: number): Promise<ResumeHtmlRecord | null>;
