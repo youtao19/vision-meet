@@ -6,7 +6,7 @@ import type {
   ReportGenerator,
   ReportGeneratorInput,
   ReportGeneratorResult,
-} from "../../report/report.generator.js";
+} from "../../report/report.types.js";
 import { parseCareerReportAgentOutput } from "./career-report.parser.js";
 import {
   buildCareerReportUserPrompt,

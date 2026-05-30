@@ -1,6 +1,8 @@
 import type {
+  CareerReportExportRecord,
   CareerReportRecord,
   CareerReportSection,
+  ReportExportListResponse,
   ReportListParams,
   ReportListResponse,
 } from "@career/contracts/types";
@@ -11,6 +13,8 @@ import type {
  */
 export type CareerReportCreateInput = Omit<CareerReportRecord, "id" | "created_at" | "updated_at">;
 
+export type CareerReportExportCreateInput = Omit<CareerReportExportRecord, "created_at">;
+
 export interface ReportRepository {
   createReport(input: CareerReportCreateInput): Promise<CareerReportRecord>;
   listReports(params: ReportListParams): Promise<ReportListResponse>;
@@ -20,4 +24,10 @@ export interface ReportRepository {
     update: { sections?: CareerReportSection[]; title?: string },
   ): Promise<CareerReportRecord | null>;
   deleteReport(reportId: number): Promise<boolean>;
+
+  /** 报告导出记录 —— career_report_exports 是报告的子表，不属于独立业务域。 */
+  reserveNextExportId(): Promise<number>;
+  createExportRecord(input: CareerReportExportCreateInput): Promise<CareerReportExportRecord>;
+  listExportRecordsByReportId(reportId: number): Promise<ReportExportListResponse>;
+  getExportRecordById(exportId: number): Promise<CareerReportExportRecord | null>;
 }

@@ -1,4 +1,4 @@
-import type { ReportGeneratorInput } from "../../report/report.generator.js";
+import type { ReportGeneratorInput } from "../../report/report.types.js";
 import { REPORT_SECTION_ORDER, REPORT_SECTION_TITLES } from "../../report/report.sections.js";
 import {
   getProfileCertificateNames,

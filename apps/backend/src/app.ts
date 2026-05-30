@@ -16,7 +16,6 @@ import { createPgMatchingRepository } from "./modules/matching/matching.reposito
 import { createMatchingServiceFromDependencies } from "./modules/matching/matching.module.js";
 import { createProfileModule } from "./modules/profile/profile.module.js";
 import { createPgProfileRepository } from "./modules/profile/profile.repository.pg.js";
-import { createPgReportExportRepository } from "./modules/report/report-export.repository.pg.js";
 import {
   createReportExportDownloadRouter,
   createReportRouter,
@@ -40,7 +39,6 @@ export function createApp(): express.Express {
   const matchingRepository = createPgMatchingRepository(appDataPool);
   const jobPortraitsRepository = createPgJobPortraitsRepository(appDataPool);
   const reportRepository = createPgReportRepository(appDataPool);
-  const reportExportRepository = createPgReportExportRepository(appDataPool);
   const knowledgeModule = createKnowledgeModule({
     host: appEnv.PGHOST,
     port: appEnv.PGPORT,
@@ -81,7 +79,6 @@ export function createApp(): express.Express {
   const reportService = createReportServiceFromDependencies(
     {
       reportRepository,
-      reportExportRepository,
       matchingRepository,
       profileRepository,
     },

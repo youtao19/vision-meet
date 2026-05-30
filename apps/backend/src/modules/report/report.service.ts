@@ -12,17 +12,14 @@ import type {
   ReportExportListResponse,
   ReportListResponse,
   UpdateReportRequest,
-  StudentProfileRecord,
   MatchResultDetail,
 } from "@career/contracts/types";
 
 import type { MatchingRepository } from "../matching/matching.repository.js";
 import type { ProfileRepository } from "../profile/profile.repository.js";
 import { HttpError } from "../../shared/errors/http-error.js";
-import { getProfileName } from "../profile/profile.selectors.js";
-import type { ReportExportRepository } from "./report-export.repository.js";
 import type { ReportExporter } from "./report.exporter.js";
-import type { ReportGenerator, ReportTargetJob } from "./report.generator.js";
+import type { ReportGenerator, ReportTargetJob } from "./report.types.js";
 import type { ReportRepository } from "./report.repository.js";
 import { REPORT_SECTION_ORDER, createLegacyReportSection } from "./report.sections.js";
 
@@ -52,72 +49,6 @@ function assertValidSectionSet(sections: CareerReportSection[]): void {
 function normalizeSectionOrder(sections: CareerReportSection[]): CareerReportSection[] {
   const sectionMap = new Map(sections.map((item) => [item.key, item]));
   return REPORT_SECTION_ORDER.map((key) => sectionMap.get(key) ?? createLegacyReportSection(key));
-}
-
-/**
- * 作用：把结构化报告内容拼接为 Markdown 文本。
- * 设计说明：Markdown 导出不依赖浏览器渲染，直接由 service 侧根据章节结构生成，保证导出链路轻量可控。
- */
-function renderReportMarkdown(input: {
-  report: CareerReportRecord;
-  profile: StudentProfileRecord;
-  job: ReportTargetJob;
-}): string {
-  const lines: string[] = [
-    "# 职业规划报告",
-    "",
-    `- 报告编号：#${input.report.id}`,
-    `- 报告版本：V${input.report.version}`,
-    `- 学生姓名：${getProfileName(input.profile)}`,
-    `- 目标岗位：${input.job.title}`,
-    `- 综合匹配分：${input.report.total_score} 分`,
-    `- 导出时间：${new Date().toLocaleString("zh-CN", { hour12: false })}`,
-    "",
-    "## 决策依据",
-    "",
-  ];
-
-  if (input.report.evidence_refs.length > 0) {
-    input.report.evidence_refs.forEach((item) => {
-      lines.push(`- ${item}`);
-    });
-  } else {
-    lines.push("- 暂无");
-  }
-
-  lines.push("", "## 行动计划", "", "### 短期计划", "");
-  if (input.report.action_plan.short_term.length > 0) {
-    input.report.action_plan.short_term.forEach((item) => {
-      lines.push(`- ${item}`);
-    });
-  } else {
-    lines.push("- 暂无");
-  }
-
-  lines.push("", "### 中期计划", "");
-  if (input.report.action_plan.mid_term.length > 0) {
-    input.report.action_plan.mid_term.forEach((item) => {
-      lines.push(`- ${item}`);
-    });
-  } else {
-    lines.push("- 暂无");
-  }
-
-  for (const section of input.report.sections) {
-    lines.push("", `## ${section.title}`, "");
-    const contentLines = section.content
-      .split(/\n+/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (contentLines.length === 0) {
-      lines.push("暂无内容");
-      continue;
-    }
-    lines.push(...contentLines);
-  }
-
-  lines.push("");
-  return lines.join("\n");
 }
 
 function resolveReportTargetJob(match: MatchResultDetail): ReportTargetJob {
@@ -234,7 +165,12 @@ export interface ReportService {
   ): Promise<{ record: CareerReportExportRecord; absoluteFilePath: string }>;
 }
 
-export type ReportServiceOptions = {
+export type ReportServiceDependencies = {
+  reportRepository: ReportRepository;
+  matchingRepository: MatchingRepository;
+  profileRepository: ProfileRepository;
+  generator: ReportGenerator;
+  exporter: ReportExporter;
   exportDir?: string;
 };
 
@@ -250,15 +186,10 @@ export type ReportCreateResult = {
 };
 
 export function createReportService(
-  reportRepository: ReportRepository,
-  reportExportRepository: ReportExportRepository,
-  matchingRepository: MatchingRepository,
-  profileRepository: ProfileRepository,
-  generator: ReportGenerator,
-  exporter: ReportExporter,
-  options: ReportServiceOptions = {},
+  deps: ReportServiceDependencies,
 ): ReportService {
-  const exportDir = options.exportDir || path.join(process.cwd(), "storage", "exports", "reports");
+  const { reportRepository, matchingRepository, profileRepository, generator, exporter } = deps;
+  const exportDir = deps.exportDir || path.join(process.cwd(), "storage", "exports", "reports");
 
   async function ensureMatchExists(matchId: number) {
     const match = await matchingRepository.getMatchResultById(matchId);
@@ -335,7 +266,7 @@ export function createReportService(
   }
 
   async function getReportExport(exportId: number): Promise<CareerReportExportRecord> {
-    const record = await reportExportRepository.getExportRecordById(exportId);
+    const record = await reportRepository.getExportRecordById(exportId);
     if (!record) {
       throw new HttpError(404, "REPORT_EXPORT_NOT_FOUND", "报告导出记录不存在");
     }
@@ -384,26 +315,20 @@ export function createReportService(
     const job = resolveReportTargetJob(match);
 
     try {
-      const exported =
-        input.format === "markdown"
-          ? {
-              format: "markdown" as const,
-              bytes: Buffer.from(renderReportMarkdown({ report, profile, job }), "utf-8"),
-              fileExtension: "md",
-            }
-          : await exporter.export({
-              report,
-              profile,
-              job,
-            });
+      const exported = await exporter.export({
+        report,
+        profile,
+        job,
+        format: input.format,
+      });
 
-      const exportId = await reportExportRepository.reserveNextExportId();
+      const exportId = await reportRepository.reserveNextExportId();
       const fileName = `report-${report.id}-v${report.version}-${exportId}.${exported.fileExtension}`;
       fs.mkdirSync(exportDir, { recursive: true });
       const absoluteFilePath = path.resolve(exportDir, fileName);
       fs.writeFileSync(absoluteFilePath, exported.bytes);
 
-      return reportExportRepository.createExportRecord({
+      return reportRepository.createExportRecord({
         id: exportId,
         report_id: report.id,
         format: input.format,
@@ -419,7 +344,7 @@ export function createReportService(
 
   async function listReportExports(reportId: number): Promise<ReportExportListResponse> {
     await getReport(reportId);
-    return reportExportRepository.listExportRecordsByReportId(reportId);
+    return reportRepository.listExportRecordsByReportId(reportId);
   }
 
   async function resolveReportExportDownload(exportId: number) {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ReportGeneratorResult } from "../../report/report.generator.js";
+import type { ReportGeneratorResult } from "../../report/report.types.js";
 import { REPORT_SECTION_ORDER } from "../../report/report.sections.js";
 import { HttpError } from "../../../shared/errors/http-error.js";
 
