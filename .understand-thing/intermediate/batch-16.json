@@ -1,0 +1,47 @@
+{
+  "nodes": [
+    {
+      "id": "document:packages/contracts/README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "packages/contracts/README.md",
+      "summary": "前后端共享契约包 (@career/contracts) 的说明文档，涵盖目录结构、使用方式、变更规则与校验命令。",
+      "tags": ["documentation", "contracts", "overview"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:packages/contracts/package.json",
+      "type": "config",
+      "name": "package.json",
+      "filePath": "packages/contracts/package.json",
+      "summary": "定义 @career/contracts 共享契约包的 npm 配置，导出 TypeScript 类型入口和 OpenAPI 契约文件路径。",
+      "tags": ["configuration", "contracts", "build-system"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:packages/contracts/tsconfig.json",
+      "type": "config",
+      "name": "tsconfig.json",
+      "filePath": "packages/contracts/tsconfig.json",
+      "summary": "契约包的 TypeScript 编译配置，启用严格模式，仅对 types 目录进行类型检查（noEmit）。",
+      "tags": ["configuration", "typescript", "type-check"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "config:packages/contracts/tsconfig.json",
+      "target": "config:packages/contracts/package.json",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "document:packages/contracts/README.md",
+      "target": "config:packages/contracts/package.json",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

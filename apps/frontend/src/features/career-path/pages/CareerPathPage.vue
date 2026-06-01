@@ -94,6 +94,19 @@ function toPositiveInt(raw: string): number | undefined {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+function getRouteQueryStringValue(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function isSameCareerPathQuery(nextQuery: Record<string, string>): boolean {
+  const currentQuery = route.query;
+  return (
+    getRouteQueryStringValue(currentQuery.portrait_id) === nextQuery.portrait_id &&
+    getRouteQueryStringValue(currentQuery.student_profile_id) === nextQuery.student_profile_id &&
+    getRouteQueryStringValue(currentQuery.depth) === nextQuery.depth
+  );
+}
+
 function clampLevel(value: number): number {
   return Math.max(1, Math.min(5, Math.round(value)));
 }
@@ -572,21 +585,30 @@ async function searchGraph(): Promise<void> {
     uiState.error = "请选择合法的岗位";
     return;
   }
+  const nextQuery = {
+    portrait_id: String(portraitId),
+    ...(toPositiveInt(form.studentProfileId)
+      ? { student_profile_id: String(form.studentProfileId) }
+      : {}),
+    depth: String(form.depth),
+  };
+
+  if (isSameCareerPathQuery(nextQuery)) {
+    await loadGraph();
+    return;
+  }
+
   await router.replace({
     path: "/career-paths",
-    query: {
-      portrait_id: String(portraitId),
-      ...(toPositiveInt(form.studentProfileId)
-        ? { student_profile_id: String(form.studentProfileId) }
-        : {}),
-      depth: String(form.depth),
-    },
+    query: nextQuery,
   });
 }
 
 async function syncFromQuery(): Promise<void> {
   const portraitId =
-    typeof route.query.portrait_id === "string" ? toPositiveInt(route.query.portrait_id) : undefined;
+    typeof route.query.portrait_id === "string"
+      ? toPositiveInt(route.query.portrait_id)
+      : undefined;
   const studentProfileId =
     typeof route.query.student_profile_id === "string"
       ? toPositiveInt(route.query.student_profile_id)

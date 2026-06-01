@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "gitCommitHash": "",
-  "generatedAt": "2026-05-30T15:12:00.619Z",
+  "gitCommitHash": "7f3daeef2b653836e3187506e7d849d62ea0670a",
+  "generatedAt": "2026-06-01T04:50:04.515Z",
   "files": {
     ".baoyu-skills/baoyu-imagine/EXTEND.md": {
       "filePath": ".baoyu-skills/baoyu-imagine/EXTEND.md",
@@ -13,15 +13,15 @@
       "totalLines": 18,
       "hasStructuralAnalysis": true
     },
-    ".claude/settings.local.json": {
-      "filePath": ".claude/settings.local.json",
-      "contentHash": "845ec4d3af95c8836d72756d063136bc351fb8fc52bf35930e091c7050fa263f",
+    ".codegraph/daemon.pid": {
+      "filePath": ".codegraph/daemon.pid",
+      "contentHash": "8639e389c8f1789cc84c888ac2aef1c254139e0d95b8aa1ba183f45c242ef8d9",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 9,
-      "hasStructuralAnalysis": true
+      "totalLines": 7,
+      "hasStructuralAnalysis": false
     },
     ".dockerignore": {
       "filePath": ".dockerignore",
@@ -31,16 +31,6 @@
       "imports": [],
       "exports": [],
       "totalLines": 26,
-      "hasStructuralAnalysis": false
-    },
-    ".gitignore": {
-      "filePath": ".gitignore",
-      "contentHash": "2d4807918bab2330a78f2b12cc721b249f8bc3fbe6086df52aa4aaa64213a7de",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 59,
       "hasStructuralAnalysis": false
     },
     ".node-version": {
@@ -83,6 +73,76 @@
       "totalLines": 7,
       "hasStructuralAnalysis": true
     },
+    ".understand-anything/.understandignore": {
+      "filePath": ".understand-anything/.understandignore",
+      "contentHash": "1314bf39cf16eeb88afeb7b75adcfa81898effc4a48bf0e1c908ea45c83d96f2",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 51,
+      "hasStructuralAnalysis": false
+    },
+    ".understand-anything/config.json": {
+      "filePath": ".understand-anything/config.json",
+      "contentHash": "c580d182c06471d20da334e756934fa65efa6806350e985e2fcf84d3c9e395a4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 2,
+      "hasStructuralAnalysis": true
+    },
+    ".understand-anything/fingerprints.json": {
+      "filePath": ".understand-anything/fingerprints.json",
+      "contentHash": "32c9c4a7ebcecaf49b91f3c30ddf984a34aa6e464df8b3719460455455e134e3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 11660,
+      "hasStructuralAnalysis": true
+    },
+    ".understand-anything/knowledge-graph.json": {
+      "filePath": ".understand-anything/knowledge-graph.json",
+      "contentHash": "7d75d91f3d94859400ee722e275e6d31ab5dda160725a1a23a5ce540c8fb1853",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 12565,
+      "hasStructuralAnalysis": true
+    },
+    ".understand-anything/meta.json": {
+      "filePath": ".understand-anything/meta.json",
+      "contentHash": "0be9a454a76f7a08132df73597e1a795f6a70d4a52b4998f925f9d8bd2cda514",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    ".understand-thing/intermediate/batch-16.json": {
+      "filePath": ".understand-thing/intermediate/batch-16.json",
+      "contentHash": "1bc7eb9a08bf825439aa9d2355ff885bc29229f5289a37a2846726b413e6439f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 48,
+      "hasStructuralAnalysis": true
+    },
+    ".understand-thing/intermediate/scan-result.json": {
+      "filePath": ".understand-thing/intermediate/scan-result.json",
+      "contentHash": "d7795f9362bc60bee1ff2665707b59bedc3d3f6cd39651e82c4957cf8de3e332",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 2158,
+      "hasStructuralAnalysis": true
+    },
     "AGENTS.md": {
       "filePath": "AGENTS.md",
       "contentHash": "b8b169002653eb3dd56fbcb268376ee1d7c2b74be87c9a6ccb7fe5e5a46fc912",
@@ -93,26 +153,6 @@
       "totalLines": 90,
       "hasStructuralAnalysis": true
     },
-    "apps/backend/.env": {
-      "filePath": "apps/backend/.env",
-      "contentHash": "c2792887a51136f8efcc4ed2c8cd9e1b793f586d9be751cff70b36e4af96707e",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 39,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/.env.docker.example": {
-      "filePath": "apps/backend/.env.docker.example",
-      "contentHash": "331fa573504120d3401c7cef1578ca1ab0301b9f3da6264c6b4cac4a87e26cd1",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 21,
-      "hasStructuralAnalysis": false
-    },
     "apps/backend/.env.example": {
       "filePath": "apps/backend/.env.example",
       "contentHash": "c24d839c692c9f2f72640bb455a40a936c4a725ac6da7b5625a3e10028a91672",
@@ -121,36 +161,6 @@
       "imports": [],
       "exports": [],
       "totalLines": 53,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/.gitignore": {
-      "filePath": "apps/backend/.gitignore",
-      "contentHash": "2dd0fc9e90eac3a72720b8b67ecf077e8f18461d744fafee07357e7a5e94f2fd",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 10,
-      "hasStructuralAnalysis": false
-    },
-    "apps/backend/.tmp/pi-agent/auth.json": {
-      "filePath": "apps/backend/.tmp/pi-agent/auth.json",
-      "contentHash": "f08cd8b9be97a5ee1a8b435bb7a5a5449b45def1ff7b84fc78b395ef934d913e",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 26,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/.tmp/pi-agent/models.json": {
-      "filePath": "apps/backend/.tmp/pi-agent/models.json",
-      "contentHash": "29999c091b2f667847c7cb9dcf868391f6b08907adc09c6a074e3d99a161c75e",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 89,
       "hasStructuralAnalysis": true
     },
     "apps/backend/package.json": {
@@ -4951,7 +4961,7 @@
     },
     "apps/backend/src/modules/pi-tools/resume/generate-resume-html.tool.ts": {
       "filePath": "apps/backend/src/modules/pi-tools/resume/generate-resume-html.tool.ts",
-      "contentHash": "8d08b490bfac429e2fa9a0050da10e87034d1eba48cba121f8d610bec5dc62ca",
+      "contentHash": "94585fa5353c46724f466bb58d01dee006d9b2be1ee6e7144e51350e0f44464b",
       "functions": [
         {
           "name": "readRecord",
@@ -4969,7 +4979,7 @@
           ],
           "returnType": "ToolDefinition",
           "exported": true,
-          "lineCount": 47
+          "lineCount": 48
         }
       ],
       "classes": [],
@@ -4997,7 +5007,205 @@
       "exports": [
         "createGenerateResumeHtmlTool"
       ],
-      "totalLines": 73,
+      "totalLines": 74,
+      "hasStructuralAnalysis": true
+    },
+    "apps/backend/src/modules/pi-tools/resume/resume-draft.generator.ts": {
+      "filePath": "apps/backend/src/modules/pi-tools/resume/resume-draft.generator.ts",
+      "contentHash": "2b1e9d932e6ec8f7e3aadc76e56447db1232d13176e604d144142472012afdbb",
+      "functions": [
+        {
+          "name": "generateResumeDraftWithPi",
+          "params": [
+            "options"
+          ],
+          "returnType": "Promise<ResumeDraftResponse>",
+          "exported": true,
+          "lineCount": 31
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@career/contracts/types",
+          "specifiers": [
+            "CreateResumeDraftRequest",
+            "ResumeDraftResponse"
+          ]
+        },
+        {
+          "source": "../../../shared/agent/pi-types.js",
+          "specifiers": [
+            "PiThinkingLevel"
+          ]
+        },
+        {
+          "source": "../../../shared/agent/pi-session.runner.js",
+          "specifiers": [
+            "runPiSession"
+          ]
+        },
+        {
+          "source": "./resume-draft.parser.js",
+          "specifiers": [
+            "parseResumeDraftAgentOutput"
+          ]
+        },
+        {
+          "source": "./resume-draft.prompt.js",
+          "specifiers": [
+            "buildResumeDraftUserPrompt",
+            "RESUME_DRAFT_SYSTEM_PROMPT"
+          ]
+        }
+      ],
+      "exports": [
+        "generateResumeDraftWithPi"
+      ],
+      "totalLines": 52,
+      "hasStructuralAnalysis": true
+    },
+    "apps/backend/src/modules/pi-tools/resume/resume-draft.parser.ts": {
+      "filePath": "apps/backend/src/modules/pi-tools/resume/resume-draft.parser.ts",
+      "contentHash": "a9039772cc56d2bdcbf9bed8e10cfff2985e2d5ebcbbcafeea9bc500ca780dd8",
+      "functions": [
+        {
+          "name": "extractJsonObject",
+          "params": [
+            "rawText"
+          ],
+          "returnType": "unknown",
+          "exported": false,
+          "lineCount": 20
+        },
+        {
+          "name": "isBlankString",
+          "params": [
+            "value"
+          ],
+          "returnType": "boolean",
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "isRecord",
+          "params": [
+            "value"
+          ],
+          "exported": false,
+          "lineCount": 3
+        },
+        {
+          "name": "compactText",
+          "params": [
+            "value"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 19
+        },
+        {
+          "name": "normalizeExperienceType",
+          "params": [
+            "value"
+          ],
+          "returnType": "unknown",
+          "exported": false,
+          "lineCount": 13
+        },
+        {
+          "name": "pickText",
+          "params": [
+            "record",
+            "keys"
+          ],
+          "returnType": "string | undefined",
+          "exported": false,
+          "lineCount": 7
+        },
+        {
+          "name": "normalizeResumePayload",
+          "params": [
+            "value",
+            "draftText"
+          ],
+          "returnType": "unknown",
+          "exported": false,
+          "lineCount": 61
+        },
+        {
+          "name": "normalizeDraftOutput",
+          "params": [
+            "value"
+          ],
+          "returnType": "unknown",
+          "exported": false,
+          "lineCount": 29
+        },
+        {
+          "name": "parseResumeDraftAgentOutput",
+          "params": [
+            "rawText"
+          ],
+          "exported": true,
+          "lineCount": 35
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "zod",
+          "specifiers": [
+            "z"
+          ]
+        },
+        {
+          "source": "../../../shared/errors/http-error.js",
+          "specifiers": [
+            "HttpError"
+          ]
+        },
+        {
+          "source": "../../resume/resume.schemas.js",
+          "specifiers": [
+            "resumeHtmlCreateSchema"
+          ]
+        }
+      ],
+      "exports": [
+        "parseResumeDraftAgentOutput"
+      ],
+      "totalLines": 220,
+      "hasStructuralAnalysis": true
+    },
+    "apps/backend/src/modules/pi-tools/resume/resume-draft.prompt.ts": {
+      "filePath": "apps/backend/src/modules/pi-tools/resume/resume-draft.prompt.ts",
+      "contentHash": "778b0caa9769d74993bc6b0775ba66301bf0305555db19a5f59eba881e412581",
+      "functions": [
+        {
+          "name": "buildResumeDraftUserPrompt",
+          "params": [
+            "input"
+          ],
+          "returnType": "string",
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@career/contracts/types",
+          "specifiers": [
+            "CreateResumeDraftRequest"
+          ]
+        }
+      ],
+      "exports": [
+        "RESUME_DRAFT_SYSTEM_PROMPT",
+        "buildResumeDraftUserPrompt"
+      ],
+      "totalLines": 53,
       "hasStructuralAnalysis": true
     },
     "apps/backend/src/modules/pi-tools/resume/resume-html.generator.ts": {
@@ -5096,7 +5304,7 @@
     },
     "apps/backend/src/modules/pi-tools/resume/resume-html.prompt.ts": {
       "filePath": "apps/backend/src/modules/pi-tools/resume/resume-html.prompt.ts",
-      "contentHash": "32b4fc16d104217f93e22409a3fda8795957737f5e77805158d78a3db0685ae9",
+      "contentHash": "6eb49c46b432da5d5740da386329e3c1532248d678f84cd1e9f3616fece5b40c",
       "functions": [
         {
           "name": "buildResumeHtmlUserPrompt",
@@ -5105,7 +5313,7 @@
           ],
           "returnType": "string",
           "exported": true,
-          "lineCount": 14
+          "lineCount": 23
         }
       ],
       "classes": [],
@@ -5121,7 +5329,7 @@
         "RESUME_GENERATION_SYSTEM_PROMPT",
         "buildResumeHtmlUserPrompt"
       ],
-      "totalLines": 33,
+      "totalLines": 42,
       "hasStructuralAnalysis": true
     },
     "apps/backend/src/modules/pi-tools/resume/resume-html.quality.ts": {
@@ -7090,7 +7298,7 @@
     },
     "apps/backend/src/modules/resume/resume.route.ts": {
       "filePath": "apps/backend/src/modules/resume/resume.route.ts",
-      "contentHash": "2fcc2dfb3b99acb06d41713db11d521ecea11bb03ba7997a3aced77a0ca495c5",
+      "contentHash": "2be09227b01a8e856062e09e96ff09e471d650fe739e2d36c5c232294c7ff1f5",
       "functions": [
         {
           "name": "createResumeRouter",
@@ -7099,7 +7307,7 @@
           ],
           "returnType": "Router",
           "exported": true,
-          "lineCount": 64
+          "lineCount": 86
         }
       ],
       "classes": [],
@@ -7127,6 +7335,7 @@
         {
           "source": "./resume.schemas.js",
           "specifiers": [
+            "resumeDraftCreateSchema",
             "resumeHtmlCreateSchema",
             "resumeHtmlListQuerySchema",
             "resumeHtmlIdParamsSchema"
@@ -7142,12 +7351,12 @@
       "exports": [
         "createResumeRouter"
       ],
-      "totalLines": 76,
+      "totalLines": 99,
       "hasStructuralAnalysis": true
     },
     "apps/backend/src/modules/resume/resume.schemas.ts": {
       "filePath": "apps/backend/src/modules/resume/resume.schemas.ts",
-      "contentHash": "785085d58480ac54fa7669b161d101d06ca6599612d694aa346255510e995b62",
+      "contentHash": "91085eb02b8893a24da78b6c97ead997647b1ece2468ef8b6799d1961135d504",
       "functions": [],
       "classes": [],
       "imports": [
@@ -7160,15 +7369,16 @@
       ],
       "exports": [
         "resumeHtmlCreateSchema",
+        "resumeDraftCreateSchema",
         "resumeHtmlListQuerySchema",
         "resumeHtmlIdParamsSchema"
       ],
-      "totalLines": 79,
+      "totalLines": 94,
       "hasStructuralAnalysis": true
     },
     "apps/backend/src/modules/resume/resume.service.ts": {
       "filePath": "apps/backend/src/modules/resume/resume.service.ts",
-      "contentHash": "17d07993814eed284d484069808eb8a478e34ed5de8f37fb630e65e3932fea89",
+      "contentHash": "da4bbf2bdd116ff0d211ad178756564ccfb6994f3a1d96303a2cb9a77b97df13",
       "functions": [
         {
           "name": "createResumeService",
@@ -7177,7 +7387,7 @@
           ],
           "returnType": "ResumeService",
           "exported": true,
-          "lineCount": 52
+          "lineCount": 67
         }
       ],
       "classes": [],
@@ -7185,7 +7395,9 @@
         {
           "source": "@career/contracts/types",
           "specifiers": [
+            "CreateResumeDraftRequest",
             "CreateResumeHtmlRequest",
+            "ResumeDraftResponse",
             "ResumeHtmlListResponse",
             "ResumeHtmlRecord",
             "ResumeHtmlResponse"
@@ -7216,6 +7428,12 @@
           ]
         },
         {
+          "source": "../pi-tools/resume/resume-draft.generator.js",
+          "specifiers": [
+            "generateResumeDraftWithPi"
+          ]
+        },
+        {
           "source": "../pi-tools/resume/resume-html.quality.js",
           "specifiers": [
             "buildResumeQualityWarnings"
@@ -7225,7 +7443,7 @@
       "exports": [
         "createResumeService"
       ],
-      "totalLines": 114,
+      "totalLines": 140,
       "hasStructuralAnalysis": true
     },
     "apps/backend/src/scripts/agent-auth-kimi.ts": {
@@ -8741,306 +8959,6 @@
       "totalLines": 34,
       "hasStructuralAnalysis": true
     },
-    "apps/backend/storage/agent-runs.json": {
-      "filePath": "apps/backend/storage/agent-runs.json",
-      "contentHash": "86c2e46032fa0ef9c890d31f14e43304b0b884b8a0e7640833a24b92785e90ad",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 1151,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/data.json": {
-      "filePath": "apps/backend/storage/data.json",
-      "contentHash": "108df0427d2b900d4ffe8df59b109eb0c283eacbb072a24043de3d318670e1bb",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 141,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-10-v1-6.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-10-v1-6.md",
-      "contentHash": "528da30d025d52f999745bc4464ea7a424d9ed39b83c5151b945636b04194ace",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 75,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-10-v1-7.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-10-v1-7.md",
-      "contentHash": "b1853d4a83932a1d58963c51d1263666fabf37e323cda8468175e03f2563245a",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 75,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-12-v1-8.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-12-v1-8.md",
-      "contentHash": "e03e93510a70b77425e72933338f533c2480f7c8b7f243cc6487841b21523700",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 72,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-13-v1-9.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-13-v1-9.md",
-      "contentHash": "bee8e3788943fe3914d4e5cf17b9aba5b002d135d92c8e4b5b246e1fae7392b0",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 77,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-14-v1-10.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-14-v1-10.md",
-      "contentHash": "c166e62882955131aded5fb0114490da8d7d048325e9b39094b6f530a6a7709d",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 77,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-2-v2-4.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-2-v2-4.md",
-      "contentHash": "41437f1e43b7ee255a2636dc46e5268da206a2143612e8b7bb5226026ecd141a",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 94,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-3-v1-5.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-3-v1-5.md",
-      "contentHash": "ab31722d4c79a6a37f2d6952ef46192302760d278fd3c2274381192103366f54",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 97,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-4-v1-6.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-4-v1-6.md",
-      "contentHash": "93ab30e57d2a0cd4bcebb16072982006514852bb5612cd797f266d606a41c171",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 100,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-6-v1-7.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-6-v1-7.md",
-      "contentHash": "8c9b15b77a00672dd4b0d7ddbd3776d045712ca32648a25570bff835ad184fd0",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 92,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-6-v4-3.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-6-v4-3.md",
-      "contentHash": "4fc4c24f62beef1e3d87a523db6e4c0489c37d258f2281020d6e3da99c364a7f",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 74,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-7-v1-1.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-7-v1-1.md",
-      "contentHash": "213148328a4e1540c780ae7ac0e8f5b7547568883babfe91c786ba0f05017b06",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 78,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-8-v1-4.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-8-v1-4.md",
-      "contentHash": "b85c3d2fa960efb2cb65ce634d080fc1ed2238bb5c8a65da7518b3944e140539",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 76,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/exports/reports/report-9-v1-5.md": {
-      "filePath": "apps/backend/storage/exports/reports/report-9-v1-5.md",
-      "contentHash": "b316771e80a6ded4852cfb7965acdfdcefab927cfaa1274a1bebb99324c2e691",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 76,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/book.json": {
-      "filePath": "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/book.json",
-      "contentHash": "baf674bb7fd3e8991b2ff9d29c9af3b0fed7869d3f35ce6c795ef489f3b51611",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 35,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/page-0.m4a": {
-      "filePath": "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/page-0.m4a",
-      "contentHash": "8604f8f0b6cafad87b33a7137e7f6e01e4b51fe698092fb016cf5f7ae646c61b",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 482,
-      "hasStructuralAnalysis": false
-    },
-    "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/page-1.m4a": {
-      "filePath": "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/page-1.m4a",
-      "contentHash": "eed24c4b58962dd30f3e27e27545601b76b2dd7f1381e05b80632f09ddba3d01",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 327,
-      "hasStructuralAnalysis": false
-    },
-    "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/page-2.m4a": {
-      "filePath": "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/page-2.m4a",
-      "contentHash": "86296ade24366ab8096135902d403c315dec6e21a938d40d8f1dec8650e9d979",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 337,
-      "hasStructuralAnalysis": false
-    },
-    "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/page-3.m4a": {
-      "filePath": "apps/backend/storage/job-comics/ai算法工程师-42d92224ea/page-3.m4a",
-      "contentHash": "ca423369188425e408c530468b4ac2c94f68dbaf41b27cdb2804e90e2978fdef",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 435,
-      "hasStructuralAnalysis": false
-    },
-    "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/book.json": {
-      "filePath": "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/book.json",
-      "contentHash": "ff06eec40fc8ab02f056e105d98a839e7f6304e36afeadb67a1cb10f7a9089ee",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 35,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/page-0.m4a": {
-      "filePath": "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/page-0.m4a",
-      "contentHash": "3033db1d86743f37babbc72c5db903fa1afbe61a8203d819111db805057b33bb",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 482,
-      "hasStructuralAnalysis": false
-    },
-    "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/page-1.m4a": {
-      "filePath": "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/page-1.m4a",
-      "contentHash": "582c30e5b433b46dc20c77c5e7f295c43b0e28c4169a1f6ed6a72d0aae295910",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 327,
-      "hasStructuralAnalysis": false
-    },
-    "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/page-2.m4a": {
-      "filePath": "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/page-2.m4a",
-      "contentHash": "0c6af6c1bd001ca69add7a90e34504cfcd2e3c680864d517e8600faabb3f5afe",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 337,
-      "hasStructuralAnalysis": false
-    },
-    "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/page-3.m4a": {
-      "filePath": "apps/backend/storage/job-picture-books/ai算法工程师-42d92224ea/page-3.m4a",
-      "contentHash": "30b43f199cda10d5cbecea730998799bce1f829f6d8ba23acfc674169f1c14e9",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 435,
-      "hasStructuralAnalysis": false
-    },
-    "apps/backend/storage/job-picture-books/java后端开发工程师-a2501cdcc0/book.json": {
-      "filePath": "apps/backend/storage/job-picture-books/java后端开发工程师-a2501cdcc0/book.json",
-      "contentHash": "521fedd2cb55793ccaa8d7499c8ef0b9d0b41c95bd017b7d6e0fb15dceb9f848",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 35,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/matches.json": {
-      "filePath": "apps/backend/storage/matches.json",
-      "contentHash": "9e165e4bfb900c41d726bf793a55498983a8fec75a01a46f761497ee100acec4",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 236,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/report-exports.json": {
-      "filePath": "apps/backend/storage/report-exports.json",
-      "contentHash": "0e9147333f0a1aad890c4a4c0fdd62cd4e526db3b69e58720316e8bd0bd1edcc",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 4,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/reports.json": {
-      "filePath": "apps/backend/storage/reports.json",
-      "contentHash": "57109b669965d2e5dd05b9f62a95feefacd77277a93d85f04d7da795d11c8c2f",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 131,
-      "hasStructuralAnalysis": true
-    },
-    "apps/backend/storage/student-profiles.json": {
-      "filePath": "apps/backend/storage/student-profiles.json",
-      "contentHash": "22579df8376b54dc03d14a33b8dd1870db013a5f0733c8693c8a8fe6db9ad535",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 100,
-      "hasStructuralAnalysis": true
-    },
     "apps/backend/tsconfig.json": {
       "filePath": "apps/backend/tsconfig.json",
       "contentHash": "7e581a53365ebe50f1c9e974c10061b01002c64454febb09b93fcd0120079b35",
@@ -9060,26 +8978,6 @@
       "exports": [],
       "totalLines": 2,
       "hasStructuralAnalysis": true
-    },
-    "apps/frontend/.env.local": {
-      "filePath": "apps/frontend/.env.local",
-      "contentHash": "0e450b9ae4d2a52a0fa516f630bf4946a0fda78b019bb57e1f14aff988ae2e9a",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 2,
-      "hasStructuralAnalysis": true
-    },
-    "apps/frontend/.gitignore": {
-      "filePath": "apps/frontend/.gitignore",
-      "contentHash": "aaf850032ebd5ba963ab779a087807f817e1bcb5d49350d2087f12f591ca82ef",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 40,
-      "hasStructuralAnalysis": false
     },
     "apps/frontend/env.d.ts": {
       "filePath": "apps/frontend/env.d.ts",
@@ -9440,22 +9338,22 @@
     },
     "apps/frontend/src/features/profile/pages/ProfilePage.vue": {
       "filePath": "apps/frontend/src/features/profile/pages/ProfilePage.vue",
-      "contentHash": "355124c34b00032a113b79689eb3842aeaa39c802a8632dba22df271a33928c9",
+      "contentHash": "410673323bee88c00969e7d239017fc6d5eee89c1950daac8e7fc5ed53fd91ad",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 1485,
+      "totalLines": 1499,
       "hasStructuralAnalysis": false
     },
     "apps/frontend/src/features/profile/pages/ResumeBuilderPage.vue": {
       "filePath": "apps/frontend/src/features/profile/pages/ResumeBuilderPage.vue",
-      "contentHash": "433b8637866fccae75968c8492c70857b91fc4c39d84d5e71496fd338ae4f8a1",
+      "contentHash": "66af0796e099d0427c4c6dd5bd6044e848fbde530e62e3384cfa46c20153c08b",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 1053,
+      "totalLines": 1502,
       "hasStructuralAnalysis": false
     },
     "apps/frontend/src/features/profile/routes.ts": {
@@ -9485,12 +9383,12 @@
     },
     "apps/frontend/src/features/report/pages/ReportPage.vue": {
       "filePath": "apps/frontend/src/features/report/pages/ReportPage.vue",
-      "contentHash": "aab14d1f0f08d2172634d4a3f44733822c5593fde9a8812ca67452aaba61ea66",
+      "contentHash": "4f0bd948db69fa0ca338a3d31149a1f1e45ced4c3a0bb81a5955070fc5ed2b27",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 2245,
+      "totalLines": 2257,
       "hasStructuralAnalysis": false
     },
     "apps/frontend/src/features/report/routes.ts": {
@@ -10047,7 +9945,7 @@
     },
     "apps/frontend/src/shared/api/resume.ts": {
       "filePath": "apps/frontend/src/shared/api/resume.ts",
-      "contentHash": "07d2568e941285187a683966e4b572bbac816a4156733833725d2c733a86aee1",
+      "contentHash": "bcb0b52f80bc3a1225beefc37e9e8c46e73cf1404901767625e864291e991fa7",
       "functions": [
         {
           "name": "createResumeHtml",
@@ -10055,6 +9953,15 @@
             "payload"
           ],
           "returnType": "Promise<ResumeHtmlResponse>",
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "createResumeDraft",
+          "params": [
+            "payload"
+          ],
+          "returnType": "Promise<ResumeDraftResponse>",
           "exported": true,
           "lineCount": 11
         },
@@ -10083,7 +9990,9 @@
         {
           "source": "@career/contracts/types",
           "specifiers": [
+            "CreateResumeDraftRequest",
             "CreateResumeHtmlRequest",
+            "ResumeDraftResponse",
             "ResumeHtmlListResponse",
             "ResumeHtmlRecord",
             "ResumeHtmlResponse"
@@ -10098,10 +10007,11 @@
       ],
       "exports": [
         "createResumeHtml",
+        "createResumeDraft",
         "listResumeHtmlRecords",
         "getResumeHtmlRecord"
       ],
-      "totalLines": 37,
+      "totalLines": 51,
       "hasStructuralAnalysis": true
     },
     "apps/frontend/src/shared/ui/AppLayout.vue": {
@@ -10803,6 +10713,16 @@
       "totalLines": 90,
       "hasStructuralAnalysis": true
     },
+    "data/岗位数据.xls": {
+      "filePath": "data/岗位数据.xls",
+      "contentHash": "003e98b98057b2190f2012cad62c143d6e5b2c7bbafd6f7f1de43ee866367856",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 145340,
+      "hasStructuralAnalysis": false
+    },
     "data/evaluation/graph/graph-e2e-2026-04-04T09-40-52-910Z.json": {
       "filePath": "data/evaluation/graph/graph-e2e-2026-04-04T09-40-52-910Z.json",
       "contentHash": "6ddd89deb35aa4f4a8959b0e6ca9ebcf2184b9ef3cddee8dec3e4f24fcac05cf",
@@ -10893,6 +10813,26 @@
       "totalLines": 11,
       "hasStructuralAnalysis": false
     },
+    "data/exports/knowledge-base-2026-04-19T14-31-35/knowledge_chunks.jsonl": {
+      "filePath": "data/exports/knowledge-base-2026-04-19T14-31-35/knowledge_chunks.jsonl",
+      "contentHash": "96349493e4454434c7e2db4ddf3588236bcad218c6243294221c7a2855e5d875",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10205,
+      "hasStructuralAnalysis": false
+    },
+    "data/exports/knowledge-base-2026-04-19T14-31-35/knowledge_documents.json": {
+      "filePath": "data/exports/knowledge-base-2026-04-19T14-31-35/knowledge_documents.json",
+      "contentHash": "8d4a1918b43f9b1cea53785c39e7ba8aef8c3f7ca5c32631230972e2815031da",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 151803,
+      "hasStructuralAnalysis": true
+    },
     "data/exports/knowledge-base-2026-04-19T14-31-35/manifest.json": {
       "filePath": "data/exports/knowledge-base-2026-04-19T14-31-35/manifest.json",
       "contentHash": "41fd1d77e9e22d117e862efb15f930f3ec833be54c0dffe931708ff340764e70",
@@ -10922,6 +10862,66 @@
       "exports": [],
       "totalLines": 5,
       "hasStructuralAnalysis": false
+    },
+    "data/jobs/测试开发.json": {
+      "filePath": "data/jobs/测试开发.json",
+      "contentHash": "24c16726e71da55010091e88d7a74de1277eeb2db4148f0abe1f1f25140cd9f0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 268,
+      "hasStructuralAnalysis": true
+    },
+    "data/jobs/产品经理.json": {
+      "filePath": "data/jobs/产品经理.json",
+      "contentHash": "96def7da4792971ddb6976fd0df9db7b94bd0cff7e4c36b3c26e0df8a87ea5a8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 272,
+      "hasStructuralAnalysis": true
+    },
+    "data/jobs/前端开发.json": {
+      "filePath": "data/jobs/前端开发.json",
+      "contentHash": "9c1156a85fbf387d3b273d8f44e65c1c108891bf975bf2afe884ac7c53395a77",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 263,
+      "hasStructuralAnalysis": true
+    },
+    "data/jobs/数据分析师.json": {
+      "filePath": "data/jobs/数据分析师.json",
+      "contentHash": "f62efe0ba52de311ec0128f69c5b104102e03ed7f77ac0767c3e26762ba91d4c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 267,
+      "hasStructuralAnalysis": true
+    },
+    "data/jobs/网络安全.json": {
+      "filePath": "data/jobs/网络安全.json",
+      "contentHash": "4d78561cfa250f4a190986f45ffed66715b6122177578e6f4af0db98335bb8e0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 278,
+      "hasStructuralAnalysis": true
+    },
+    "data/jobs/运维.json": {
+      "filePath": "data/jobs/运维.json",
+      "contentHash": "a70baa93b6441d6ae0e7f5de35205b90d8fc892ba4b6a8e580c6da9a2d397373",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 280,
+      "hasStructuralAnalysis": true
     },
     "data/jobs/AI 算法.json": {
       "filePath": "data/jobs/AI 算法.json",
@@ -10963,66 +10963,6 @@
       "totalLines": 263,
       "hasStructuralAnalysis": true
     },
-    "data/jobs/产品经理.json": {
-      "filePath": "data/jobs/产品经理.json",
-      "contentHash": "96def7da4792971ddb6976fd0df9db7b94bd0cff7e4c36b3c26e0df8a87ea5a8",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 272,
-      "hasStructuralAnalysis": true
-    },
-    "data/jobs/前端开发.json": {
-      "filePath": "data/jobs/前端开发.json",
-      "contentHash": "9c1156a85fbf387d3b273d8f44e65c1c108891bf975bf2afe884ac7c53395a77",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 263,
-      "hasStructuralAnalysis": true
-    },
-    "data/jobs/数据分析师.json": {
-      "filePath": "data/jobs/数据分析师.json",
-      "contentHash": "f62efe0ba52de311ec0128f69c5b104102e03ed7f77ac0767c3e26762ba91d4c",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 267,
-      "hasStructuralAnalysis": true
-    },
-    "data/jobs/测试开发.json": {
-      "filePath": "data/jobs/测试开发.json",
-      "contentHash": "24c16726e71da55010091e88d7a74de1277eeb2db4148f0abe1f1f25140cd9f0",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 268,
-      "hasStructuralAnalysis": true
-    },
-    "data/jobs/网络安全.json": {
-      "filePath": "data/jobs/网络安全.json",
-      "contentHash": "4d78561cfa250f4a190986f45ffed66715b6122177578e6f4af0db98335bb8e0",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 278,
-      "hasStructuralAnalysis": true
-    },
-    "data/jobs/运维.json": {
-      "filePath": "data/jobs/运维.json",
-      "contentHash": "a70baa93b6441d6ae0e7f5de35205b90d8fc892ba4b6a8e580c6da9a2d397373",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 280,
-      "hasStructuralAnalysis": true
-    },
     "data/processed/job_normalized_summary.csv": {
       "filePath": "data/processed/job_normalized_summary.csv",
       "contentHash": "2605a3fb58c6e0c6d90bef7304bc4d6ac00fd474f70717d44a962ecc9e393b1c",
@@ -11033,55 +10973,15 @@
       "totalLines": 7,
       "hasStructuralAnalysis": false
     },
-    "data/岗位数据.xls": {
-      "filePath": "data/岗位数据.xls",
-      "contentHash": "003e98b98057b2190f2012cad62c143d6e5b2c7bbafd6f7f1de43ee866367856",
+    "data/processed/jobs_cleaned.csv": {
+      "filePath": "data/processed/jobs_cleaned.csv",
+      "contentHash": "5125cd809300cfacd9ca9711a8639d94f4cc5d16190edb136d74a727d96d904f",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 145340,
+      "totalLines": 9166,
       "hasStructuralAnalysis": false
-    },
-    "docs/Docker-最小启动清单.md": {
-      "filePath": "docs/Docker-最小启动清单.md",
-      "contentHash": "e07994aadafb17232558b45e8abc69dc9b35b977b7dc771613d8e183bdecb994",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 246,
-      "hasStructuralAnalysis": true
-    },
-    "docs/Pi作为系统AI中枢实施清单.md": {
-      "filePath": "docs/Pi作为系统AI中枢实施清单.md",
-      "contentHash": "c67ce631ba495d9ec30fad1f489117b638d63420868945f451e37f14e47bef45",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 331,
-      "hasStructuralAnalysis": true
-    },
-    "docs/Windows-Docker-部署说明.md": {
-      "filePath": "docs/Windows-Docker-部署说明.md",
-      "contentHash": "e6965550a76241e94406253bc7d440639d14882291c05292ca955a818dbbbe81",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 820,
-      "hasStructuralAnalysis": true
-    },
-    "docs/实现跟踪.md": {
-      "filePath": "docs/实现跟踪.md",
-      "contentHash": "b8c30098d2a12b40fb9ec6d9a28c56be6202549dbe70fb69096bfdcd93b97299",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 32,
-      "hasStructuralAnalysis": true
     },
     "docs/工程结构与协作规范.md": {
       "filePath": "docs/工程结构与协作规范.md",
@@ -11101,6 +11001,16 @@
       "imports": [],
       "exports": [],
       "totalLines": 164,
+      "hasStructuralAnalysis": true
+    },
+    "docs/实现跟踪.md": {
+      "filePath": "docs/实现跟踪.md",
+      "contentHash": "b8c30098d2a12b40fb9ec6d9a28c56be6202549dbe70fb69096bfdcd93b97299",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 32,
       "hasStructuralAnalysis": true
     },
     "docs/问题记录库.jsonl": {
@@ -11133,6 +11043,46 @@
       "totalLines": 225,
       "hasStructuralAnalysis": true
     },
+    "docs/AI追问式简历生成PRD.md": {
+      "filePath": "docs/AI追问式简历生成PRD.md",
+      "contentHash": "45430852488a58d746e005a6250ba90b2c652b2e146e90ee9aaafaf63722e66b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 110,
+      "hasStructuralAnalysis": true
+    },
+    "docs/Docker-最小启动清单.md": {
+      "filePath": "docs/Docker-最小启动清单.md",
+      "contentHash": "e07994aadafb17232558b45e8abc69dc9b35b977b7dc771613d8e183bdecb994",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 246,
+      "hasStructuralAnalysis": true
+    },
+    "docs/Pi作为系统AI中枢实施清单.md": {
+      "filePath": "docs/Pi作为系统AI中枢实施清单.md",
+      "contentHash": "c67ce631ba495d9ec30fad1f489117b638d63420868945f451e37f14e47bef45",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 331,
+      "hasStructuralAnalysis": true
+    },
+    "docs/Windows-Docker-部署说明.md": {
+      "filePath": "docs/Windows-Docker-部署说明.md",
+      "contentHash": "e6965550a76241e94406253bc7d440639d14882291c05292ca955a818dbbbe81",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 820,
+      "hasStructuralAnalysis": true
+    },
     "GEMINI.md": {
       "filePath": "GEMINI.md",
       "contentHash": "b8b169002653eb3dd56fbcb268376ee1d7c2b74be87c9a6ccb7fe5e5a46fc912",
@@ -11153,26 +11103,6 @@
       "totalLines": 37,
       "hasStructuralAnalysis": true
     },
-    "infographic/data-to-job-portrait/infographic-student-style-final.svg": {
-      "filePath": "infographic/data-to-job-portrait/infographic-student-style-final.svg",
-      "contentHash": "fb9863deb007908eae8149981c90e4f246df1b9536553fd9ca73b72146e46a26",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 222,
-      "hasStructuralAnalysis": false
-    },
-    "infographic/data-to-job-portrait/infographic-student-style.svg": {
-      "filePath": "infographic/data-to-job-portrait/infographic-student-style.svg",
-      "contentHash": "b7997b1801f6830bbbb85f2fb0133879c4441e17f9d5744431cdeb3f43e14223",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 224,
-      "hasStructuralAnalysis": false
-    },
     "infographic/data-to-job-portrait/prompts/infographic-clean.md": {
       "filePath": "infographic/data-to-job-portrait/prompts/infographic-clean.md",
       "contentHash": "892aae0b7d1c37099e5c48eafc3277b908cb66f9e59096abca19e484270bd6cc",
@@ -11181,26 +11111,6 @@
       "imports": [],
       "exports": [],
       "totalLines": 95,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/data-to-job-portrait/prompts/infographic-student-style-final.md": {
-      "filePath": "infographic/data-to-job-portrait/prompts/infographic-student-style-final.md",
-      "contentHash": "329da84fa9a599df4875613b55097a17df5437d7021be8746d2d63ea4d158102",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 90,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/data-to-job-portrait/prompts/infographic-student-style.md": {
-      "filePath": "infographic/data-to-job-portrait/prompts/infographic-student-style.md",
-      "contentHash": "182cfaa85ca37ca315bfcd6da77c8dded4e03625ff2f3d7a17bbc3f9c31f7669",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 118,
       "hasStructuralAnalysis": true
     },
     "infographic/data-to-job-portrait/prompts/infographic.md": {
@@ -11231,86 +11141,6 @@
       "imports": [],
       "exports": [],
       "totalLines": 76,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/innovation-slide/infographic-v3.svg": {
-      "filePath": "infographic/innovation-slide/infographic-v3.svg",
-      "contentHash": "ae34fcc95ec2e663d1587af4fca8086cfaa20b9866073cd531ebf1017d1a10d6",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 171,
-      "hasStructuralAnalysis": false
-    },
-    "infographic/innovation-slide/prompts/infographic-v2.md": {
-      "filePath": "infographic/innovation-slide/prompts/infographic-v2.md",
-      "contentHash": "5cc7d01226fa5a6676d58e9a028721cb32e85bcc151abef7938831a710388639",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 105,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/innovation-slide/prompts/infographic.md": {
-      "filePath": "infographic/innovation-slide/prompts/infographic.md",
-      "contentHash": "fbdb333b9a896242a0c2a22bbb6e645db4b66f0593955aab58b5f90a2b34b650",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 102,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/job-portrait-redesign/analysis.md": {
-      "filePath": "infographic/job-portrait-redesign/analysis.md",
-      "contentHash": "8cedd96526665f072a775971d1091d2da7e53bfaa649b361f40bc43bf53f9b3a",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 25,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/job-portrait-redesign/prompts/infographic.md": {
-      "filePath": "infographic/job-portrait-redesign/prompts/infographic.md",
-      "contentHash": "3412113e5cbc1855a7ff23724d2b3f4c32325dc125db04948a7bccbc79c86269",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 95,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/job-portrait-redesign/source.md": {
-      "filePath": "infographic/job-portrait-redesign/source.md",
-      "contentHash": "595243b0bf9d0b1a52bb25ef75014240bd338b1a5d512e5944a24e50268f57bb",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 58,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/job-portrait-redesign/structured-content.md": {
-      "filePath": "infographic/job-portrait-redesign/structured-content.md",
-      "contentHash": "1cf8ed7d88be57ffcf88f259fc5e08053acafb123beeab4a4162f6276380b6f1",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 67,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/job-portrait-tech-slide/prompts/infographic.md": {
-      "filePath": "infographic/job-portrait-tech-slide/prompts/infographic.md",
-      "contentHash": "d7ca873b39bf1e9ab07d6bbf6fe2a451f55201a06996e9402211a8cf9c3bbf77",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 96,
       "hasStructuralAnalysis": true
     },
     "infographic/overall-tech-architecture/analysis.md": {
@@ -11353,164 +11183,14 @@
       "totalLines": 78,
       "hasStructuralAnalysis": true
     },
-    "infographic/path-graph-detail/analysis.md": {
-      "filePath": "infographic/path-graph-detail/analysis.md",
-      "contentHash": "82b44b8537d60b116aa9d1bc1234a6475f4e8ca4a791e39e32d964ee6960ad63",
+    "infra/backups/current/postgres.sql": {
+      "filePath": "infra/backups/current/postgres.sql",
+      "contentHash": "416d35c2c1c538c051eaf52c9b58d62c43b80811b38740e9874a48c518abb89d",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 34,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/path-graph-detail/prompts/infographic-student-style.md": {
-      "filePath": "infographic/path-graph-detail/prompts/infographic-student-style.md",
-      "contentHash": "1acafdd817f5b7ec1603c52cf1c019695b1cc056a0bb32cc68d98b2fc6d8dae5",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 113,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/path-graph-detail/prompts/infographic.md": {
-      "filePath": "infographic/path-graph-detail/prompts/infographic.md",
-      "contentHash": "60be88307c146aebdc431810a4e357dddbf746a38404021d4df66a4793d6c8cd",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 102,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/path-graph-detail/source-path-graph-detail.md": {
-      "filePath": "infographic/path-graph-detail/source-path-graph-detail.md",
-      "contentHash": "412b2c8663ec3b3acc1bfbc6ff51c30a59ae28408ea718b1281a2973e7372435",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 86,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/path-graph-detail/structured-content.md": {
-      "filePath": "infographic/path-graph-detail/structured-content.md",
-      "contentHash": "c44880e49069eecf5bde53b6f748487e775759dc55252092ce1c67d197b97a41",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 95,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/project-summary-student-style/project-summary-student-style.svg": {
-      "filePath": "infographic/project-summary-student-style/project-summary-student-style.svg",
-      "contentHash": "61eb8ccb42d8789bf9ea8014edb336a2d94d064e46e675e256c87c51bca24a74",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 204,
-      "hasStructuralAnalysis": false
-    },
-    "infographic/report-detail/analysis.md": {
-      "filePath": "infographic/report-detail/analysis.md",
-      "contentHash": "7d6a0b60c437e1517b984abeb652d5325193db2c24e09e0b2ad7c08caece7f1d",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 41,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/report-detail/infographic-final.svg": {
-      "filePath": "infographic/report-detail/infographic-final.svg",
-      "contentHash": "f7564dc121a2beceb5807bac229c96d3ba6ad1b99e0f26d8c360ac407e0ba131",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 223,
-      "hasStructuralAnalysis": false
-    },
-    "infographic/report-detail/prompts/infographic-clean.md": {
-      "filePath": "infographic/report-detail/prompts/infographic-clean.md",
-      "contentHash": "5123ea54f9deecd37691c1eda219ca34c4a1cff34ae4a20d7e3667f3f0facb37",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 118,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/report-detail/prompts/infographic.md": {
-      "filePath": "infographic/report-detail/prompts/infographic.md",
-      "contentHash": "de0c06010c0d874a1a277a0a50f17a47cff0390b80bb7a454aa2abbde9a1c34f",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 126,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/report-detail/source-report-detail.md": {
-      "filePath": "infographic/report-detail/source-report-detail.md",
-      "contentHash": "985d40aff98cdfd9f83564d5748bf0e77ed52ab364c44edaa22c8f5969fe543f",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 69,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/report-detail/structured-content.md": {
-      "filePath": "infographic/report-detail/structured-content.md",
-      "contentHash": "4fa0c135a3b6f6c31ba699a1bd73a4e0360a123a19ced06dbc4bc5b846265c51",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 85,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/student-profile-detail/analysis.md": {
-      "filePath": "infographic/student-profile-detail/analysis.md",
-      "contentHash": "cd97795f172ca500e5c6eceb1a5915f1aa67cf4d799a86282f0a2d27b7b6757b",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 34,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/student-profile-detail/prompts/infographic.md": {
-      "filePath": "infographic/student-profile-detail/prompts/infographic.md",
-      "contentHash": "da6580c55987a09d7992b95163a9d1da5e32f02c5403f5f33bbe3448056db2f5",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 118,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/student-profile-detail/source-student-profile-detail.md": {
-      "filePath": "infographic/student-profile-detail/source-student-profile-detail.md",
-      "contentHash": "c7f881b9cec2625dbedc93165afbd0d15477fa756a14d524e677021b3506110e",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 91,
-      "hasStructuralAnalysis": true
-    },
-    "infographic/student-profile-detail/structured-content.md": {
-      "filePath": "infographic/student-profile-detail/structured-content.md",
-      "contentHash": "6612f992901757dbcf08a53a143cd3850fec08d70b88d489e5b9aa6e92ece1ee",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 96,
+      "totalLines": 37631,
       "hasStructuralAnalysis": true
     },
     "infra/backups/current/README.md": {
@@ -11593,16 +11273,6 @@
       "totalLines": 47,
       "hasStructuralAnalysis": false
     },
-    "infra/env/backend.env": {
-      "filePath": "infra/env/backend.env",
-      "contentHash": "2d2268ae950de79e654ae29597165d9ab6af8a7e66073af1a3d2fbdee344488b",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 42,
-      "hasStructuralAnalysis": true
-    },
     "infra/env/backend.env.example": {
       "filePath": "infra/env/backend.env.example",
       "contentHash": "2d2268ae950de79e654ae29597165d9ab6af8a7e66073af1a3d2fbdee344488b",
@@ -11653,36 +11323,6 @@
       "totalLines": 63,
       "hasStructuralAnalysis": true
     },
-    "output/doc/基于AI的大学生职业规划智能体-项目详细方案.docx": {
-      "filePath": "output/doc/基于AI的大学生职业规划智能体-项目详细方案.docx",
-      "contentHash": "4fe64e25a088e1eac41e566b76d2ddac3692d1981bfd36547965a1e916ae61e8",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 66,
-      "hasStructuralAnalysis": false
-    },
-    "output/doc/基于AI的大学生职业规划智能体-项目详细方案.md": {
-      "filePath": "output/doc/基于AI的大学生职业规划智能体-项目详细方案.md",
-      "contentHash": "ecbe0213b0d5cd42dec82aebf13a2d9bc624c2ca433fa993d4b66ec5308843c8",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 267,
-      "hasStructuralAnalysis": true
-    },
-    "package-lock.json": {
-      "filePath": "package-lock.json",
-      "contentHash": "d42b1708ab395d04c30ffca6be97ef7a4d3633678d935b1e3445ec9521ce86e6",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 8191,
-      "hasStructuralAnalysis": true
-    },
     "package.json": {
       "filePath": "package.json",
       "contentHash": "519e9417064b6336109af1044da21b3dd8f3551f1124e67fa6b374de2f00d57b",
@@ -11695,12 +11335,12 @@
     },
     "packages/contracts/openapi/career-agent.openapi.yaml": {
       "filePath": "packages/contracts/openapi/career-agent.openapi.yaml",
-      "contentHash": "07175ff844cc80c08c005ccea17d6fef07726f4ac9dfb8983a352573372bb6e9",
+      "contentHash": "7ce2eda2c76f7f68d177fc652b2b8dd4010acd20949f0f63e33c686584aceb9c",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 402,
+      "totalLines": 497,
       "hasStructuralAnalysis": true
     },
     "packages/contracts/package.json": {
@@ -11735,310 +11375,13 @@
     },
     "packages/contracts/types/index.ts": {
       "filePath": "packages/contracts/types/index.ts",
-      "contentHash": "d0ba9440d63d3285797c59cc30f9da91cf152d6027c7615b09c3dcd90ff3e4bf",
+      "contentHash": "36ea5bbaabc58cf65fbe0ece0a90323f09104a04bb09417f31817c68b3eae8e5",
       "functions": [],
       "classes": [],
       "imports": [],
       "exports": [],
-      "totalLines": 803,
+      "totalLines": 826,
       "hasStructuralAnalysis": true
-    },
-    "ppt-output/project-summary/build-project-summary-student-style.mjs": {
-      "filePath": "ppt-output/project-summary/build-project-summary-student-style.mjs",
-      "contentHash": "5f4545bb7c9df20f55075d80aefab3c853d290d130f02942cbbb1e64e81f72ff",
-      "functions": [
-        {
-          "name": "shape",
-          "params": [
-            "geometry",
-            "x",
-            "y",
-            "w",
-            "h"
-          ],
-          "exported": false,
-          "lineCount": 9
-        },
-        {
-          "name": "textBox",
-          "params": [
-            "text",
-            "x",
-            "y",
-            "w",
-            "h"
-          ],
-          "exported": false,
-          "lineCount": 13
-        },
-        {
-          "name": "navTab",
-          "params": [
-            "label",
-            "x"
-          ],
-          "exported": false,
-          "lineCount": 20
-        },
-        {
-          "name": "header",
-          "params": [],
-          "exported": false,
-          "lineCount": 26
-        },
-        {
-          "name": "iconDocument",
-          "params": [
-            "x",
-            "y"
-          ],
-          "exported": false,
-          "lineCount": 5
-        },
-        {
-          "name": "iconPerson",
-          "params": [
-            "x",
-            "y"
-          ],
-          "exported": false,
-          "lineCount": 4
-        },
-        {
-          "name": "iconGraph",
-          "params": [
-            "x",
-            "y"
-          ],
-          "exported": false,
-          "lineCount": 13
-        },
-        {
-          "name": "iconAgent",
-          "params": [
-            "x",
-            "y"
-          ],
-          "exported": false,
-          "lineCount": 9
-        },
-        {
-          "name": "inputCard",
-          "params": [
-            "label",
-            "x",
-            "y",
-            "iconFn"
-          ],
-          "exported": false,
-          "lineCount": 22
-        },
-        {
-          "name": "flowNode",
-          "params": [
-            "label",
-            "x",
-            "y",
-            "w"
-          ],
-          "exported": false,
-          "lineCount": 32
-        },
-        {
-          "name": "arrow",
-          "params": [
-            "x1",
-            "y1",
-            "x2",
-            "y2"
-          ],
-          "exported": false,
-          "lineCount": 8
-        },
-        {
-          "name": "rightCard",
-          "params": [
-            "title",
-            "lines",
-            "x",
-            "y",
-            "w",
-            "h"
-          ],
-          "exported": false,
-          "lineCount": 27
-        },
-        {
-          "name": "bottomStrip",
-          "params": [],
-          "exported": false,
-          "lineCount": 37
-        },
-        {
-          "name": "saveBlobToFile",
-          "params": [
-            "blob",
-            "filePath"
-          ],
-          "exported": false,
-          "lineCount": 4
-        }
-      ],
-      "classes": [],
-      "imports": [
-        {
-          "source": "@oai/artifact-tool",
-          "specifiers": [
-            "Presentation",
-            "PresentationFile"
-          ]
-        },
-        {
-          "source": "node:fs/promises",
-          "specifiers": [
-            "fs"
-          ]
-        }
-      ],
-      "exports": [],
-      "totalLines": 435,
-      "hasStructuralAnalysis": true
-    },
-    "ppt-output/project-summary/build-project-summary.mjs": {
-      "filePath": "ppt-output/project-summary/build-project-summary.mjs",
-      "contentHash": "b2444804f84b62ebe316c308179587ee3c69656d3dddf6eb5afb3ab6090dc70e",
-      "functions": [
-        {
-          "name": "shape",
-          "params": [
-            "geometry",
-            "x",
-            "y",
-            "w",
-            "h"
-          ],
-          "exported": false,
-          "lineCount": 10
-        },
-        {
-          "name": "textBox",
-          "params": [
-            "text",
-            "x",
-            "y",
-            "w",
-            "h"
-          ],
-          "exported": false,
-          "lineCount": 13
-        },
-        {
-          "name": "navTab",
-          "params": [
-            "label",
-            "x"
-          ],
-          "exported": false,
-          "lineCount": 20
-        },
-        {
-          "name": "header",
-          "params": [],
-          "exported": false,
-          "lineCount": 26
-        },
-        {
-          "name": "sectionHeader",
-          "params": [
-            "label",
-            "x",
-            "y",
-            "w",
-            "iconText"
-          ],
-          "exported": false,
-          "lineCount": 20
-        },
-        {
-          "name": "miniCard",
-          "params": [
-            "title",
-            "body",
-            "x",
-            "y",
-            "w",
-            "h"
-          ],
-          "exported": false,
-          "lineCount": 25
-        },
-        {
-          "name": "metricPill",
-          "params": [
-            "label",
-            "value",
-            "x",
-            "y",
-            "w"
-          ],
-          "exported": false,
-          "lineCount": 20
-        },
-        {
-          "name": "drawFooter",
-          "params": [],
-          "exported": false,
-          "lineCount": 19
-        },
-        {
-          "name": "saveBlobToFile",
-          "params": [
-            "blob",
-            "filePath"
-          ],
-          "exported": false,
-          "lineCount": 4
-        }
-      ],
-      "classes": [],
-      "imports": [
-        {
-          "source": "@oai/artifact-tool",
-          "specifiers": [
-            "Presentation",
-            "PresentationFile"
-          ]
-        },
-        {
-          "source": "node:fs/promises",
-          "specifiers": [
-            "fs"
-          ]
-        }
-      ],
-      "exports": [],
-      "totalLines": 346,
-      "hasStructuralAnalysis": true
-    },
-    "ppt-output/project-summary/narrative_plan.md": {
-      "filePath": "ppt-output/project-summary/narrative_plan.md",
-      "contentHash": "7a0692f14ffb0b4d435a78efea7552440fed724b1030d58234a207ffb45c3fd3",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 29,
-      "hasStructuralAnalysis": true
-    },
-    "ppt-output/project-summary/project-summary.pptx": {
-      "filePath": "ppt-output/project-summary/project-summary.pptx",
-      "contentHash": "c76d542c6a4ea09145210492d1db0534a6fd491d1732a5f16d9819d562107c84",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 71,
-      "hasStructuralAnalysis": false
     },
     "README.md": {
       "filePath": "README.md",
@@ -12312,36 +11655,6 @@
       "exports": [],
       "totalLines": 125,
       "hasStructuralAnalysis": false
-    },
-    "tmp/docs/report-roundtrip.md": {
-      "filePath": "tmp/docs/report-roundtrip.md",
-      "contentHash": "c0c6d301fa23073e254fca441f2c9adfc99f8af36135391f1dc626dbf74f3085",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 283,
-      "hasStructuralAnalysis": true
-    },
-    "tmp/slides/project-summary/student-style-run.log": {
-      "filePath": "tmp/slides/project-summary/student-style-run.log",
-      "contentHash": "030a8862d1bccfce16dd60a1324b3a76c47f71d4b1381733767f71b89643cad4",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 18,
-      "hasStructuralAnalysis": false
-    },
-    "tmp/student-profiles-export.json": {
-      "filePath": "tmp/student-profiles-export.json",
-      "contentHash": "63bb0917a010f42ce0e518d2f1ddde5b360a8591d8c2d90d8228f3e9e61c4fee",
-      "functions": [],
-      "classes": [],
-      "imports": [],
-      "exports": [],
-      "totalLines": 2672,
-      "hasStructuralAnalysis": true
     }
   }
 }

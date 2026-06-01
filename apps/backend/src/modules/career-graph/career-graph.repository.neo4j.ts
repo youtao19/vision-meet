@@ -25,6 +25,7 @@ export interface CareerGraphRepository {
   ): Promise<{ nodes_upserted: number; edges_upserted: number }>;
   listGraphTargetNodes(): Promise<CareerGraphNodeRecord[]>;
   getSubgraphByPortraitId(portraitId: number, depth: number): Promise<CareerGraphSnapshot>;
+  getSubgraphByTitle(title: string, depth: number): Promise<CareerGraphSnapshot>;
   close(): Promise<void>;
 }
 
@@ -69,9 +70,7 @@ export function createNeo4jCareerGraphRepository(
   return createNeo4jCareerGraphRepositoryWithDriver(createNeo4jDriver(options));
 }
 
-export function createNeo4jCareerGraphRepositoryWithDriver(
-  driver: Driver,
-): CareerGraphRepository {
+export function createNeo4jCareerGraphRepositoryWithDriver(driver: Driver): CareerGraphRepository {
   // 惰性初始化：首次调用时创建节点唯一性约束
   let schemaReady: Promise<void> | null = null;
 
@@ -162,19 +161,24 @@ export function createNeo4jCareerGraphRepositoryWithDriver(
    * 先通过变长路径匹配找到关联节点，再在这些节点之间查找关系边。
    * depth 参数控制展开层数（1-3），超出范围会被截断。
    */
-  async function getSubgraphByPortraitId(portraitId: number, depth: number): Promise<CareerGraphSnapshot> {
+  async function getSubgraphByTarget(
+    targetMatch: string,
+    params: Record<string, unknown>,
+    depth: number,
+  ): Promise<CareerGraphSnapshot> {
     await ensureSchema();
     // 限制 depth 在 [1, 3] 之间，防止查询爆炸
     const normalizedDepth = Math.max(1, Math.min(3, Math.trunc(depth)));
 
     const nodeResult = await driver.executeQuery(
       `
-        MATCH (target:CareerRoleV2 { portrait_id: $portraitId })
+        MATCH (target:CareerRoleV2)
+        WHERE ${targetMatch}
         MATCH path = (target)-[:CAREER_PATH_V2*0..${normalizedDepth}]-(related:CareerRoleV2)
         UNWIND nodes(path) AS node
         RETURN DISTINCT node
       `,
-      { portraitId },
+      params,
       { routing: neo4j.routing.READ },
     );
 
@@ -207,6 +211,17 @@ export function createNeo4jCareerGraphRepositoryWithDriver(
     };
   }
 
+  async function getSubgraphByPortraitId(
+    portraitId: number,
+    depth: number,
+  ): Promise<CareerGraphSnapshot> {
+    return getSubgraphByTarget("target.portrait_id = $portraitId", { portraitId }, depth);
+  }
+
+  async function getSubgraphByTitle(title: string, depth: number): Promise<CareerGraphSnapshot> {
+    return getSubgraphByTarget("target.title = $title", { title }, depth);
+  }
+
   /** 列出图谱中所有 CareerRoleV2 节点，按岗位族/职级/名称排序 */
   async function listGraphTargetNodes(): Promise<CareerGraphNodeRecord[]> {
     await ensureSchema();
@@ -231,6 +246,7 @@ export function createNeo4jCareerGraphRepositoryWithDriver(
     syncGraph,
     listGraphTargetNodes,
     getSubgraphByPortraitId,
+    getSubgraphByTitle,
     close,
   };
 }

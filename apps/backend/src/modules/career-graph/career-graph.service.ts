@@ -47,8 +47,18 @@ function uniqueSkills(items: string[]): string[] {
  * 在图谱节点列表中查找目标岗位节点，并组装为前端需要的格式。
  * 如果节点不存在返回 null，后续由调用方抛 404。
  */
-function findTargetNode(nodes: CareerGraphSnapshot["nodes"], portraitId: number): CareerPathNode | null {
-  const target = nodes.find((node) => node.portrait_id === portraitId);
+function findTargetNode(params: {
+  nodes: CareerGraphSnapshot["nodes"];
+  portraitId: number;
+  jobName?: string;
+}): CareerPathNode | null {
+  const normalizedJobName = params.jobName ? normalizeCareerPathTargetName(params.jobName) : "";
+  const target =
+    params.nodes.find((node) => node.portrait_id === params.portraitId) ??
+    params.nodes.find(
+      (node) =>
+        normalizedJobName && normalizeCareerPathTargetName(node.title) === normalizedJobName,
+    );
   if (!target) {
     return null;
   }
@@ -374,13 +384,22 @@ export function createCareerGraphService(
     const depth = query.depth;
 
     // 从 Neo4j 获取以目标岗位为中心的子图
-    const snapshot = await graphRepository.getSubgraphByPortraitId(portraitId, depth);
+    const portraits = await pgRepository.listManualJobPortraitsFromTable();
+    const portrait = portraits.find((item) => item.id === portraitId);
+    let snapshot = await graphRepository.getSubgraphByPortraitId(portraitId, depth);
+    if (snapshot.nodes.length === 0 && portrait) {
+      snapshot = await graphRepository.getSubgraphByTitle(portrait.job_name, depth);
+    }
     if (snapshot.nodes.length === 0) {
       throw new HttpError(404, "CAREER_PATH_NOT_FOUND", "目标岗位尚未生成图谱数据");
     }
 
     // 在子图中定位目标节点
-    const targetNode = findTargetNode(snapshot.nodes, portraitId);
+    const targetNode = findTargetNode({
+      nodes: snapshot.nodes,
+      portraitId,
+      jobName: portrait?.job_name,
+    });
     if (!targetNode) {
       throw new HttpError(404, "CAREER_PATH_NOT_FOUND", "目标岗位不在当前图谱节点中");
     }
@@ -486,23 +505,32 @@ export function createCareerGraphService(
     const nodes = await graphRepository.listGraphTargetNodes();
     // 从 PG 拉取当前画像名称列表
     const portraits = await pgRepository.listManualJobPortraitsFromTable();
-    // 标准化画像名称用于匹配
-    const currentPortraitNames = new Set(
-      portraits.map((item) => normalizeCareerPathTargetName(item.job_name)),
+    // 标准化画像名称用于匹配，并用 PG 画像 id 作为前端查询入口。
+    const portraitByName = new Map(
+      portraits.map((item) => [normalizeCareerPathTargetName(item.job_name), item]),
     );
     // 过滤：只保留画像库中存在的节点；如果画像库为空则返回全部
     const filteredNodes =
-      currentPortraitNames.size > 0
-        ? nodes.filter((node) => currentPortraitNames.has(normalizeCareerPathTargetName(node.title)))
+      portraitByName.size > 0
+        ? nodes.filter((node) => portraitByName.has(normalizeCareerPathTargetName(node.title)))
         : nodes;
 
     return {
-      items: filteredNodes.map((node) => ({
-        portrait_id: node.portrait_id,
-        job_name: node.title,
-        category: node.family,
-        graph_version: "current",
-      })),
+      items: filteredNodes
+        .map((node) => {
+          const portrait = portraitByName.get(normalizeCareerPathTargetName(node.title));
+          const portraitId = portrait?.id ?? node.portrait_id;
+          if (!portraitId) {
+            return null;
+          }
+          return {
+            portrait_id: portraitId,
+            job_name: portrait?.job_name ?? node.title,
+            category: portrait?.category ?? node.family,
+            graph_version: "current",
+          };
+        })
+        .filter((item): item is CareerPathTargetOptionsResponse["items"][number] => item !== null),
     };
   }
 
