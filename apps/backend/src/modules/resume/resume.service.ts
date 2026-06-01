@@ -1,5 +1,7 @@
 import type {
+  CreateResumeDraftRequest,
   CreateResumeHtmlRequest,
+  ResumeDraftResponse,
   ResumeHtmlListResponse,
   ResumeHtmlRecord,
   ResumeHtmlResponse,
@@ -9,6 +11,7 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import type { PiThinkingLevel } from "../../shared/agent/pi-types.js";
 import type { ResumeRepository } from "./resume.repository.js";
 import { generateResumeHtmlWithPi } from "../pi-tools/resume/resume-html.generator.js";
+import { generateResumeDraftWithPi } from "../pi-tools/resume/resume-draft.generator.js";
 import { buildResumeQualityWarnings } from "../pi-tools/resume/resume-html.quality.js";
 
 /**
@@ -38,6 +41,14 @@ type ResumeRuntimeContext = {
  */
 export interface ResumeService {
   /**
+   * 通过 AI 追问整理文字版简历确认稿。
+   */
+  generateResumeDraft(
+    input: CreateResumeDraftRequest,
+    runtime: ResumeRuntimeContext,
+  ): Promise<ResumeDraftResponse>;
+
+  /**
    * 生成简历 HTML 并保存记录。
    */
   generateResumeHtml(
@@ -59,9 +70,23 @@ export interface ResumeService {
 /**
  * 创建简历服务。
  */
-export function createResumeService(
-  dependencies: ResumeServiceDependencies,
-): ResumeService {
+export function createResumeService(dependencies: ResumeServiceDependencies): ResumeService {
+  async function generateResumeDraft(
+    input: CreateResumeDraftRequest,
+    runtime: ResumeRuntimeContext,
+  ): Promise<ResumeDraftResponse> {
+    return generateResumeDraftWithPi({
+      input,
+      traceId: runtime.traceId,
+      cwd: dependencies.cwd || process.cwd(),
+      piAgentDir: dependencies.piAgentDir,
+      sessionStoreDir: dependencies.sessionStoreDir,
+      model: dependencies.model,
+      thinkingLevel: dependencies.thinkingLevel || "medium",
+      timeoutMs: dependencies.resumeTimeoutMs,
+    });
+  }
+
   async function generateResumeHtml(
     input: CreateResumeHtmlRequest,
     runtime: ResumeRuntimeContext,
@@ -105,6 +130,7 @@ export function createResumeService(
   }
 
   return {
+    generateResumeDraft,
     generateResumeHtml,
     listResumeHtmlRecords: (offset, limit) =>
       dependencies.resumeRepository.listResumeHtmlRecords({ offset, limit }),

@@ -91,17 +91,6 @@ const sensitiveEvidenceFieldPattern =
 const sensitiveEvidenceQuotePattern = /([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(1[3-9]\d{9})/i;
 const profileEvidenceFieldPattern =
   /^(basic_info\.name|preference\.|education|skills|certificates|experiences|self_assessment|summary)/;
-const missingItemLabels: Record<string, string> = {
-  "basic_info.name": "姓名",
-  "education.school": "学校",
-  "education.level": "学历",
-  "education.major": "专业",
-  "education.graduation_year": "毕业年份",
-  skills: "专业技能",
-  experiences: "项目/实习/竞赛经历",
-  certificates: "证书奖项",
-  evidences: "证据片段",
-};
 const evidenceFieldLabels: Record<string, string> = {
   "basic_info.name": "姓名",
   "preference.target_role": "目标岗位",
@@ -170,10 +159,6 @@ function formatEvidenceField(fieldPath: string): string {
   if (/^certificates(?:\[\d+\])?\.name$/.test(fieldPath)) return "证书";
   if (/^skills(?:\[\d+\])?\.name$/.test(fieldPath)) return "技能";
   return evidenceFieldLabels[fieldPath] || fieldPath;
-}
-
-function formatMissingItem(item: string): string {
-  return missingItemLabels[item] || item;
 }
 
 function formatExperienceKind(kind: StudentProfileExperienceKind): string {
@@ -725,14 +710,20 @@ onMounted(() => {
 
             <article class="panel section-card">
               <header>
-                <h4>缺失项</h4>
-                <span>{{ selectedProfile.evaluation.missing_items.length || "完整" }}</span>
+                <h4>教育</h4>
+                <span>{{ selectedProfile.education.level || "未知" }}</span>
               </header>
-              <div class="tag-list warn">
-                <span v-for="item in selectedProfile.evaluation.missing_items" :key="item">{{
-                  formatMissingItem(item)
-                }}</span>
-                <span v-if="selectedProfile.evaluation.missing_items.length === 0">信息完整</span>
+              <div class="edu-detail">
+                <p class="edu-school">{{ selectedProfile.education.school || "未填写" }}</p>
+                <p class="edu-major" v-if="selectedProfile.education.major">
+                  {{ selectedProfile.education.major }}
+                </p>
+                <p class="edu-year" v-if="selectedProfile.education.graduation_year">
+                  {{ selectedProfile.education.graduation_year }} 届
+                </p>
+                <p v-if="!selectedProfile.education.school && !selectedProfile.education.major" class="empty-note">
+                  暂无教育信息
+                </p>
               </div>
             </article>
 
@@ -1224,6 +1215,29 @@ textarea {
 
 .section-card.wide {
   grid-column: 1 / -1;
+}
+
+.edu-detail {
+  margin-top: 12px;
+}
+
+.edu-school {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--profile-text);
+  margin: 0 0 4px;
+}
+
+.edu-major {
+  font-size: 13px;
+  color: var(--profile-muted);
+  margin: 0 0 2px;
+}
+
+.edu-year {
+  font-size: 12px;
+  color: var(--profile-primary);
+  margin: 0;
 }
 
 .meter-list {

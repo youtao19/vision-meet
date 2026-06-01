@@ -3,6 +3,7 @@ import { Router } from "express";
 
 import { HttpError } from "../../shared/errors/http-error.js";
 import {
+  resumeDraftCreateSchema,
   resumeHtmlCreateSchema,
   resumeHtmlListQuerySchema,
   resumeHtmlIdParamsSchema,
@@ -11,6 +12,28 @@ import type { ResumeService } from "./resume.service.js";
 
 export function createResumeRouter(service: ResumeService): Router {
   const router = Router();
+
+  router.post("/draft", async (req, res, next) => {
+    const parsed = resumeDraftCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return next(
+        new HttpError(
+          400,
+          "RESUME_DRAFT_INPUT_INVALID",
+          "简历追问参数不合法",
+          parsed.error.flatten(),
+        ),
+      );
+    }
+
+    try {
+      const traceId = (res.locals.trace_id as string | undefined) || "";
+      const result = await service.generateResumeDraft(parsed.data, { traceId });
+      return res.json(result);
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   router.post("/html", async (req, res, next) => {
     const parsed = resumeHtmlCreateSchema.safeParse(req.body);

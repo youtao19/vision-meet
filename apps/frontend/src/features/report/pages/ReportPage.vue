@@ -799,6 +799,14 @@ onMounted(async () => {
               </button>
               <button
                 class="btn btn-secondary"
+                :disabled="loading.export"
+                @click="exportCurrentReportByFormat('markdown')"
+              >
+                <span class="material-symbols-outlined">markdown</span>
+                {{ loading.export ? "导出中" : "导出 Markdown" }}
+              </button>
+              <button
+                class="btn btn-secondary"
                 :class="{ active: isEditMode }"
                 @click="isEditMode = !isEditMode"
               >
@@ -1554,6 +1562,10 @@ onMounted(async () => {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.document-actions .btn {
+  width: 168px;
 }
 
 .report-tabs {

@@ -66,6 +66,21 @@ export const resumeHtmlCreateSchema = z.object({
   certificates: z.string().trim().max(1000).optional(),
   awards: z.string().trim().max(1000).optional(),
   portfolio_links: z.string().trim().max(1000).optional(),
+  confirmed_draft: z.string().trim().max(12000).optional(),
+});
+
+export const resumeDraftCreateSchema = z.object({
+  basic: resumeHtmlCreateSchema.shape.basic,
+  educations: resumeHtmlCreateSchema.shape.educations,
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().trim().min(1).max(4000),
+      }),
+    )
+    .min(1)
+    .max(40),
 });
 
 export const resumeHtmlListQuerySchema = z.object({

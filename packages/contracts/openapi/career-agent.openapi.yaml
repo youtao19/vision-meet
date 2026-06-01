@@ -286,7 +286,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: PDF binary stream
+          description: PDF or Markdown binary stream
 
   /api/v2/polish:
     post:
@@ -312,6 +312,102 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Polish failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v2/resumes/draft:
+    post:
+      summary: Generate Resume Draft By Interview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - basic
+                - educations
+                - messages
+              properties:
+                basic:
+                  type: object
+                  required:
+                    - name
+                    - phone
+                    - email
+                    - target_position
+                  properties:
+                    name:
+                      type: string
+                    phone:
+                      type: string
+                    email:
+                      type: string
+                    target_position:
+                      type: string
+                    target_city:
+                      type: string
+                educations:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                messages:
+                  type: array
+                  minItems: 1
+                  maxItems: 40
+                  items:
+                    type: object
+                    required:
+                      - role
+                      - content
+                    properties:
+                      role:
+                        type: string
+                        enum:
+                          - user
+                          - assistant
+                      content:
+                        type: string
+      responses:
+        "200":
+          description: Resume draft interview response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - trace_id
+                  - model
+                  - status
+                  - assistant_message
+                properties:
+                  trace_id:
+                    type: string
+                  model:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
+                    enum:
+                      - collecting
+                      - draft_ready
+                  assistant_message:
+                    type: string
+                  draft_text:
+                    type: string
+                  resume_payload:
+                    $ref: "#/components/schemas/ResumeHtmlRequest"
+        "400":
+          description: Invalid resume draft request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Resume draft generation failed
           content:
             application/json:
               schema:
@@ -398,4 +494,3 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-

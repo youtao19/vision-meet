@@ -17,6 +17,13 @@ export const RESUME_GENERATION_SYSTEM_PROMPT = `# Role: 简历 HTML 生成专家
 `;
 
 export function buildResumeHtmlUserPrompt(input: CreateResumeHtmlRequest): string {
+  const confirmedDraftSection = input.confirmed_draft
+    ? [
+        "用户已确认的文字版简历信息如下，最终 HTML 不得新增这里没有出现的事实：",
+        input.confirmed_draft,
+      ].join("\n\n")
+    : "用户未提供单独确认稿，请直接使用结构化字段事实。";
+
   return [
     "请直接根据下面的结构化信息生成学生求职简历，不要再提问。",
     "输出要求：仅返回一份完整 HTML（放在 ```html 代码块），可直接在浏览器新标签页打开并打印；HTML 正文里不要放打印按钮或工具栏。",
@@ -26,6 +33,8 @@ export function buildResumeHtmlUserPrompt(input: CreateResumeHtmlRequest): strin
     "岗位适配：根据目标岗位调整技能和经历的表达顺序，突出最相关的技术、职责和成果。",
     "内容结构建议：基本信息、个人优势、教育背景、专业技能、项目/实习/竞赛经历、证书、奖项/竞赛、作品链接。",
     "数量要求：不要强行限制项目职责和成果数量，但要合并重复表述，避免啰嗦堆砌。",
+    "视觉要求：简洁但有设计感，使用清晰的页眉、分隔线、紧凑层级和适合 A4 的打印样式，避免大面积彩色背景和卡片堆叠。",
+    confirmedDraftSection,
     "用户提供的原始履历信息如下：",
     JSON.stringify(input, null, 2),
   ].join("\n\n");

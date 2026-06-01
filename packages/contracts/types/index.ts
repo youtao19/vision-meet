@@ -760,6 +760,29 @@ export type CreateResumeHtmlRequest = {
   certificates?: string;
   awards?: string;
   portfolio_links?: string;
+  confirmed_draft?: string;
+};
+
+export type ResumeDraftChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type CreateResumeDraftRequest = {
+  basic: ResumeBasicInfoInput;
+  educations: ResumeEducationInput[];
+  messages: ResumeDraftChatMessage[];
+};
+
+export type ResumeDraftStatus = "collecting" | "draft_ready";
+
+export type ResumeDraftResponse = {
+  trace_id: string;
+  model: string | null;
+  status: ResumeDraftStatus;
+  assistant_message: string;
+  draft_text?: string;
+  resume_payload?: CreateResumeHtmlRequest;
 };
 
 export type ResumeHtmlResponse = {

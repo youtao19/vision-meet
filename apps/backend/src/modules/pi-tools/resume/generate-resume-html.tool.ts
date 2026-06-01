@@ -45,6 +45,7 @@ export function createGenerateResumeHtmlTool(
       certificates: Type.Optional(Type.String()),
       awards: Type.Optional(Type.String()),
       portfolio_links: Type.Optional(Type.String()),
+      confirmed_draft: Type.Optional(Type.String()),
     }),
     execute: async (_toolCallId, params) => {
       const payload = readRecord(params) as unknown as CreateResumeHtmlRequest;

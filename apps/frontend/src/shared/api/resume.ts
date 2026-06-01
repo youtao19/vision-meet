@@ -1,5 +1,7 @@
 import type {
+  CreateResumeDraftRequest,
   CreateResumeHtmlRequest,
+  ResumeDraftResponse,
   ResumeHtmlListResponse,
   ResumeHtmlRecord,
   ResumeHtmlResponse,
@@ -11,6 +13,18 @@ export async function createResumeHtml(
   payload: CreateResumeHtmlRequest,
 ): Promise<ResumeHtmlResponse> {
   return requestJson<ResumeHtmlResponse>("/api/v2/resumes/html", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createResumeDraft(
+  payload: CreateResumeDraftRequest,
+): Promise<ResumeDraftResponse> {
+  return requestJson<ResumeDraftResponse>("/api/v2/resumes/draft", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
