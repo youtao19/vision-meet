@@ -216,13 +216,6 @@ function syncTargetJobFromProfile(): void {
   }
 }
 
-function evidenceTagClass(item: string): string {
-  if (item.includes("待补齐") || item.includes("缺少")) return "tag-risk";
-  if (item.includes("命中") || item.includes("覆盖率")) return "tag-strong";
-  if (item.includes("算法")) return "tag-neutral";
-  return "tag-default";
-}
-
 async function bootstrap(): Promise<void> {
   loading.bootstrap = true;
   uiState.error = "";
@@ -503,41 +496,6 @@ watch(
             <p>{{ item.reasoning }}</p>
           </article>
         </div>
-      </section>
-
-      <section class="insight-card evidence-card">
-        <div class="section-title">
-          <span>04</span>
-          <h4>证据引用</h4>
-        </div>
-        <div class="evidence-cloud">
-          <span
-            v-for="item in selectedDetail.evidence_refs"
-            :key="item"
-            class="evidence-tag"
-            :class="evidenceTagClass(item)"
-          >
-            {{ item }}
-          </span>
-        </div>
-      </section>
-
-      <section class="insight-card route-card">
-        <div class="section-title">
-          <span>05</span>
-          <h4>路径建议</h4>
-        </div>
-        <div v-if="selectedDetail.path_recommendations.length > 0" class="route-list">
-          <article
-            v-for="item in selectedDetail.path_recommendations"
-            :key="item.route_id"
-            class="route-item"
-          >
-            <strong>{{ item.title }}</strong>
-            <span>适配度 {{ item.suitability_score }}</span>
-          </article>
-        </div>
-        <p v-else class="empty-note">当前结果暂无路径建议。</p>
       </section>
 
       <div class="detail-actions">
@@ -983,15 +941,13 @@ input[type="text"]:focus {
 }
 
 .gap-list,
-.explanation-grid,
-.route-list {
+.explanation-grid {
   display: grid;
   gap: 10px;
 }
 
 .gap-item,
-.explanation-item,
-.route-item {
+.explanation-item {
   padding: 12px;
   border-radius: 16px;
   border: 1px solid rgba(224, 233, 246, 0.86);
@@ -999,8 +955,7 @@ input[type="text"]:focus {
 }
 
 .gap-topline,
-.gap-numbers,
-.route-item {
+.gap-numbers {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -1079,53 +1034,6 @@ input[type="text"]:focus {
   font-size: 15px;
 }
 
-.evidence-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.evidence-tag {
-  display: inline-flex;
-  max-width: 100%;
-  padding: 7px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(219, 230, 244, 0.9);
-  background: rgba(255, 255, 255, 0.66);
-  color: rgba(31, 54, 86, 0.78);
-  font-size: 13px;
-  line-height: 1.3;
-}
-
-.tag-strong {
-  border-color: rgba(15, 159, 143, 0.24);
-  background: rgba(15, 159, 143, 0.1);
-  color: #0b756d;
-}
-
-.tag-risk {
-  border-color: rgba(190, 77, 48, 0.24);
-  background: rgba(190, 77, 48, 0.09);
-  color: #9f3f24;
-}
-
-.tag-neutral {
-  border-color: rgba(47, 125, 211, 0.24);
-  background: rgba(47, 125, 211, 0.09);
-  color: #245f9f;
-}
-
-.route-item {
-  align-items: center;
-  color: #132a47;
-}
-
-.route-item span {
-  color: #0b756d;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
 .detail-actions,
 .table-actions {
   display: flex;
@@ -1202,8 +1110,7 @@ input[type="text"]:focus {
 
   .panel-title-row,
   .gap-topline,
-  .gap-numbers,
-  .route-item {
+  .gap-numbers {
     align-items: flex-start;
     flex-direction: column;
   }
