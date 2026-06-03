@@ -67,8 +67,8 @@ const route = useRoute();
 const navItems = [
   { path: "/job-profiles", label: "岗位画像", icon: "badge" },
   { path: "/profile", label: "学生画像", icon: "person" },
-  { path: "/career-paths", label: "路径图谱", icon: "route" },
-  { path: "/matching", label: "匹配分析", icon: "compare_arrows" },
+  { path: "/career-paths", label: "职业路径", icon: "route" },
+  { path: "/matching", label: "人岗匹配", icon: "compare_arrows" },
   { path: "/report", label: "职业报告", icon: "analytics" },
 ] as const;
 

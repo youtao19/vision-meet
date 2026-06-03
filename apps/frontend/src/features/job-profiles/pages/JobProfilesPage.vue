@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 
 import type {
   JobPictureBook,
@@ -26,8 +26,10 @@ const selectedJobName = ref("");
 const keyword = ref("");
 const abilityFilter = ref("all");
 const showPictureBook = ref(false);
+const pulsingCard = ref<"coreSkills" | "subIndustry" | null>(null);
 const loading = reactive({ list: false, pictureBookGenerateJobName: "", pictureBookJobName: "" });
 const uiState = reactive({ error: "" });
+let pulseTimer: number | null = null;
 
 const categoryOptions = computed(() => {
   const industries =
@@ -104,6 +106,40 @@ function resetFilters(): void {
   keyword.value = "";
   activeCategory.value = "all";
   abilityFilter.value = "all";
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable
+  );
+}
+
+function pulsePresentationCard(card: "coreSkills" | "subIndustry"): void {
+  if (pulseTimer !== null) window.clearTimeout(pulseTimer);
+  pulsingCard.value = null;
+  window.requestAnimationFrame(() => {
+    pulsingCard.value = card;
+    pulseTimer = window.setTimeout(() => {
+      pulsingCard.value = null;
+      pulseTimer = null;
+    }, 720);
+  });
+}
+
+function handlePresentationShortcut(event: KeyboardEvent): void {
+  if (isEditableTarget(event.target)) return;
+  if (event.key === "1") {
+    event.preventDefault();
+    pulsePresentationCard("coreSkills");
+  }
+  if (event.key === "2" && selectedSubIndustry.value) {
+    event.preventDefault();
+    pulsePresentationCard("subIndustry");
+  }
 }
 
 function applyFilterSelection(): void {
@@ -237,7 +273,15 @@ watch(activeCategory, (industryName) => {
     null;
 });
 
-onMounted(loadProfiles);
+onMounted(() => {
+  void loadProfiles();
+  window.addEventListener("keydown", handlePresentationShortcut);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handlePresentationShortcut);
+  if (pulseTimer !== null) window.clearTimeout(pulseTimer);
+});
 </script>
 
 <template>
@@ -308,7 +352,10 @@ onMounted(loadProfiles);
               </li>
             </ul>
           </article>
-          <article class="card">
+          <article
+            class="card"
+            :class="{ 'is-presenting-pulse': pulsingCard === 'coreSkills' }"
+          >
             <h3>核心技能</h3>
             <div class="chips">
               <span v-for="skill in selected.profile_detail.skills" :key="skill">{{ skill }}</span>
@@ -353,7 +400,11 @@ onMounted(loadProfiles);
       </section>
 
       <aside class="side-panel">
-        <section v-if="selectedSubIndustry" class="card subindustry-detail">
+        <section
+          v-if="selectedSubIndustry"
+          class="card subindustry-detail"
+          :class="{ 'is-presenting-pulse': pulsingCard === 'subIndustry' }"
+        >
           <h3>{{ selectedSubIndustry.industry }}</h3>
           <p>{{ selectedSubIndustry.description }}</p>
           <h4>代表公司</h4>
@@ -661,6 +712,63 @@ onMounted(loadProfiles);
 
 .card {
   padding: 18px;
+}
+
+.card.is-presenting-pulse {
+  animation: presentation-card-pulse 720ms ease-out;
+}
+
+@keyframes presentation-card-pulse {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 10px 25px rgb(15 23 42 / 5%);
+  }
+
+  20% {
+    transform: translateY(-12px) scale(1.025);
+    border-color: #2563eb;
+    box-shadow:
+      0 0 0 4px rgb(37 99 235 / 18%),
+      0 22px 42px rgb(37 99 235 / 22%);
+  }
+
+  45% {
+    transform: translateY(4px) scale(0.995);
+  }
+
+  66% {
+    transform: translateY(-6px) scale(1.012);
+    border-color: #2563eb;
+    box-shadow:
+      0 0 0 3px rgb(37 99 235 / 14%),
+      0 18px 34px rgb(37 99 235 / 16%);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 10px 25px rgb(15 23 42 / 5%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.is-presenting-pulse {
+    animation: presentation-card-flash 720ms ease-out;
+  }
+
+  @keyframes presentation-card-flash {
+    0%,
+    100% {
+      border-color: #e5e7eb;
+      box-shadow: 0 10px 25px rgb(15 23 42 / 5%);
+    }
+
+    35% {
+      border-color: #2563eb;
+      box-shadow:
+        0 0 0 4px rgb(37 99 235 / 18%),
+        0 18px 34px rgb(37 99 235 / 16%);
+    }
+  }
 }
 
 .card h3,
