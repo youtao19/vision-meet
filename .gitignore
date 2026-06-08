@@ -53,6 +53,7 @@ output/
 infographic/
 
 *.png
+!docs/assets/readme-*.png
 
 .playwright-mcp/
 .gemini
