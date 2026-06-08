@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
@@ -39,6 +39,8 @@ const titleEditReportId = ref<number | null>(null);
 const titleEditValue = ref("");
 const titleSavingReportId = ref<number | null>(null);
 const deletingReportId = ref<number | null>(null);
+const presentationPanel = ref<"recommendations" | "careerPath" | null>(null);
+let presentationTimer: number | null = null;
 
 const loading = reactive({
   match: false,
@@ -559,6 +561,40 @@ function formatExportTag(format: CareerReportExportFormat): string {
   return format === "pdf" ? "PDF" : "MD";
 }
 
+function isEditableShortcutTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable
+  );
+}
+
+function pulsePresentationPanel(panel: "recommendations" | "careerPath"): void {
+  if (presentationTimer !== null) window.clearTimeout(presentationTimer);
+  presentationPanel.value = null;
+  window.requestAnimationFrame(() => {
+    presentationPanel.value = panel;
+    presentationTimer = window.setTimeout(() => {
+      presentationPanel.value = null;
+      presentationTimer = null;
+    }, 720);
+  });
+}
+
+function handlePresentationShortcut(event: KeyboardEvent): void {
+  if (isEditableShortcutTarget(event.target)) return;
+  if (event.key === "3") {
+    event.preventDefault();
+    pulsePresentationPanel("recommendations");
+  }
+  if (event.key === "4" && !isEditMode.value) {
+    event.preventDefault();
+    pulsePresentationPanel("careerPath");
+  }
+}
+
 const canCreate = computed(() => toPositiveInt(form.matchId) !== undefined);
 
 watch(
@@ -569,7 +605,13 @@ watch(
 );
 
 onMounted(async () => {
+  window.addEventListener("keydown", handlePresentationShortcut);
   await handleQueryMatchId(route.query.match_id);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handlePresentationShortcut);
+  if (presentationTimer !== null) window.clearTimeout(presentationTimer);
 });
 </script>
 
@@ -938,7 +980,10 @@ onMounted(async () => {
       </main>
 
       <aside class="insight-sidebar">
-        <section class="panel recommendation-panel">
+        <section
+          class="panel recommendation-panel"
+          :class="{ 'is-presentation-pulse': presentationPanel === 'recommendations' }"
+        >
           <div class="panel-title-row">
             <div>
               <h2>推荐岗位</h2>
@@ -971,7 +1016,11 @@ onMounted(async () => {
           </div>
         </section>
 
-        <section v-if="!isEditMode" class="panel path-panel">
+        <section
+          v-if="!isEditMode"
+          class="panel path-panel"
+          :class="{ 'is-presentation-pulse': presentationPanel === 'careerPath' }"
+        >
           <div class="panel-title-row">
             <h2>职业发展路径建议</h2>
             <RouterLink to="/career-paths" class="text-link">查看详情</RouterLink>
@@ -1781,6 +1830,63 @@ onMounted(async () => {
 
 .insight-sidebar .panel {
   padding: 16px;
+}
+
+.insight-sidebar .panel.is-presentation-pulse {
+  animation: report-panel-pulse 720ms ease-out;
+}
+
+@keyframes report-panel-pulse {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+  }
+
+  20% {
+    transform: translateY(-10px) scale(1.018);
+    border-color: #2563eb;
+    box-shadow:
+      0 0 0 4px rgba(37, 99, 235, 0.16),
+      0 20px 38px rgba(37, 99, 235, 0.18);
+  }
+
+  45% {
+    transform: translateY(3px) scale(0.997);
+  }
+
+  66% {
+    transform: translateY(-5px) scale(1.01);
+    border-color: #2563eb;
+    box-shadow:
+      0 0 0 3px rgba(37, 99, 235, 0.12),
+      0 15px 30px rgba(37, 99, 235, 0.14);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .insight-sidebar .panel.is-presentation-pulse {
+    animation: report-panel-flash 720ms ease-out;
+  }
+
+  @keyframes report-panel-flash {
+    0%,
+    100% {
+      border-color: var(--report-line);
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+    }
+
+    35% {
+      border-color: #2563eb;
+      box-shadow:
+        0 0 0 4px rgba(37, 99, 235, 0.16),
+        0 15px 30px rgba(37, 99, 235, 0.14);
+    }
+  }
 }
 
 .editing-mode .report-tabs,
