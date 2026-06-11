@@ -21,8 +21,6 @@ type PiRuntimeConfig = {
 const RUNTIME_CONFIG_FILE = "career-agent-runtime.json";
 
 const providerDefaultModels: Record<string, string[]> = {
-  "openai-codex": ["gpt-5.4", "gpt-5.2", "gpt-5", "gpt-4.1"],
-  "github-copilot": ["gpt-5.4", "gpt-5.2", "gpt-5", "claude-sonnet-4.5"],
   "kimi-coding": ["k2p5", "kimi-for-coding"],
   moonshot: ["kimi-k2.5", "kimi-k2-0905-preview", "kimi-k2-turbo-preview"],
 };

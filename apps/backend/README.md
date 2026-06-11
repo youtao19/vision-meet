@@ -62,15 +62,15 @@ cp apps/backend/.env.example apps/backend/.env
 ```bash
 npm run agent:auth -- status
 npm run agent:auth -- list
-npm run agent:auth -- models codex
-npm run agent:auth -- login openai-codex --model openai-codex/gpt-5.4
+npm run agent:auth -- models kimi-coding
+npm run agent:auth -- login kimi-coding --model kimi-coding/k2p5
 npm run agent:auth -- switch kimi-coding/k2p5
 npm run agent:smoke
 ```
 
 说明：
 
-- `login` 会调用 Pi 官方 `pi-ai login`，使用 Pi 支持的登录方式重新登录。
+- `login` 会调用 Pi 官方 `pi-ai login`，使用 Kimi 相关 provider 重新登录。
 - 登录凭证写入本项目 Agent 目录，默认是 `~/.career-agent/pi-agent/auth.json`，不会提交到仓库。
 - `switch` 只更新 `apps/backend/.env` 中的 `AGENT_MODEL`，模型格式必须是 `provider/model`。
 - `status` 只打印 provider 和认证类型，不打印 token 或 API key。

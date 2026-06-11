@@ -87,9 +87,9 @@ function printHelp(): void {
 常用命令：
   npm run agent:auth -- status
   npm run agent:auth -- list
-  npm run agent:auth -- models codex
-  npm run agent:auth -- login openai-codex
-  npm run agent:auth -- login openai-codex --model openai-codex/gpt-5.4
+  npm run agent:auth -- models kimi-coding
+  npm run agent:auth -- login kimi-coding
+  npm run agent:auth -- login kimi-coding --model kimi-coding/k2p5
   npm run agent:auth -- use kimi-coding/k2p5
   npm run agent:smoke
 
@@ -133,26 +133,6 @@ function runCommand(
   });
 }
 
-function isUnsupportedOpenAiRegionLoginError(error: unknown, provider?: string): boolean {
-  return (
-    provider === "openai-codex" &&
-    error instanceof CommandExitError &&
-    error.args[0] === "login" &&
-    error.args[1] === "openai-codex"
-  );
-}
-
-function buildOpenAiRegionLoginMessage(agentDir: string): string {
-  const activeModel = readPiRuntimeConfig(agentDir).active_model || "(未选择)";
-  return [
-    "openai-codex 登录失败：OpenAI 返回 unsupported_country_region_territory。",
-    "这表示当前网络所在国家/地区不被 OpenAI 登录或 token 交换支持，不是本项目 .env 或模型选择配置错误。",
-    `当前 Pi 运行模型仍保持为 ${activeModel}，没有被本次失败登录改动。`,
-    "可继续使用：npm run agent:auth -- use kimi-coding/k2p5",
-    "如需使用 Codex，请在 OpenAI 支持的国家/地区网络环境下重新运行：npm run agent:auth -- login openai-codex",
-  ].join("\n");
-}
-
 /**
  * 读取 JSON 文件。
  * 逻辑：文件不存在或为空时返回兜底值；文件存在但 JSON 损坏时直接暴露错误。
@@ -176,9 +156,7 @@ function parseModelRef(modelRef: string): { provider: string; modelId: string; r
   const normalized = modelRef.trim();
   const slashIndex = normalized.indexOf("/");
   if (slashIndex <= 0 || slashIndex === normalized.length - 1) {
-    throw new Error(
-      "模型必须采用 provider/model 格式，例如 openai-codex/gpt-5.4 或 kimi-coding/k2p5",
-    );
+    throw new Error("模型必须采用 provider/model 格式，例如 kimi-coding/k2p5");
   }
   return {
     provider: normalized.slice(0, slashIndex),
@@ -222,7 +200,7 @@ function findNewProvider(before: AuthFile, after: AuthFile): string | null {
 }
 
 function chooseFallbackAuthenticatedProvider(auth: AuthFile): string | null {
-  const preferred = ["openai-codex", "github-copilot", "kimi-coding", "moonshot"];
+  const preferred = ["kimi-coding", "moonshot"];
   const providers = new Set(Object.keys(auth));
   return preferred.find((provider) => providers.has(provider)) || Object.keys(auth)[0] || null;
 }
@@ -295,14 +273,7 @@ async function main(): Promise<void> {
     const provider = args.values[0];
     const authPath = path.join(agentDir, "auth.json");
     const beforeAuth = readJsonFile<AuthFile>(authPath, {});
-    try {
-      await runCommand(piAiBin, provider ? ["login", provider] : ["login"], { cwd: agentDir });
-    } catch (error) {
-      if (isUnsupportedOpenAiRegionLoginError(error, provider)) {
-        throw new Error(buildOpenAiRegionLoginMessage(agentDir));
-      }
-      throw error;
-    }
+    await runCommand(piAiBin, provider ? ["login", provider] : ["login"], { cwd: agentDir });
     const afterAuth = readJsonFile<AuthFile>(authPath, {});
     const modelRef =
       args.model ||
@@ -330,7 +301,7 @@ async function main(): Promise<void> {
   if (args.command === "switch" || args.command === "use") {
     const modelRef = args.values[0];
     if (!modelRef) {
-      throw new Error("缺少模型，例如：npm run agent:auth -- use openai-codex/gpt-5.4");
+      throw new Error("缺少模型，例如：npm run agent:auth -- use kimi-coding/k2p5");
     }
     assertModelExists(agentDir, modelRef);
     writeActivePiModel(agentDir, modelRef);

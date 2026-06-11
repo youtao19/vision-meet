@@ -110,8 +110,8 @@ export async function runAiTaskAgent(
    * 解析用户传入的模型配置。
    *
    * options.model 可能类似：
-   * - openai/gpt-4.1
-   * - anthropic/claude-sonnet
+   * - kimi-coding/k2p5
+   * - moonshot/kimi-k2.5
    *
    * 如果传了模型，就从模型注册表中查找；
    * 如果没传，就交给 Pi Agent 自己选择默认可用模型。

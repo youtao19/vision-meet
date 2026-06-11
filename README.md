@@ -41,7 +41,7 @@
 - 契约：OpenAPI、共享 TypeScript 类型，位于 `packages/contracts`
 - 数据库：PostgreSQL、pgvector
 - 图数据库：Neo4j
-- AI 运行时：Pi SDK，可接入 Codex、Kimi、Moonshot 等 provider
+- AI 运行时：Pi SDK，当前项目只保留 Kimi / Moonshot 相关 provider
 - 部署：Docker Compose
 
 ## 项目结构
@@ -170,7 +170,7 @@ Windows Docker 完整说明见 [docs/Windows-Docker-部署说明.md](./docs/Wind
 
 项目默认不会提交任何真实密钥。本地运行 AI 能力前，需要按需配置：
 
-- Pi Agent 登录状态：推荐使用 `npm run agent:auth -- login <provider>` 写入项目独立 Agent 目录。
+- Pi Agent 登录状态：推荐使用 `npm run agent:auth -- login kimi-coding` 写入项目独立 Agent 目录。
 - Kimi/Moonshot：参考 `apps/backend/.env.example` 中的 `KIMI_API_KEY`、`MOONSHOT_API_KEY`。
 - 火山引擎 TTS：岗位有声绘本能力需要 `VOLCENGINE_TTS_APP_ID` 和 `VOLCENGINE_TTS_ACCESS_TOKEN`。
 
@@ -198,4 +198,3 @@ Windows Docker 完整说明见 [docs/Windows-Docker-部署说明.md](./docs/Wind
 - 共享类型：[packages/contracts/types/index.ts](./packages/contracts/types/index.ts)
 - 工程结构规范：[docs/工程结构与协作规范.md](./docs/工程结构与协作规范.md)
 - 技术架构：[docs/项目技术架构.md](./docs/项目技术架构.md)
-
