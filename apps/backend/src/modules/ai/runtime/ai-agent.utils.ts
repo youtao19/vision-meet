@@ -59,7 +59,7 @@ export function parseModelRef(modelRef?: string): { provider: string; modelId: s
     throw new HttpError(
       500,
       "AGENT_MODEL_INVALID",
-      "AGENT_MODEL 必须采用 provider/model 的格式，例如 kimi-coding/k2p5",
+      "AGENT_MODEL 必须采用 provider/model 的格式，例如 kimi-coding/kimi-for-coding",
     );
   }
 

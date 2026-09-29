@@ -5,7 +5,6 @@
  */
 import path from "node:path";
 import {
-  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
   ModelRegistry,
@@ -14,6 +13,7 @@ import {
 import type { CreatePolishRequest, PolishResponse } from "@career/contracts/types";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
+import { createPiAuthStorage } from "../../../shared/agent/pi-provider-config.js";
 import { resolvePiRuntimeModelRef } from "../../../shared/agent/pi-runtime-config.js";
 import {
   ensureCompatibleAgentBootstrap,
@@ -158,7 +158,7 @@ export async function runPolishAgent(options: RunPolishAgentOptions): Promise<Po
   ensureCompatibleAgentBootstrap(piAgentDir);
   ensureDirectory(taskSessionDir);
 
-  const authStorage = AuthStorage.create(path.join(piAgentDir, "auth.json"));
+  const authStorage = createPiAuthStorage(piAgentDir);
   const modelRegistry = ModelRegistry.create(authStorage, path.join(piAgentDir, "models.json"));
   const modelRef = resolvePiRuntimeModelRef(piAgentDir, options.model);
   const selectedModel = modelRef
@@ -194,7 +194,7 @@ export async function runPolishAgent(options: RunPolishAgentOptions): Promise<Po
     throw new HttpError(
       500,
       "AGENT_MODEL_UNAVAILABLE",
-      modelFallbackMessage || "当前独立 Agent 配置目录下没有可用模型",
+      modelFallbackMessage || "当前没有可用 Pi 模型，请检查 apps/backend/.env 中的 API Key 和 URL",
     );
   }
 

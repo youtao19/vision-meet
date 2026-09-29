@@ -21,7 +21,7 @@ type PiRuntimeConfig = {
 const RUNTIME_CONFIG_FILE = "career-agent-runtime.json";
 
 const providerDefaultModels: Record<string, string[]> = {
-  "kimi-coding": ["k2p5", "kimi-for-coding"],
+  "kimi-coding": ["kimi-for-coding", "k2p5"],
   moonshot: ["kimi-k2.5", "kimi-k2-0905-preview", "kimi-k2-turbo-preview"],
 };
 
@@ -59,7 +59,7 @@ export function parsePiModelRef(modelRef?: string): PiRuntimeModelRef | null {
 
   const slashIndex = normalized.indexOf("/");
   if (slashIndex <= 0 || slashIndex === normalized.length - 1) {
-    throw new Error("模型必须采用 provider/model 格式，例如 kimi-coding/k2p5");
+    throw new Error("模型必须采用 provider/model 格式，例如 kimi-coding/kimi-for-coding");
   }
 
   return {

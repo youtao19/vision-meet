@@ -8,7 +8,6 @@
 import path from "node:path";
 
 import {
-  AuthStorage,
   type AgentSessionEvent,
   createAgentSession,
   DefaultResourceLoader,
@@ -18,6 +17,7 @@ import {
 } from "@mariozechner/pi-coding-agent";
 
 import { HttpError } from "../errors/http-error.js";
+import { createPiAuthStorage } from "./pi-provider-config.js";
 import type { PiThinkingLevel } from "./pi-types.js";
 import { resolvePiRuntimeModelRef } from "./pi-runtime-config.js";
 import {
@@ -116,7 +116,7 @@ export async function runPiSession<T>(
   ensureCompatibleAgentBootstrap(piAgentDir);
   ensureDirectory(taskSessionDir);
 
-  const authStorage = AuthStorage.create(path.join(piAgentDir, "auth.json"));
+  const authStorage = createPiAuthStorage(piAgentDir);
   const modelRegistry = ModelRegistry.create(authStorage, path.join(piAgentDir, "models.json"));
   const modelRef = resolvePiRuntimeModelRef(piAgentDir, options.model);
   const selectedModel = modelRef
@@ -137,7 +137,7 @@ export async function runPiSession<T>(
       throw new HttpError(
         500,
         "AGENT_MODEL_REQUIRED",
-        "图片简历解析需要先选择 Pi 模型，请运行 npm run agent:auth -- login <provider> 或 npm run agent:auth -- use <provider/model>",
+        "图片简历解析需要 Pi 模型，请先在 apps/backend/.env 填写 Kimi 或 DeepSeek 的 API Key 和 URL",
       );
     }
     const supportedInputs = Array.isArray((selectedModel as { input?: unknown } | undefined)?.input)
@@ -190,7 +190,11 @@ export async function runPiSession<T>(
   });
   if (!session.model) {
     session.dispose();
-    throw new HttpError(500, "AGENT_MODEL_UNAVAILABLE", "当前 Pi 登录配置下没有可用模型");
+    throw new HttpError(
+      500,
+      "AGENT_MODEL_UNAVAILABLE",
+      "当前没有可用 Pi 模型，请检查 apps/backend/.env 中的 API Key 和 URL",
+    );
   }
 
   const assistantMessages: string[] = [];

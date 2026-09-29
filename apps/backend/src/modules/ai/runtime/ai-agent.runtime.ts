@@ -7,7 +7,6 @@
 import path from "node:path";
 
 import {
-  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
   ModelRegistry,
@@ -16,6 +15,7 @@ import {
 import type { AiStepTraceItem, AiWarningCode } from "@career/contracts/types";
 
 import { HttpError } from "../../../shared/errors/http-error.js";
+import { createPiAuthStorage } from "../../../shared/agent/pi-provider-config.js";
 import { resolvePiRuntimeModelRef } from "../../../shared/agent/pi-runtime-config.js";
 import { createCorePiTools } from "../../pi-tools/pi-tools.registry.js";
 import type {
@@ -98,19 +98,19 @@ export async function runAiTaskAgent(
    * 创建认证存储和模型注册表。
    *
    * auth.json：
-   * - 存放 Pi Agent 登录态或认证信息。
+   * - 存放从旧版 Pi 配置迁移来的认证信息。
    *
    * models.json：
    * - 存放可用模型配置。
    */
-  const authStorage = AuthStorage.create(path.join(piAgentDir, "auth.json"));
+  const authStorage = createPiAuthStorage(piAgentDir);
   const modelRegistry = ModelRegistry.create(authStorage, path.join(piAgentDir, "models.json"));
 
   /**
    * 解析用户传入的模型配置。
    *
    * options.model 可能类似：
-   * - kimi-coding/k2p5
+   * - kimi-coding/kimi-for-coding
    * - moonshot/kimi-k2.5
    *
    * 如果传了模型，就从模型注册表中查找；
@@ -271,7 +271,7 @@ export async function runAiTaskAgent(
       500,
       "AGENT_MODEL_UNAVAILABLE",
       modelFallbackMessage ||
-        "当前独立 Agent 配置目录下没有可用模型，请先在 AGENT_PI_DIR 中完成模型与认证配置",
+        "当前没有可用 Pi 模型，请在 apps/backend/.env 填写 Kimi 或 DeepSeek 的 API Key 和 URL",
     );
   }
 

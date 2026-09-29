@@ -12,7 +12,6 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
   ModelRegistry,
@@ -27,6 +26,7 @@ import type {
 } from "@career/contracts/types";
 
 import type { AppEnv } from "../../shared/config/env.js";
+import { createPiAuthStorage } from "../../shared/agent/pi-provider-config.js";
 import { resolvePiRuntimeModelRef } from "../../shared/agent/pi-runtime-config.js";
 import {
   ensureCompatibleAgentBootstrap,
@@ -467,11 +467,13 @@ export async function generateCareerGraphByAgent(params: {
   ensureCompatibleAgentBootstrap(piAgentDir);
   ensureDirectory(taskSessionDir);
 
-  const authStorage = AuthStorage.create(`${piAgentDir}/auth.json`);
+  const authStorage = createPiAuthStorage(piAgentDir);
   const modelRegistry = ModelRegistry.create(authStorage, `${piAgentDir}/models.json`);
   const modelRef = resolvePiRuntimeModelRef(piAgentDir);
   if (!modelRef) {
-    throw new Error("AGENT_MODEL_REQUIRED: 图谱 Agent 生成需要先选择 Pi 模型");
+    throw new Error(
+      "AGENT_MODEL_REQUIRED: 请先在 apps/backend/.env 配置 Kimi 或 DeepSeek 的 API Key 和 URL",
+    );
   }
 
   const selectedModel = modelRegistry.find(modelRef.provider, modelRef.modelId);

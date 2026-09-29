@@ -7,7 +7,6 @@
 import path from "node:path";
 
 import {
-  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
   ModelRegistry,
@@ -19,6 +18,7 @@ import {
   ensureCompatibleAgentBootstrap,
   resolveDefaultPiAgentDir,
 } from "../shared/agent/agent-bootstrap.js";
+import { createPiAuthStorage } from "../shared/agent/pi-provider-config.js";
 import { resolvePiRuntimeModelRef } from "../shared/agent/pi-runtime-config.js";
 import { appEnv } from "../shared/config/env.js";
 
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   const agentDir = appEnv.AGENT_PI_DIR || resolveDefaultPiAgentDir();
   ensureCompatibleAgentBootstrap(agentDir);
 
-  const authStorage = AuthStorage.create(path.join(agentDir, "auth.json"));
+  const authStorage = createPiAuthStorage(agentDir);
   const modelRegistry = ModelRegistry.create(authStorage, path.join(agentDir, "models.json"));
   const modelRef = resolvePiRuntimeModelRef(agentDir);
   const selectedModel = modelRef

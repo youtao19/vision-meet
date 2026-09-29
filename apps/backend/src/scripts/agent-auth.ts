@@ -7,18 +7,15 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { AuthStorage, ModelRegistry } from "@mariozechner/pi-coding-agent";
+import { ModelRegistry } from "@mariozechner/pi-coding-agent";
 
 import {
   ensureCompatibleAgentBootstrap,
   ensureDirectory,
   resolveDefaultPiAgentDir,
 } from "../shared/agent/agent-bootstrap.js";
-import {
-  findDefaultModelForProvider,
-  readPiRuntimeConfig,
-  writeActivePiModel,
-} from "../shared/agent/pi-runtime-config.js";
+import { createPiAuthStorage } from "../shared/agent/pi-provider-config.js";
+import { readPiRuntimeConfig, writeActivePiModel } from "../shared/agent/pi-runtime-config.js";
 import { appEnv } from "../shared/config/env.js";
 import { resolveRepositoryRoot } from "../shared/utils/repository-root.js";
 
@@ -78,31 +75,26 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 /**
- * 打印傻瓜式使用说明。
- * 逻辑：只保留最常用的登录、切换、查看和自检命令，减少用户记忆负担。
+ * 打印常用的 API Key 配置、状态查看和模型切换命令。
  */
 function printHelp(): void {
   console.log(`Career Agent Pi 登录配置
 
 常用命令：
+  npm run agent:auth -- login
   npm run agent:auth -- status
-  npm run agent:auth -- list
-  npm run agent:auth -- models kimi-coding
-  npm run agent:auth -- login kimi-coding
-  npm run agent:auth -- login kimi-coding --model kimi-coding/k2p5
-  npm run agent:auth -- use kimi-coding/k2p5
-  npm run agent:smoke
+  npm run agent:auth -- use deepseek/deepseek-flash
 
 说明：
-  login  使用 Pi 支持的 OAuth 登录方式，凭证写入本项目 Agent 目录
-  use    切换本项目 Pi 运行时模型，不修改 .env
-  models 用 Pi 当前模型注册表搜索 provider/model
+  login  检查 .env 中的 API Key 和 URL，首次使用时自动选模型
+  API Key 不需要通过 Pi 的 OAuth 登录，也不会写入 models.json
+  首次使用时按 .env 中已填写的服务自动选择默认模型
 `);
 }
 
 /**
- * 运行外部命令。
- * 逻辑：默认继承终端输入输出，适配 pi-ai 的浏览器登录和验证码交互流程。
+ * 运行 Pi 的只读诊断命令。
+ * 逻辑：默认继承终端输入输出，保持 Pi 自带模型列表的行为。
  */
 function runCommand(
   command: string,
@@ -156,7 +148,7 @@ function parseModelRef(modelRef: string): { provider: string; modelId: string; r
   const normalized = modelRef.trim();
   const slashIndex = normalized.indexOf("/");
   if (slashIndex <= 0 || slashIndex === normalized.length - 1) {
-    throw new Error("模型必须采用 provider/model 格式，例如 kimi-coding/k2p5");
+    throw new Error("模型必须采用 provider/model 格式，例如 kimi-coding/kimi-for-coding");
   }
   return {
     provider: normalized.slice(0, slashIndex),
@@ -171,7 +163,7 @@ function parseModelRef(modelRef: string): { provider: string; modelId: string; r
  */
 function assertModelExists(agentDir: string, modelRef: string): void {
   const parsed = parseModelRef(modelRef);
-  const authStorage = AuthStorage.create(path.join(agentDir, "auth.json"));
+  const authStorage = createPiAuthStorage(agentDir);
   const modelRegistry = ModelRegistry.create(authStorage, path.join(agentDir, "models.json"));
   const model = modelRegistry.find(parsed.provider, parsed.modelId);
   if (!model) {
@@ -181,30 +173,6 @@ function assertModelExists(agentDir: string, modelRef: string): void {
   }
 }
 
-function chooseModelForProvider(agentDir: string, provider: string): string {
-  const authStorage = AuthStorage.create(path.join(agentDir, "auth.json"));
-  const modelRegistry = ModelRegistry.create(authStorage, path.join(agentDir, "models.json"));
-  const modelRef = findDefaultModelForProvider(modelRegistry, provider);
-  if (!modelRef) {
-    throw new Error(
-      `已登录 ${provider}，但没有找到可自动选择的默认模型。请运行 npm run agent:auth -- models ${provider} 后再执行 npm run agent:auth -- use <provider/model>`,
-    );
-  }
-  return modelRef;
-}
-
-function findNewProvider(before: AuthFile, after: AuthFile): string | null {
-  const beforeProviders = new Set(Object.keys(before));
-  const added = Object.keys(after).filter((provider) => !beforeProviders.has(provider));
-  return added.length === 1 ? added[0] : null;
-}
-
-function chooseFallbackAuthenticatedProvider(auth: AuthFile): string | null {
-  const preferred = ["kimi-coding", "moonshot"];
-  const providers = new Set(Object.keys(auth));
-  return preferred.find((provider) => providers.has(provider)) || Object.keys(auth)[0] || null;
-}
-
 /**
  * 输出当前认证和模型状态。
  * 逻辑：只展示 provider 和认证类型，不打印 token/API key。
@@ -212,13 +180,19 @@ function chooseFallbackAuthenticatedProvider(auth: AuthFile): string | null {
 function printStatus(params: { agentDir: string; backendEnvPath: string }): void {
   const authPath = path.join(params.agentDir, "auth.json");
   const auth = readJsonFile<AuthFile>(authPath, {});
-  const providers = Object.entries(auth).map(([provider, credential]) => {
+  const storedProviders = Object.entries(auth).map(([provider, credential]) => {
     const type =
       credential && typeof credential === "object"
         ? (credential as AuthCredential).type || "unknown"
         : "unknown";
     return `${provider}:${type}`;
   });
+  const envProviders = [
+    appEnv.KIMI_API_KEY || appEnv.KIMICODE_API_KEY ? "kimi-coding:env" : undefined,
+    appEnv.MOONSHOT_API_KEY ? "moonshot:env" : undefined,
+    appEnv.DEEPSEEK_API_KEY ? "deepseek:env" : undefined,
+  ].filter((provider): provider is string => Boolean(provider));
+  const providers = [...envProviders, ...storedProviders];
 
   const currentModel = readPiRuntimeConfig(params.agentDir).active_model || "(未选择)";
   console.log("AGENT_AUTH_STATUS");
@@ -230,7 +204,7 @@ function printStatus(params: { agentDir: string; backendEnvPath: string }): void
 
 /**
  * 主流程。
- * 逻辑：所有命令先准备项目 Agent 目录；OAuth 登录委托给 Pi 官方 pi-ai CLI；模型切换写入运行配置。
+ * 逻辑：所有命令先从 .env 同步 Pi provider 配置；login 只检查配置，不再启动 OAuth 流程。
  */
 async function main(): Promise<void> {
   const repoRoot = resolveRepositoryRoot();
@@ -270,28 +244,17 @@ async function main(): Promise<void> {
   }
 
   if (args.command === "login") {
-    const provider = args.values[0];
-    const authPath = path.join(agentDir, "auth.json");
-    const beforeAuth = readJsonFile<AuthFile>(authPath, {});
-    await runCommand(piAiBin, provider ? ["login", provider] : ["login"], { cwd: agentDir });
-    const afterAuth = readJsonFile<AuthFile>(authPath, {});
-    const modelRef =
-      args.model ||
-      (provider ? chooseModelForProvider(agentDir, provider) : null) ||
-      (() => {
-        const newProvider = findNewProvider(beforeAuth, afterAuth);
-        return newProvider ? chooseModelForProvider(agentDir, newProvider) : null;
-      })() ||
-      readPiRuntimeConfig(agentDir).active_model ||
-      (() => {
-        const fallbackProvider = chooseFallbackAuthenticatedProvider(afterAuth);
-        return fallbackProvider ? chooseModelForProvider(agentDir, fallbackProvider) : null;
-      })();
-    if (modelRef) {
-      assertModelExists(agentDir, modelRef);
-      writeActivePiModel(agentDir, modelRef);
-      console.log(`AGENT_ACTIVE_MODEL_UPDATED ${modelRef}`);
+    const modelRef = args.model || readPiRuntimeConfig(agentDir).active_model;
+    if (!modelRef) {
+      throw new Error(
+        "没有找到可用模型。请在 apps/backend/.env 填写 KIMI_API_KEY 和 KIMI_BASE_URL，或填写 DEEPSEEK_API_KEY 和 DEEPSEEK_BASE_URL。",
+      );
     }
+    assertModelExists(agentDir, modelRef);
+    if (args.model) {
+      writeActivePiModel(agentDir, modelRef);
+    }
+    console.log(`AGENT_ENV_LOGIN_OK ${modelRef}`);
     if (args.smoke) {
       await runCommand("npm", ["run", "agent:smoke", "-w", "career-backend"], { cwd: repoRoot });
     }
@@ -301,7 +264,7 @@ async function main(): Promise<void> {
   if (args.command === "switch" || args.command === "use") {
     const modelRef = args.values[0];
     if (!modelRef) {
-      throw new Error("缺少模型，例如：npm run agent:auth -- use kimi-coding/k2p5");
+      throw new Error("缺少模型，例如：npm run agent:auth -- use kimi-coding/kimi-for-coding");
     }
     assertModelExists(agentDir, modelRef);
     writeActivePiModel(agentDir, modelRef);

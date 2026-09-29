@@ -43,7 +43,6 @@ cp apps/backend/.env.example apps/backend/.env
 - `REPORT_EXPORT_DIR`
 - `AGENT_PI_DIR`
 - `AGENT_SESSION_STORE_DIR`
-- `AGENT_MODEL`
 - `AGENT_THINKING_LEVEL`
 - `MATCH_SCORING_VERSION`
 - `PGHOST`
@@ -55,25 +54,21 @@ cp apps/backend/.env.example apps/backend/.env
 - `KNOWLEDGE_TOP_K`
 - `KNOWLEDGE_REINDEX_BATCH_SIZE`
 
-## Pi Agent 登录与切换
+## Pi Agent 配置
 
-从仓库根目录执行：
+在 `apps/backend/.env` 填写模型服务 API Key 和 URL 后，首次调用 AI 功能时后端会自动配置 Pi。无需手动运行 Pi 的 OAuth 登录，也无需编辑 `auth.json` 或 `models.json`。
+
+Kimi 使用 `KIMI_API_KEY` 和 `KIMI_BASE_URL`；DeepSeek 使用 `DEEPSEEK_API_KEY` 和 `DEEPSEEK_BASE_URL`。首次配置时，系统会自动选择已填写服务的默认模型。
+
+需要查看或手动切换模型时，从仓库根目录执行：
 
 ```bash
 npm run agent:auth -- status
-npm run agent:auth -- list
-npm run agent:auth -- models kimi-coding
-npm run agent:auth -- login kimi-coding --model kimi-coding/k2p5
-npm run agent:auth -- switch kimi-coding/k2p5
+npm run agent:auth -- use <provider/model>
 npm run agent:smoke
 ```
 
-说明：
-
-- `login` 会调用 Pi 官方 `pi-ai login`，使用 Kimi 相关 provider 重新登录。
-- 登录凭证写入本项目 Agent 目录，默认是 `~/.career-agent/pi-agent/auth.json`，不会提交到仓库。
-- `switch` 只更新 `apps/backend/.env` 中的 `AGENT_MODEL`，模型格式必须是 `provider/model`。
-- `status` 只打印 provider 和认证类型，不打印 token 或 API key。
+API Key 只从 `.env` 读取；Pi 本地配置文件只保存 URL、模型信息和环境变量名。
 
 ## API
 

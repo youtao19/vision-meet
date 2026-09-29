@@ -11,6 +11,11 @@ const envFileCandidates = [
 ];
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
+const optionalApiKeySchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().min(1).optional(),
+);
+
 for (const envFile of envFileCandidates) {
   dotenv.config({ path: envFile, override: false });
 }
@@ -38,11 +43,13 @@ const rawEnvSchema = z.object({
   NEO4J_PASSWORD: z.string().default("career_dev_password"),
   KNOWLEDGE_TOP_K: z.coerce.number().int().min(1).max(50).default(5),
   KNOWLEDGE_REINDEX_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(20),
-  MOONSHOT_BASE_URL: z.string().trim().url().optional(),
-  MOONSHOT_API_KEY: z.string().trim().min(1).optional(),
-  KIMI_BASE_URL: z.string().trim().url().optional(),
-  KIMI_API_KEY: z.string().trim().min(1).optional(),
-  KIMICODE_API_KEY: z.string().trim().min(1).optional(),
+  MOONSHOT_BASE_URL: z.string().trim().url().default("https://api.moonshot.ai/v1"),
+  MOONSHOT_API_KEY: optionalApiKeySchema,
+  KIMI_BASE_URL: z.string().trim().url().default("https://api.kimi.com/coding/v1"),
+  KIMI_API_KEY: optionalApiKeySchema,
+  KIMICODE_API_KEY: optionalApiKeySchema,
+  DEEPSEEK_BASE_URL: z.string().trim().url().default("https://api.deepseek.com"),
+  DEEPSEEK_API_KEY: optionalApiKeySchema,
   AGENT_PI_DIR: z.string().optional(),
   AGENT_SESSION_STORE_DIR: z.string().optional(),
   AGENT_THINKING_LEVEL: z

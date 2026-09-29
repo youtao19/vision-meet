@@ -8,6 +8,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { ensurePiProviderConfig } from "./pi-provider-config.js";
+
 type PiApiKeyCredential = {
   type: "api_key";
   key: string;
@@ -269,4 +271,5 @@ export function ensureCompatibleAgentBootstrap(targetAgentDir: string): void {
   }
 
   importLegacyOpenClawAuthProfiles(path.join(targetAgentDir, "auth.json"));
+  ensurePiProviderConfig(targetAgentDir);
 }

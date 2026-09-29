@@ -84,11 +84,18 @@ notepad infra\env\backend.env
 
 至少填写 AI 和火山 TTS 配置。
 
-Kimi Coding：
+Pi AI 配置：
 
 ```env
 KIMI_API_KEY=你的_key
-KIMICODE_API_KEY=你的_key
+KIMI_BASE_URL=https://api.kimi.com/coding/v1
+```
+
+使用 DeepSeek 时填写下面两项，并留空 `KIMI_API_KEY`：
+
+```env
+DEEPSEEK_API_KEY=你的_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
 火山 TTS：

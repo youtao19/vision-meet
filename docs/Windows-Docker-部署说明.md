@@ -95,18 +95,18 @@ notepad infra\env\backend.env
 
 至少填写 AI 和火山 TTS 配置。
 
-完整 AI 模式推荐填写 Kimi Coding Key：
+Pi AI 配置：填写 API Key 和 URL 即可，不需要单独登录：
 
 ```env
-KIMI_API_KEY=your_kimi_coding_api_key
-KIMICODE_API_KEY=your_kimi_coding_api_key
+KIMI_API_KEY=你的_key
+KIMI_BASE_URL=https://api.kimi.com/coding/v1
 ```
 
-如果使用 Moonshot，也可以填写：
+使用 DeepSeek 时填写以下配置，并留空 `KIMI_API_KEY`：
 
 ```env
-MOONSHOT_BASE_URL=https://api.moonshot.ai/v1
-MOONSHOT_API_KEY=your_moonshot_api_key
+DEEPSEEK_API_KEY=你的_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
 岗位有声绘本使用火山 TTS，需要填写：
@@ -327,7 +327,7 @@ docker compose -f infra/docker-compose.app.yml exec backend npm run agent:auth:k
 | 命令 | 功能 |
 | --- | --- |
 | `exec backend ...` | 在正在运行的 backend 容器里执行命令 |
-| `npm run agent:auth:kimi` | 使用 env 中的 Kimi/Moonshot 配置完成 Pi Agent 登录 |
+| `npm run agent:auth:kimi` | 检查 env 中的 API Key 和 URL 配置 |
 
 查看登录状态：
 
@@ -767,9 +767,9 @@ docker compose -f infra/docker-compose.app.yml logs init
 
 - `data\岗位数据.xls` 不存在。
 - PostgreSQL 或 Neo4j 没启动成功。
-- AI Key 不可用，导致 Pi 登录失败。
+- AI Key 或 URL 配置错误，导致模型请求失败。
 
-如果只是 AI Key 没配置，init 会跳过 Pi 登录，不影响基础数据初始化。
+如果没有填写 AI Key，init 会跳过 Pi 配置，不影响基础数据初始化；AI 生成功能暂不可用。
 
 ### 7. 数据看起来没了
 

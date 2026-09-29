@@ -160,18 +160,17 @@ Windows Docker 完整说明见 [docs/Windows-Docker-部署说明.md](./docs/Wind
 | `npm run knowledge:init`                     | 初始化知识库相关数据库结构。                        |
 | `npm run knowledge:index:jobs`               | 将岗位数据索引到业务知识库命名空间。                |
 | `npm run knowledge:eval`                     | 执行知识检索基线评测。                              |
-| `npm run agent:auth -- status`               | 查看当前 Pi Agent 配置目录、模型和已登录 provider。 |
-| `npm run agent:auth -- list`                 | 查看 Pi 支持的登录方式。                            |
-| `npm run agent:auth -- login <provider>`     | 登录指定 Pi provider。                              |
-| `npm run agent:auth -- use <provider/model>` | 切换当前 Pi 运行模型。                              |
+| `npm run agent:auth -- status`               | 查看 Pi 当前模型和 API Key 来源。                   |
+| `npm run agent:auth -- login`                | 检查 `.env` 并确认 Pi 模型配置。                    |
+| `npm run agent:auth -- use <provider/model>` | 手动切换 Pi 运行模型。                              |
 | `npm run agent:smoke`                        | 执行最小 Agent 联通性检查。                         |
 
 ## AI 与密钥配置
 
-项目默认不会提交任何真实密钥。本地运行 AI 能力前，需要按需配置：
+项目默认不会提交任何真实密钥。复制 `apps/backend/.env.example` 为 `apps/backend/.env`，填写模型服务的 API Key 和 URL 后即可启动；Pi 会自动生成本地模型配置，不需要浏览器 OAuth 登录。
 
-- Pi Agent 登录状态：推荐使用 `npm run agent:auth -- login kimi-coding` 写入项目独立 Agent 目录。
-- Kimi/Moonshot：参考 `apps/backend/.env.example` 中的 `KIMI_API_KEY`、`MOONSHOT_API_KEY`。
+- Kimi：填写 `KIMI_API_KEY` 和 `KIMI_BASE_URL`。
+- DeepSeek：填写 `DEEPSEEK_API_KEY` 和 `DEEPSEEK_BASE_URL`，同时留空 Kimi Key。
 - 火山引擎 TTS：岗位有声绘本能力需要 `VOLCENGINE_TTS_APP_ID` 和 `VOLCENGINE_TTS_ACCESS_TOKEN`。
 
 如果没有配置真实模型或 TTS 密钥，普通数据查询、画像展示、历史匹配和历史报告仍可运行；涉及实时 AI 生成的接口会失败，而不是返回本地假成功结果。
